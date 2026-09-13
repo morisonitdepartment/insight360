@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#14202f" />
+    <meta name="description" content="INSIGHT360 - Mystery Shopping Intelligence Platform. Customer Experience, Compliance, Analytics, Continuous Improvement" />
+    <title>INSIGHT360 - Mystery Shopping Intelligence Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <script>
+      // Restore theme before first paint to avoid a flash of the wrong theme.
+      try {
+        var t = localStorage.getItem('insight360.theme');
+        if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+        }
+      } catch (e) {}
+      // GitHub Pages SPA redirect handler (pairs with public/404.html).
+      (function () {
+        var q = window.location.search;
+        if (q.indexOf('?/') === 0) {
+          var parts = q.slice(2).split('&');
+          var path = parts[0].replace(/~and~/g, '&');
+          var rest = parts.slice(1).join('&');
+          var basePath = window.location.pathname.replace(/\/$/, '');
+          window.history.replaceState(null, '', basePath + '/' + path + (rest ? '?' + rest : '') + window.location.hash);
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

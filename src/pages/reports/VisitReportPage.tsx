@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { AlertOctagon, AlertTriangle, Camera, CheckCircle2, Download, FileSpreadsheet, Lightbulb, Printer, ThumbsDown, ThumbsUp, XCircle } from 'lucide-react'
+import { AlertOctagon, AlertTriangle, Camera, CheckCircle2, Download, FileSpreadsheet, Lightbulb, Printer, Target, ThumbsDown, ThumbsUp, XCircle } from 'lucide-react'
 import { useData } from '@/contexts/DataContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { useDocumentTitle } from '@/hooks'
@@ -54,6 +54,7 @@ export default function VisitReportPage() {
   const allowed = useMemo(() => scopedVisits.some((v) => v.id === id), [scopedVisits, id])
   const outlet = useMemo(() => data.outlets.find((o) => o.id === visit?.outletId), [data.outlets, visit])
   const shopper = useMemo(() => data.shoppers.find((s) => s.id === visit?.shopperId), [data.shoppers, visit])
+  const scenario = useMemo(() => (visit?.scenarioId ? data.scenarios.find((s) => s.id === visit.scenarioId) ?? null : null), [data.scenarios, visit])
   useDocumentTitle(visit ? `Report ${visit.code}` : 'Visit report')
 
   const sections = useMemo(() => (visit ? getVisitSections(data, visit) : []), [data, visit])
@@ -166,7 +167,7 @@ export default function VisitReportPage() {
               <div className="mt-2 flex justify-end"><RiskBadge risk={visit.risk} /></div>
             </div>
           </div>
-          <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-3 text-xs sm:grid-cols-4 lg:grid-cols-8">
+          <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-3 text-xs sm:grid-cols-3 lg:grid-cols-5">
             {[
               ['Visit number', visit.code],
               ['Visit type', visit.type],
@@ -176,8 +177,9 @@ export default function VisitReportPage() {
               ['Profile', shopper?.profileType ?? '—'],
               ['Review status', visit.status],
               ['Reviewer', data.users.find((u) => u.id === visit.reviewerId)?.name ?? 'Pending'],
-            ].map(([k, v]) => (
-              <div key={k}>
+              ['Scenario', scenario ? `${scenario.code} · ${scenario.name}` : '—', 'col-span-2'],
+            ].map(([k, v, span]) => (
+              <div key={k} className={span}>
                 <dt className="text-navy-300 uppercase tracking-wider text-[10px]">{k}</dt>
                 <dd className="mt-0.5 font-medium text-white">{v}</dd>
               </div>
@@ -325,6 +327,19 @@ export default function VisitReportPage() {
             <h2 className="section-title mb-2">Shopper narrative</h2>
             <blockquote className="rounded-xl border-l-4 border-teal-500 bg-slate-50 dark:bg-navy-800/40 p-4 text-sm leading-relaxed text-slate-700 dark:text-slate-200">{visit.narrative ?? 'No narrative provided.'}</blockquote>
             <p className="mt-1 text-xs text-slate-500">Shopper {shopper?.name ?? '—'} · {shopper?.profileType ?? ''} profile · party of {visit.partySize} · spend QAR {visit.spend ?? '—'}</p>
+            {scenario && (
+              <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-navy-800 dark:bg-navy-800/40">
+                <h3 className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                  <Target className="h-4 w-4 text-teal-600 dark:text-teal-400" aria-hidden />
+                  Scenario executed · {scenario.name}
+                  <Badge tone="teal" size="xs">{scenario.type}</Badge>
+                </h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-slate-700 dark:text-slate-200">{scenario.description}</p>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                  <span className="font-medium text-slate-700 dark:text-slate-200">Expected outcome:</span> {scenario.expectedOutcome}
+                </p>
+              </div>
+            )}
           </section>
 
           {/* Recommendations */}

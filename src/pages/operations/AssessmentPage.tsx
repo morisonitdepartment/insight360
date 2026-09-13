@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { AlertOctagon, AlertTriangle, Camera, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock, Info, Lock, MessageSquare, Save, Send, Video, X } from 'lucide-react'
+import { AlertOctagon, AlertTriangle, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, ClipboardList, Info, Lock, MessageSquare, Save, Send, Target, Video, X } from 'lucide-react'
 import { useData } from '@/contexts/DataContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { useDocumentTitle, useNow } from '@/hooks'
@@ -56,13 +56,17 @@ export default function AssessmentPage() {
   const [submitOpen, setSubmitOpen] = useState(false)
   const [narrative, setNarrative] = useState('')
   const [uploadingFor, setUploadingFor] = useState<string | null>(null)
+  const [briefingOpen, setBriefingOpen] = useState(false)
   const initialised = useRef<string | null>(null)
+
+  const scenario = useMemo(() => (visit?.scenarioId ? data.scenarios.find((s) => s.id === visit.scenarioId) ?? null : null), [data.scenarios, visit])
 
   useEffect(() => {
     if (!visit || initialised.current === visit.id) return
     const existing = data.answers.filter((a) => a.visitId === visit.id)
     setAnswers(Object.fromEntries(existing.map((a) => [a.questionId, a])))
     setNarrative(visit.narrative ?? '')
+    setBriefingOpen(visit.status === 'Assigned' || visit.status === 'In Progress')
     initialised.current = visit.id
   }, [visit, data.answers])
 
@@ -204,6 +208,51 @@ export default function AssessmentPage() {
           </p>
         )}
       </div>
+
+      {/* Scenario briefing */}
+      {scenario && (
+        <section className="card mt-4 overflow-hidden" aria-labelledby="scenario-briefing-title">
+          <h2 id="scenario-briefing-title" className="sr-only">Scenario briefing</h2>
+          <button
+            type="button"
+            onClick={() => setBriefingOpen((o) => !o)}
+            aria-expanded={briefingOpen}
+            aria-controls="scenario-briefing-body"
+            className="flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-slate-50 dark:hover:bg-navy-800/60 sm:p-5"
+          >
+            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700 dark:bg-teal-500/10 dark:text-teal-300">
+              <ClipboardList className="h-4 w-4" aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[11px] font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-300">Scenario briefing</span>
+              <span className="mt-0.5 block text-sm font-semibold text-slate-900 dark:text-white leading-snug">{scenario.name}</span>
+              <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                <Badge tone="teal" size="xs">{scenario.type}</Badge>
+                <Badge tone="slate" size="xs" className="font-mono">{scenario.code}</Badge>
+              </span>
+            </span>
+            <ChevronDown className={cn('mt-1 h-4 w-4 shrink-0 text-slate-400 transition-transform', briefingOpen && 'rotate-180')} aria-hidden />
+          </button>
+          <div id="scenario-briefing-body" hidden={!briefingOpen} className="border-t border-slate-200 px-4 py-4 dark:border-navy-800 sm:px-5">
+            <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{scenario.description}</p>
+            <p className="section-title mt-4 mb-2">Your instructions</p>
+            <ol className="space-y-2">
+              {scenario.instructions.map((ins, i) => (
+                <li key={ins} className="flex gap-2.5 text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-navy-800 text-[10px] font-semibold text-white dark:bg-teal-600">{i + 1}</span>
+                  <span className="min-w-0">{ins}</span>
+                </li>
+              ))}
+            </ol>
+            <div className="mt-4 rounded-lg border border-teal-200 bg-teal-50/70 p-3 dark:border-teal-500/30 dark:bg-teal-500/10">
+              <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-teal-800 dark:text-teal-300">
+                <Target className="h-3.5 w-3.5" aria-hidden /> What good looks like
+              </p>
+              <p className="mt-1 text-sm leading-relaxed text-slate-700 dark:text-slate-200">{scenario.expectedOutcome}</p>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Section stepper */}
       <nav aria-label="Sections" className="mt-4 -mx-1 flex gap-1 overflow-x-auto px-1 pb-1">

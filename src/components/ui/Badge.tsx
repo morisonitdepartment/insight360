@@ -75,7 +75,8 @@ const STATUS_STYLES: Record<string, StatusStyle> = {
   Published: { tone: 'teal', icon: FileCheck2 },
   Final: { tone: 'green', icon: FileCheck2 },
   // SLA
-  'Within SLA': { tone: 'green', icon: CheckCircle2 },
+  'Within Target': { tone: 'green', icon: CheckCircle2 },
+  'Within SLA': { tone: 'teal', icon: CheckCircle2 },
   'At Risk': { tone: 'amber', icon: Clock },
   Breached: { tone: 'red', icon: AlertTriangle },
   Pending: { tone: 'slate', icon: Clock },

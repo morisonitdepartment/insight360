@@ -84,10 +84,20 @@ export default function SettingsPage() {
     engagementName: org.engagementName,
     engagementStart: org.engagementStart.slice(0, 10),
     engagementEnd: org.engagementEnd.slice(0, 10),
+    reportingTargetHours: String(org.reportingTargetHours),
     reportingSlaHours: String(org.reportingSlaHours),
     escalationSlaHours: String(org.escalationSlaHours),
   })
   const [engError, setEngError] = useState<string | null>(null)
+
+  // Live validation for the 24–48h reporting range (RFP 2.1): the target may never exceed the maximum.
+  const targetError = useMemo(() => {
+    const target = Number(engForm.reportingTargetHours)
+    const maximum = Number(engForm.reportingSlaHours)
+    if (!Number.isFinite(target) || engForm.reportingTargetHours.trim() === '' || target < 12 || target > 48) return 'Enter a target between 12 and 48 hours.'
+    if (Number.isFinite(maximum) && target > maximum) return `The target must be less than or equal to the reporting maximum (${maximum}h).`
+    return null
+  }, [engForm.reportingTargetHours, engForm.reportingSlaHours])
 
   const storageKb = useMemo(() => readStorageKb(), [data])
 
@@ -133,6 +143,7 @@ export default function SettingsPage() {
     ev.preventDefault()
     if (!canEdit) return
     const reporting = Number(engForm.reportingSlaHours)
+    const target = Number(engForm.reportingTargetHours)
     const escalation = Number(engForm.escalationSlaHours)
     if (!engForm.engagementName.trim()) {
       setEngError('Engagement name is required.')
@@ -143,7 +154,15 @@ export default function SettingsPage() {
       return
     }
     if (!Number.isFinite(reporting) || reporting < 24 || reporting > 72) {
-      setEngError('Reporting SLA must be between 24 and 72 hours.')
+      setEngError('Reporting maximum must be between 24 and 72 hours.')
+      return
+    }
+    if (!Number.isFinite(target) || target < 12 || target > 48) {
+      setEngError('Reporting target must be between 12 and 48 hours.')
+      return
+    }
+    if (target > reporting) {
+      setEngError('The reporting target must be less than or equal to the reporting maximum.')
       return
     }
     if (!Number.isFinite(escalation) || escalation < 12 || escalation > 24) {
@@ -157,6 +176,7 @@ export default function SettingsPage() {
         engagementStart: engForm.engagementStart,
         engagementEnd: engForm.engagementEnd,
         reportingSlaHours: reporting,
+        reportingTargetHours: target,
         escalationSlaHours: escalation,
       },
       'Engagement & SLA settings saved',
@@ -277,8 +297,11 @@ export default function SettingsPage() {
                     <Input id="eng-end" type="date" value={engForm.engagementEnd} onChange={(e) => setEngForm((f) => ({ ...f, engagementEnd: e.target.value }))} disabled={!canEdit} />
                   </Field>
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Reporting SLA (hours)" required htmlFor="eng-reporting" hint="24–72h. Deadline for a shopper to submit an assessment.">
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Field label="Reporting target (hours)" required htmlFor="eng-target" hint="12–48h. Preferred turnaround; reports inside it are graded Within Target." error={targetError ?? undefined}>
+                    <Input id="eng-target" type="number" min={12} max={48} value={engForm.reportingTargetHours} onChange={(e) => setEngForm((f) => ({ ...f, reportingTargetHours: e.target.value }))} disabled={!canEdit} invalid={!!targetError} />
+                  </Field>
+                  <Field label="Reporting maximum (hours)" required htmlFor="eng-reporting" hint="24–72h. Contractual deadline for a shopper to submit an assessment.">
                     <Input id="eng-reporting" type="number" min={24} max={72} value={engForm.reportingSlaHours} onChange={(e) => setEngForm((f) => ({ ...f, reportingSlaHours: e.target.value }))} disabled={!canEdit} />
                   </Field>
                   <Field label="Escalation SLA (hours)" required htmlFor="eng-escalation" hint="12–24h. Window before an unacknowledged alert escalates.">
@@ -312,7 +335,7 @@ export default function SettingsPage() {
                 </p>
                 <p className="flex items-center gap-2">
                   <Timer className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
-                  Reporting SLA <span className="font-medium text-slate-800 dark:text-slate-100">{org.reportingSlaHours}h</span> · Escalation SLA{' '}
+                  Reporting <span className="font-medium text-slate-800 dark:text-slate-100">{org.reportingTargetHours}–{org.reportingSlaHours}h</span> · Escalation SLA{' '}
                   <span className="font-medium text-slate-800 dark:text-slate-100">{org.escalationSlaHours}h</span>
                 </p>
               </div>

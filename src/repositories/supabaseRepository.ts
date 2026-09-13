@@ -29,6 +29,7 @@ const TABLES: Record<Exclude<keyof Dataset, 'organization' | 'thresholds'>, stri
   shoppers: 'shoppers',
   trainingModules: 'training_modules',
   templates: 'audit_templates',
+  scenarios: 'scenarios',
   sections: 'audit_sections',
   questions: 'audit_questions',
   visits: 'visits',

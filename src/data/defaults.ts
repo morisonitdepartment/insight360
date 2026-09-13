@@ -6,6 +6,7 @@ export const DEFAULT_ORGANIZATION: OrganizationSettings = {
   engagementStart: '2025-10-01',
   engagementEnd: '2026-11-30',
   reportingSlaHours: 48,
+  reportingTargetHours: 24,
   escalationSlaHours: 24,
   timezone: 'Asia/Qatar (GMT+3)',
   currency: 'QAR',

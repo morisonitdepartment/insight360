@@ -23,6 +23,7 @@ const PERSISTED_KEYS: (keyof Dataset)[] = [
   'shoppers',
   'kpiConfig',
   'templates',
+  'scenarios',
   'sections',
   'questions',
   'notificationRules',

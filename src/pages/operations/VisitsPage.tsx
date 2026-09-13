@@ -148,6 +148,7 @@ export default function VisitsPage() {
   const isShopper = role === 'shopper'
   const outletById = useMemo(() => new Map(data.outlets.map((o) => [o.id, o])), [data.outlets])
   const shopperById = useMemo(() => new Map(data.shoppers.map((s) => [s.id, s])), [data.shoppers])
+  const scenarioById = useMemo(() => new Map(data.scenarios.map((s) => [s.id, s])), [data.scenarios])
 
   // ── Filters ──
   const [search, setSearch] = useState('')
@@ -191,6 +192,7 @@ export default function VisitsPage() {
     ]
     if (!isShopper) defs.push({ key: 'shopper', label: 'Shopper', options: [{ value: 'unassigned', label: 'Unassigned' }, ...shoppersInScope.map((s) => ({ value: s.id, label: s.name }))] })
     defs.push(
+      { key: 'scenario', label: 'Scenario', allLabel: 'All scenarios', options: data.scenarios.map((s) => ({ value: s.id, label: `${s.code} · ${s.name}` })) },
       { key: 'status', label: 'Status', options: VISIT_STATUSES.map((s) => ({ value: s, label: s })) },
       { key: 'risk', label: 'Risk', options: RISKS.map((r) => ({ value: r, label: r })) },
       {
@@ -206,7 +208,7 @@ export default function VisitsPage() {
       },
     )
     return defs
-  }, [scopedOutlets, shoppersInScope, isShopper])
+  }, [scopedOutlets, shoppersInScope, isShopper, data.scenarios])
 
   const rows = useMemo(() => {
     let list = applyFilters(scopedVisits, filters, {
@@ -214,6 +216,7 @@ export default function VisitsPage() {
       segment: (v) => outletById.get(v.outletId)?.segment,
       type: (v) => v.type,
       shopper: (v) => v.shopperId ?? 'unassigned',
+      scenario: (v) => v.scenarioId,
       status: (v) => v.status,
       risk: (v) => v.risk,
       band: (v) => scoreBand(v.score),
@@ -281,6 +284,7 @@ export default function VisitsPage() {
         Category: o?.segment ?? '',
         'Visit Type': v.type,
         Journey: v.journey,
+        Scenario: scenarioById.get(v.scenarioId ?? '')?.name ?? '',
         Shopper: shopperById.get(v.shopperId ?? '')?.name ?? 'Unassigned',
         'Scheduled Date': v.scheduledDate,
         'Visit Date': v.visitDate ?? '',
@@ -359,6 +363,21 @@ export default function VisitsPage() {
         },
       },
       { key: 'type', header: 'Visit type', render: (v) => <span className="whitespace-nowrap">{v.type}</span> },
+      {
+        key: 'scenario',
+        header: 'Scenario',
+        sortValue: (v) => scenarioById.get(v.scenarioId ?? '')?.code ?? '',
+        render: (v) => {
+          const s = scenarioById.get(v.scenarioId ?? '')
+          return s ? (
+            <span className="whitespace-nowrap font-mono text-xs text-slate-700 dark:text-slate-200" title={`${s.name} · ${s.type}`}>
+              {s.code}
+            </span>
+          ) : (
+            <span className="text-xs text-slate-400">—</span>
+          )
+        },
+      },
       { key: 'segment', header: 'Category', sortValue: (v) => outletById.get(v.outletId)?.segment, render: (v) => <SegmentBadge segment={outletById.get(v.outletId)?.segment ?? ''} /> },
       { key: 'shopper', header: 'Assigned shopper', sortValue: (v) => shopperById.get(v.shopperId ?? '')?.name ?? '', render: (v) => (v.shopperId ? <span className="whitespace-nowrap">{shopperById.get(v.shopperId)?.name}</span> : <span className="text-xs italic text-slate-400">Unassigned</span>) },
       { key: 'scheduledDate', header: 'Scheduled', sortValue: (v) => v.scheduledDate, render: (v) => <span className="whitespace-nowrap tabular-nums">{fmtDate(v.scheduledDate)}</span> },
@@ -388,7 +407,7 @@ export default function VisitsPage() {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [outletById, shopperById, isShopper, busy, can],
+    [outletById, shopperById, scenarioById, isShopper, busy, can],
   )
 
   const subtitle = isShopper

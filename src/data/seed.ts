@@ -37,6 +37,7 @@ import { CATEGORY_KEYS, DEFAULT_THRESHOLDS, computeVisitScores, scoreQuestion } 
 import { buildTemplates } from './templates'
 import { BRAND_DEFS, IMPROVEMENT_OBSERVATIONS, IPS, MANAGER_NAMES, MAP_BY_LOCATION, NARRATIVE_OPENERS, POSITIVE_OBSERVATIONS, REGION_BY_LOCATION, ROOT_CAUSES, SHOPPER_NAMES } from './lists'
 import { DEFAULT_KPI_CONFIG, DEFAULT_NOTIFICATION_RULES, DEFAULT_ORGANIZATION, TRAINING_MODULES } from './defaults'
+import { SCENARIOS } from './scenarios'
 import { deriveOutlets } from '@/services/derive'
 
 const iso = (d: Date) => format(d, "yyyy-MM-dd'T'HH:mm:ss")
@@ -65,6 +66,7 @@ interface OutletProfile {
 }
 
 const CLEAN_TAGS = new Set(['cleanliness', 'hygiene', 'washroom'])
+const VISIT_ORDER: VisitType[] = ['Main Audit 1', 'Follow-up 1', 'Main Audit 2', 'Follow-up 2']
 
 export function generateDataset(): Dataset {
   const rng = new Rng(20260913)
@@ -259,9 +261,12 @@ export function generateDataset(): Dataset {
 
   const templateFor = (o: Outlet, type: VisitType): string => {
     if (type.startsWith('Follow')) return 'tpl-followup'
+    const k = profiles.get(o.id)!.k
+    // A slice of the first main-audit cycle is run remotely through social channels.
+    if (type === 'Main Audit 1' && k % 7 === 3 && o.id !== storylineOutlet.id) return 'tpl-social'
     if (o.segment === 'Entertainment') return 'tpl-ent'
     if (o.subcategory === 'Food Court' || o.subcategory === 'Fast Casual') return type === 'Main Audit 2' ? 'tpl-fb-take' : 'tpl-fb-dine'
-    if (o.subcategory === 'Casual Dining' && type === 'Main Audit 2' && profiles.get(o.id)!.k % 3 === 0 && o.id !== storylineOutlet.id) return 'tpl-fb-del'
+    if (o.subcategory === 'Casual Dining' && type === 'Main Audit 2' && k % 3 === 0 && o.id !== storylineOutlet.id) return 'tpl-fb-del'
     return 'tpl-fb-dine'
   }
   const journeyFor = (tpl: string, o: Outlet): JourneyType => {
@@ -401,12 +406,16 @@ export function generateDataset(): Dataset {
         }
       }
     }
+    // Submission is graded against a 24h target inside a 48h contractual maximum.
+    const targetAt = visitEnd ? addHours(visitEnd, DEFAULT_ORGANIZATION.reportingTargetHours) : null
     const slaStatus: Visit['slaStatus'] = !deadline
       ? 'Pending'
       : submittedAt
-        ? submittedAt <= deadline
-          ? 'Within SLA'
-          : 'Breached'
+        ? targetAt && submittedAt <= targetAt
+          ? 'Within Target'
+          : submittedAt <= deadline
+            ? 'Within SLA'
+            : 'Breached'
         : deadline < now
           ? 'Breached'
           : addHours(now, 12) > deadline
@@ -422,6 +431,16 @@ export function generateDataset(): Dataset {
       approvalHistory.push({ at: iso(reviewedAt), by: userName(reviewerId), action: 'Approved', comment: rng.pick(['Report verified against evidence. Approved.', 'Scores validated; narrative complete.', 'Approved. Findings raised for follow-up.', 'Approved after minor narrative clarification.']) })
     }
     if (plan.status === 'Closed' && reviewedAt) approvalHistory.push({ at: iso(addDays(reviewedAt, rng.int(20, 60))), by: 'Omar Saleh', action: 'Closed', comment: 'Cycle closed after follow-up verification.' })
+
+    // Scenario-based assessment. Deterministic per visit so the demo stays stable.
+    const scenarioId = (() => {
+      if (tplId === 'tpl-social') return 'scn-08'
+      if (isStory && plan.type === 'Main Audit 2') return 'scn-02'
+      if (isStory && plan.type === 'Follow-up 2') return 'scn-04'
+      if (o.segment === 'Entertainment' && p.k % 4 === 1) return 'scn-07'
+      const rotation = ['scn-01', 'scn-01', 'scn-02', 'scn-03', 'scn-04', 'scn-01', 'scn-05', 'scn-06']
+      return rotation[(p.k + VISIT_ORDER.indexOf(plan.type)) % rotation.length]
+    })()
 
     const visit: Visit = {
       id,
@@ -450,8 +469,9 @@ export function generateDataset(): Dataset {
       approvalHistory,
       narrative: null,
       criticalCount: 0,
-      spend: visited ? (o.segment === 'F&B' ? rng.int(85, 420) : rng.int(120, 650)) : null,
-      partySize: rng.pick([1, 1, 2, 2, 2, 3, 4]),
+      spend: visited ? (tplId === 'tpl-social' ? null : o.segment === 'F&B' ? rng.int(85, 420) : rng.int(120, 650)) : null,
+      partySize: scenarioId === 'scn-07' ? rng.int(4, 6) : rng.pick([1, 1, 2, 2, 2, 3, 4]),
+      scenarioId,
       progress: 0,
     }
     if (isStory && plan.type === 'Main Audit 2') STORYLINE.mainAuditVisitId = id
@@ -492,6 +512,8 @@ export function generateDataset(): Dataset {
         forced.set(critTag, 'fail')
       }
       if (isStory && plan.type === 'Main Audit 2') {
+        forced.set('greet_30s', false)
+        forced.set('time_greet', 2.5)
         forced.set('time_order', 9)
         forced.set('time_receive', 27)
         forced.set('cleanliness', 2)
@@ -505,6 +527,8 @@ export function generateDataset(): Dataset {
         forced.set('problem_solving', 'Resolved after escalation')
       }
       if (isStory && plan.type === 'Follow-up 2') {
+        forced.set('greet_30s', true)
+        forced.set('time_greet', 0.5)
         forced.set('time_order', 4)
         forced.set('time_receive', 12)
         forced.set('cleanliness', 4)
@@ -1003,7 +1027,7 @@ export function generateDataset(): Dataset {
   for (const s of shoppers) {
     const sv = visits.filter((v) => v.shopperId === s.id && v.submittedAt)
     s.completedVisits = sv.length
-    const within = sv.filter((v) => v.slaStatus === 'Within SLA').length
+    const within = sv.filter((v) => v.slaStatus === 'Within SLA' || v.slaStatus === 'Within Target').length
     s.onTimeSubmissionPct = sv.length ? Math.round((within / sv.length) * 1000) / 10 : 0
   }
 
@@ -1032,6 +1056,7 @@ export function generateDataset(): Dataset {
     shoppers,
     trainingModules: TRAINING_MODULES,
     templates,
+    scenarios: SCENARIOS,
     sections,
     questions,
     visits,

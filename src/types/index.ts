@@ -162,7 +162,32 @@ export type JourneyType =
   | 'Digital Interaction'
 
 export type ReportStatus = 'Not Started' | 'Draft' | 'Pending Review' | 'Approved' | 'Rejected' | 'Published'
-export type SlaStatus = 'Within SLA' | 'At Risk' | 'Breached' | 'Pending'
+/**
+ * Reporting SLA bands. Programme standard requires reports within 24 to 48 hours of each
+ * visit, so submission is graded against a 24h target inside a 48h contractual maximum.
+ */
+export type SlaStatus = 'Within Target' | 'Within SLA' | 'At Risk' | 'Breached' | 'Pending'
+
+/** Scenario-based assessment: complaints, returns, special requests and similar briefings. */
+export type ScenarioType = 'Standard Visit' | 'Complaint Handling' | 'Return / Refund' | 'Special Request' | 'Service Recovery' | 'Accessibility' | 'Group Booking'
+
+export interface Scenario {
+  id: string
+  code: string
+  name: string
+  type: ScenarioType
+  description: string
+  /** Step-by-step briefing the shopper must follow during the visit. */
+  instructions: string[]
+  /** What a compliant outlet response looks like. */
+  expectedOutcome: string
+  applicableTo: Segment[] | 'all'
+  /** Shopper profile types best suited to run this scenario. */
+  suitableProfiles: ShopperProfileType[]
+  /** Questions (by storyline tag) this scenario is designed to exercise. */
+  focusAreas: string[]
+  active: boolean
+}
 
 export interface ApprovalEvent {
   at: string
@@ -199,6 +224,8 @@ export interface Visit {
   criticalCount: number
   spend: number | null
   partySize: number
+  /** Scenario-based assessment the shopper was briefed to execute on this visit. */
+  scenarioId: string | null
   /** Percentage of mandatory questions answered (draft progress) */
   progress: number
 }
@@ -478,7 +505,10 @@ export interface OrganizationSettings {
   engagementName: string
   engagementStart: string
   engagementEnd: string
+  /** Contractual maximum for report submission, in hours. */
   reportingSlaHours: number
+  /** Preferred report turnaround target, in hours. */
+  reportingTargetHours: number
   escalationSlaHours: number
   timezone: string
   currency: string
@@ -494,6 +524,7 @@ export interface Dataset {
   shoppers: Shopper[]
   trainingModules: TrainingModule[]
   templates: AuditTemplate[]
+  scenarios: Scenario[]
   sections: Section[]
   questions: Question[]
   visits: Visit[]

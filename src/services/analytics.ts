@@ -227,11 +227,15 @@ export interface SlaStats {
   dueToday: number
   atRisk: number
   submitted: number
+  /** Share submitted within the 24h preferred target. */
+  withinTargetPct: number | null
+  withinTarget: number
 }
 
 export function slaStats(visits: Visit[], now: Date): SlaStats {
   const submitted = visits.filter((v) => v.submittedAt && v.visitEnd)
-  const within = submitted.filter((v) => v.slaStatus === 'Within SLA').length
+  const withinTarget = submitted.filter((v) => v.slaStatus === 'Within Target').length
+  const within = submitted.filter((v) => v.slaStatus === 'Within SLA' || v.slaStatus === 'Within Target').length
   const turnaround = submitted.map((v) => differenceInHours(new Date(v.submittedAt!), new Date(v.visitEnd!)))
   const today = format(now, 'yyyy-MM-dd')
   return {
@@ -241,6 +245,8 @@ export function slaStats(visits: Visit[], now: Date): SlaStats {
     dueToday: visits.filter((v) => !v.submittedAt && v.submissionDeadline?.startsWith(today)).length,
     atRisk: visits.filter((v) => v.slaStatus === 'At Risk').length,
     submitted: submitted.length,
+    withinTarget,
+    withinTargetPct: submitted.length ? (withinTarget / submitted.length) * 100 : null,
   }
 }
 

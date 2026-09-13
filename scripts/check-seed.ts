@@ -43,3 +43,10 @@ console.log('repeated findings', count(d.findings, (f) => f.repeated))
 console.log('visit score errors vs target sample', d.visits.filter((v) => v.score !== null).slice(0, 6).map((v) => v.score))
 console.log('in-progress progress', d.visits.filter((v) => v.status === 'In Progress' || v.status === 'Draft').map((v) => `${v.status}:${v.progress}%`).join(' '))
 console.log('due today', d.visits.filter((v) => v.submissionDeadline?.startsWith('2026-09-13')).map((v) => `${v.code} ${v.status}`))
+const tplCount: Record<string, number> = {}
+for (const v of d.visits) tplCount[v.templateId] = (tplCount[v.templateId] ?? 0) + 1
+console.log('templates used', tplCount)
+const scnCount: Record<string, number> = {}
+for (const v of d.visits) scnCount[v.scenarioId ?? 'none'] = (scnCount[v.scenarioId ?? 'none'] ?? 0) + 1
+console.log('scenarios used', scnCount)
+console.log('scenarios defined', d.scenarios.length)

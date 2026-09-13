@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { AlertTriangle, CalendarClock, CheckCircle2, Sparkles, UserCheck, UserPlus, Users } from 'lucide-react'
+import { AlertTriangle, CalendarClock, CheckCircle2, Sparkles, Target, UserCheck, UserPlus, Users } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useData } from '@/contexts/DataContext'
 import { useDocumentTitle, useNow } from '@/hooks'
-import type { Shopper, ShopperProfileType, Visit } from '@/types'
+import type { Shopper, Visit } from '@/types'
 import { assignShopper } from '@/services/actions'
 import { isCompleted } from '@/services/derive'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -18,8 +18,6 @@ import { Field, Select } from '@/components/ui/Form'
 import { Avatar } from '@/components/ui/Misc'
 import { fmtDate, fmtPct } from '@/utils/format'
 import { cn } from '@/utils/cn'
-
-const PROFILE_TYPES: ShopperProfileType[] = ['Individual', 'Family', 'Tourist', 'Young Adult', 'Professional', 'Parent']
 
 interface Workload {
   shopper: Shopper
@@ -41,7 +39,7 @@ export default function AssignmentsPage() {
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [scenario, setScenario] = useState<'all' | ShopperProfileType>('all')
+  const [scenarioId, setScenarioId] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
 
   // ── Visits needing attention: Planned (unassigned) or Assigned (upcoming) ──
@@ -85,6 +83,18 @@ export default function AssignmentsPage() {
   const selected = selectedId ? queue.find((v) => v.id === selectedId) ?? null : null
   const selectedOutlet = selected ? outletById.get(selected.outletId) : undefined
 
+  // ── Scenario briefing: the scenario carried by the selected visit, or another one applicable to the outlet ──
+  const applicableScenarios = useMemo(() => {
+    if (!selectedOutlet) return []
+    return data.scenarios.filter((s) => s.active && (s.applicableTo === 'all' || s.applicableTo.includes(selectedOutlet.segment)))
+  }, [data.scenarios, selectedOutlet])
+
+  useEffect(() => {
+    setScenarioId(selected?.scenarioId ?? '')
+  }, [selected?.id, selected?.scenarioId])
+
+  const scenario = useMemo(() => (scenarioId ? data.scenarios.find((s) => s.id === scenarioId) ?? null : null), [data.scenarios, scenarioId])
+
   // Previous shopper at this outlet (to rotate assessors where possible)
   const previousShopperIds = useMemo(() => {
     if (!selected) return new Set<string>()
@@ -96,7 +106,6 @@ export default function AssignmentsPage() {
     const segment = selectedOutlet.segment
     return workload
       .filter((w) => w.shopper.assignedCategories.includes(segment))
-      .filter((w) => scenario === 'all' || w.shopper.profileType === scenario)
       .map((w) => {
         const reasons: string[] = []
         let score = 0
@@ -105,10 +114,12 @@ export default function AssignmentsPage() {
         if (!previousShopperIds.has(w.shopper.id)) { score += 15; reasons.push('New to this outlet') } else reasons.push('Visited before')
         score += Math.max(0, 10 - w.upcoming * 2)
         score += Math.round(w.shopper.avgReportQuality * 2)
+        const profileFit = !scenario || scenario.suitableProfiles.includes(w.shopper.profileType)
+        if (scenario && profileFit) { score += 35; reasons.push('Profile suits scenario') }
         const eligible = w.shopper.availability !== 'Unavailable' && w.shopper.certificationStatus === 'Certified'
-        return { ...w, score, reasons, eligible, isCurrent: selected.shopperId === w.shopper.id }
+        return { ...w, score, reasons, eligible, profileFit, isCurrent: selected.shopperId === w.shopper.id }
       })
-      .sort((a, b) => Number(b.eligible) - Number(a.eligible) || b.score - a.score)
+      .sort((a, b) => Number(b.eligible) - Number(a.eligible) || Number(b.profileFit) - Number(a.profileFit) || b.score - a.score)
   }, [selected, selectedOutlet, workload, scenario, previousShopperIds])
 
   const assign = async (visit: Visit, shopper: Shopper) => {
@@ -193,12 +204,12 @@ export default function AssignmentsPage() {
               />
               <CardBody className="space-y-3">
                 <div className="flex flex-wrap items-end gap-3">
-                  <Field label="Scenario" htmlFor="scenario" hint="Filters shoppers by profile type for the mystery-shopping scenario" className="flex-1 min-w-[180px]">
-                    <Select id="scenario" value={scenario} onChange={(e) => setScenario(e.target.value as 'all' | ShopperProfileType)} className="!py-1.5 text-xs">
-                      <option value="all">Any profile</option>
-                      {PROFILE_TYPES.map((p) => (
-                        <option key={p} value={p}>
-                          {p}
+                  <Field label="Scenario briefing (assigned with this visit)" htmlFor="scenario" hint="Recommendations are ranked by the shopper profiles this scenario suits" className="flex-1 min-w-[200px]">
+                    <Select id="scenario" value={scenarioId} onChange={(e) => setScenarioId(e.target.value)} className="!py-1.5 text-xs">
+                      <option value="">No scenario briefing</option>
+                      {applicableScenarios.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.code} · {s.name}
                         </option>
                       ))}
                     </Select>
@@ -207,13 +218,27 @@ export default function AssignmentsPage() {
                     Open visit
                   </Link>
                 </div>
+                {scenario && (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-navy-800 dark:bg-navy-800/50">
+                    <p className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-slate-100">
+                      <Target className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" aria-hidden /> {scenario.name}
+                      <Badge tone="teal" size="xs">{scenario.type}</Badge>
+                      {scenario.id !== selected.scenarioId && <Badge tone="amber" size="xs">Preview only — not saved to the visit</Badge>}
+                    </p>
+                    <p className="mt-1.5 text-xs leading-relaxed text-slate-600 dark:text-slate-300">{scenario.description}</p>
+                    <p className="mt-1.5 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                      <span className="font-medium text-slate-700 dark:text-slate-200">Expected outcome:</span> {scenario.expectedOutcome}
+                    </p>
+                    <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">Suited to {scenario.suitableProfiles.join(', ')} profiles.</p>
+                  </div>
+                )}
                 {selected.shopperId && (
                   <p className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-200">
                     Currently assigned to <strong>{shopperById.get(selected.shopperId)?.name}</strong>. Choosing another shopper will reassign the visit.
                   </p>
                 )}
                 {recommendations.length === 0 ? (
-                  <p className="text-xs text-slate-500">No active shoppers match {selectedOutlet.segment}{scenario !== 'all' ? ` and the ${scenario} profile` : ''}.</p>
+                  <p className="text-xs text-slate-500">No active shoppers are assigned to {selectedOutlet.segment}.</p>
                 ) : (
                   <ul className="space-y-2" aria-label="Recommended shoppers">
                     {recommendations.slice(0, 8).map((r, i) => (
@@ -226,6 +251,7 @@ export default function AssignmentsPage() {
                             </Link>
                             {i === 0 && r.eligible && !r.isCurrent && <Badge tone="teal" size="xs">Best match</Badge>}
                             {r.isCurrent && <Badge tone="blue" size="xs">Current</Badge>}
+                            {scenario && r.profileFit && <Badge tone="green" size="xs" icon={Target}>Scenario fit</Badge>}
                           </div>
                           <p className="text-[11px] text-slate-500 dark:text-slate-400">
                             {r.shopper.profileType} · {r.upcoming} upcoming · {r.completedInProgramme} completed · quality {r.shopper.avgReportQuality.toFixed(1)}/5

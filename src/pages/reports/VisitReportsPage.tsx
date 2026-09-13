@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { AlertTriangle, CalendarClock, CheckCircle2, Clock, Download, FileText, Hourglass, ShieldCheck, ThumbsUp, XCircle } from 'lucide-react'
+import { AlertTriangle, CalendarClock, CheckCircle2, Clock, Download, FileText, Hourglass, ShieldCheck, Target, ThumbsUp, XCircle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useData } from '@/contexts/DataContext'
 import { useDocumentTitle, useNow } from '@/hooks'
@@ -22,7 +22,7 @@ import { cn } from '@/utils/cn'
 
 const VISIT_TYPES: VisitType[] = ['Main Audit 1', 'Follow-up 1', 'Main Audit 2', 'Follow-up 2']
 const REPORT_STATUSES: ReportStatus[] = ['Draft', 'Pending Review', 'Approved', 'Rejected', 'Published']
-const SLA_STATUSES: SlaStatus[] = ['Within SLA', 'At Risk', 'Breached', 'Pending']
+const SLA_STATUSES: SlaStatus[] = ['Within Target', 'Within SLA', 'At Risk', 'Breached', 'Pending']
 const RISKS: RiskRating[] = ['Excellent', 'Good', 'Needs Improvement', 'Critical']
 
 function scoreBand(score: number | null): string {
@@ -249,12 +249,13 @@ export default function VisitReportsPage() {
             Reporting SLA
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Reports must be submitted within {data.organization.reportingSlaHours} hours of visit completion · {sla.submitted} submitted
+            Reports are due within {data.organization.reportingTargetHours} to {data.organization.reportingSlaHours} hours of visit completion — {data.organization.reportingTargetHours} hours is the preferred target and {data.organization.reportingSlaHours} hours the contractual maximum · {sla.submitted} submitted
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          <KpiCard compact label="SLA Compliance" value={fmtPct(sla.compliancePct, 1)} icon={ShieldCheck} tone={sla.compliancePct !== null && sla.compliancePct >= 90 ? 'good' : 'warn'} sub="Submitted within SLA" />
-          <KpiCard compact label="Avg Report Turnaround" value={sla.avgTurnaroundHours === null ? '—' : `${round(sla.avgTurnaroundHours, 0)} h`} icon={Clock} tone="accent" sub={`Target ${data.organization.reportingSlaHours} h`} />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <KpiCard compact label={`Within ${data.organization.reportingTargetHours}h target`} value={fmtPct(sla.withinTargetPct, 1)} icon={Target} tone={sla.withinTargetPct !== null && sla.withinTargetPct >= 75 ? 'good' : 'warn'} sub={`${sla.withinTarget} of ${sla.submitted} submitted`} onClick={() => setFilters((f) => ({ ...f, sla: 'Within Target' }))} />
+          <KpiCard compact label={`Within ${data.organization.reportingSlaHours}h SLA`} value={fmtPct(sla.compliancePct, 1)} icon={ShieldCheck} tone={sla.compliancePct !== null && sla.compliancePct >= 90 ? 'good' : 'warn'} sub="Contractual maximum met" />
+          <KpiCard compact label="Avg Report Turnaround" value={sla.avgTurnaroundHours === null ? '—' : `${round(sla.avgTurnaroundHours, 0)} h`} icon={Clock} tone="accent" sub={`Target ${data.organization.reportingTargetHours} h · max ${data.organization.reportingSlaHours} h`} />
           <KpiCard compact label="Late Reports" value={sla.late} icon={AlertTriangle} tone={sla.late > 0 ? 'critical' : 'good'} sub="SLA breached" onClick={() => setFilters((f) => ({ ...f, sla: 'Breached' }))} />
           <KpiCard compact label="Reports Due Today" value={sla.dueToday} icon={CalendarClock} tone={sla.dueToday > 0 ? 'warn' : 'default'} sub={fmtDate(now)} />
           <KpiCard compact label="At Risk" value={sla.atRisk} icon={Hourglass} tone={sla.atRisk > 0 ? 'warn' : 'good'} sub="Approaching deadline" onClick={() => setFilters((f) => ({ ...f, sla: 'At Risk' }))} />

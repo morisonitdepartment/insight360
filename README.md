@@ -71,6 +71,27 @@ ten question types (yes/no, 5- and 10-point ratings, pass/fail, multiple choice,
 numeric, time, photo, video), per-question guidance, N/A handling, mandatory-comment and
 mandatory-evidence rules, live progress and draft autosave.
 
+### Scenario-based assessments
+Every visit carries a briefed scenario from an eight-scenario library: standard visit,
+complaint handling, return/refund, special request, service recovery under pressure,
+accessibility and assistance, group booking and onboarding, and a social-media enquiry and
+complaint run entirely through the outlet's channels. Each scenario carries step-by-step
+shopper instructions and a stated expected outcome, is shown as a briefing card on the
+questionnaire, and is reproduced in the client's visit report so the deliberate test is
+visible alongside the result.
+
+### Assessment journeys
+Nine journeys are covered by six templates: in-store dine-in, takeaway, delivery,
+entertainment ticketing, digital interaction and a dedicated social-media assessment
+measuring response time, public acknowledgement, private-channel handover, remedy quality,
+brand tone and profile accuracy.
+
+### Two-tier reporting SLA
+Report submission is graded twice: against a 24-hour preferred target and against the
+48-hour contractual maximum, with at-risk and breached states in between. Both compliance
+percentages, average turnaround, late reports and reports due today are reported, and both
+thresholds are configurable under System Settings.
+
 ### Weighted scoring engine
 Answers score to 0–1, roll up by question weight into sections, sections into the six KPI
 categories, and categories into a single weighted visit score — with a critical-failure

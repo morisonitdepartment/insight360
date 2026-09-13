@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { ArrowLeft, ClipboardList, Eye, FileText, Images, MessageSquare, PlayCircle, Printer, ThumbsUp, UserPlus, XCircle } from 'lucide-react'
+import { ArrowLeft, ClipboardList, Eye, FileText, Images, MessageSquare, PlayCircle, Printer, Target, ThumbsUp, UserPlus, XCircle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useData } from '@/contexts/DataContext'
 import { useDocumentTitle, useNow } from '@/hooks'
@@ -33,6 +33,7 @@ export default function VisitDetailPage() {
 
   const shopper = visit?.shopperId ? data.shoppers.find((s) => s.id === visit.shopperId) ?? null : null
   const template = visit ? data.templates.find((t) => t.id === visit.templateId) ?? null : null
+  const scenario = visit?.scenarioId ? data.scenarios.find((s) => s.id === visit.scenarioId) ?? null : null
   const findings = useMemo(() => (visit ? data.findings.filter((f) => f.visitId === visit.id) : []), [data.findings, visit])
   const evidence = useMemo(() => (visit ? data.evidence.filter((e) => e.visitId === visit.id).sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)) : []), [data.evidence, visit])
   const comments = useMemo(() => (visit ? data.comments.filter((c) => c.entityType === 'visit' && c.entityId === visit.id).sort((a, b) => a.createdAt.localeCompare(b.createdAt)) : []), [data.comments, visit])
@@ -189,6 +190,7 @@ export default function VisitDetailPage() {
                   { label: 'Category', value: `${outlet.segment} · ${outlet.subcategory}` },
                   { label: 'Journey', value: visit.journey },
                   { label: 'Template', value: template?.name ?? '—' },
+                  { label: 'Scenario', value: scenario ? `${scenario.code} · ${scenario.name}` : '—' },
                   { label: 'Shopper', value: shopper ? <Link to={`/operations/shoppers/${shopper.id}`} className="link">{shopper.name}</Link> : <span className="italic text-slate-400">Unassigned</span> },
                   { label: 'Scheduled', value: fmtDate(visit.scheduledDate) },
                   { label: 'Visit date', value: fmtDate(visit.visitDate) },
@@ -207,8 +209,36 @@ export default function VisitDetailPage() {
             </CardBody>
           </Card>
 
+          {scenario && (
+            <Card>
+              <CardHeader
+                title="Scenario briefing"
+                subtitle={`${scenario.code} · ${scenario.name}`}
+                actions={<Badge tone="teal" icon={Target}>{scenario.type}</Badge>}
+              />
+              <CardBody className="space-y-3">
+                <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{scenario.description}</p>
+                <div>
+                  <p className="section-title mb-1.5">Shopper instructions</p>
+                  <ol className="space-y-1.5">
+                    {scenario.instructions.map((ins, i) => (
+                      <li key={ins} className="flex gap-2 text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] font-semibold text-slate-600 dark:bg-navy-800 dark:text-slate-300">{i + 1}</span>
+                        <span className="min-w-0">{ins}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+                <div className="rounded-lg border border-teal-200 bg-teal-50/70 p-3 dark:border-teal-500/30 dark:bg-teal-500/10">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-800 dark:text-teal-300">Expected outcome</p>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-700 dark:text-slate-200">{scenario.expectedOutcome}</p>
+                </div>
+              </CardBody>
+            </Card>
+          )}
+
           <Card>
-            <CardHeader title="Reporting SLA" subtitle={`${data.organization.reportingSlaHours}h submission window after visit completion`} actions={<StatusBadge status={visit.slaStatus} />} />
+            <CardHeader title="Reporting SLA" subtitle={`${data.organization.reportingTargetHours}–${data.organization.reportingSlaHours}h submission window after visit completion`} actions={<StatusBadge status={visit.slaStatus} />} />
             <CardBody>
               <DescriptionList
                 columns={4}

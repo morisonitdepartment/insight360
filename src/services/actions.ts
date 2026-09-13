@@ -43,6 +43,12 @@ export interface ActionContext {
 const iso = (d: Date) => format(d, "yyyy-MM-dd'T'HH:mm:ss")
 const uid = (prefix: string) => `${prefix}-${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`
 
+/** Reports are due within 24 to 48 hours, so grade the 24h target band separately. */
+function gradeSla(submittedAt: Date, visitEnd: string, deadline: string, targetHours: number): Visit['slaStatus'] {
+  if (submittedAt > new Date(deadline)) return 'Breached'
+  return submittedAt <= addHours(new Date(visitEnd), targetHours) ? 'Within Target' : 'Within SLA'
+}
+
 function withLog(data: Dataset, ctx: ActionContext, action: string, module: string, recordId: string, details?: string, result: ActivityLog['result'] = 'Success'): ActivityLog[] {
   const entry: ActivityLog = {
     id: uid('log'),
@@ -127,7 +133,7 @@ export function submitVisit(data: Dataset, ctx: ActionContext, visitId: string, 
     categoryScores: res.categoryScores ? (Object.fromEntries(CATEGORY_KEYS.map((k) => [k, Math.round(res.categoryScores![k] * 10) / 10])) as Visit['categoryScores']) : null,
     risk: res.risk === 'Not Assessed' ? null : res.risk,
     reportStatus: 'Pending Review',
-    slaStatus: ctx.now <= new Date(deadline) ? 'Within SLA' : 'Breached',
+    slaStatus: gradeSla(ctx.now, visitEnd, deadline, data.organization.reportingTargetHours),
     narrative,
     criticalCount: res.criticalFailures.length,
     progress: 100,
@@ -306,6 +312,7 @@ export interface NewVisitInput {
   templateId: string
   scheduledDate: string
   shopperId: string | null
+  scenarioId?: string | null
 }
 
 export function createVisit(data: Dataset, ctx: ActionContext, input: NewVisitInput): DatasetPatch {
@@ -339,6 +346,7 @@ export function createVisit(data: Dataset, ctx: ActionContext, input: NewVisitIn
     criticalCount: 0,
     spend: null,
     partySize: 2,
+    scenarioId: input.scenarioId ?? 'scn-01',
     progress: 0,
   }
   return { visits: [visit, ...data.visits], activityLogs: withLog(data, ctx, 'Audit created', 'Visits', visit.code, `${input.type} · ${input.scheduledDate}`) }

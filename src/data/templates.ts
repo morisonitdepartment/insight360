@@ -198,6 +198,26 @@ const DIGITAL: SectionBlueprint = {
   ],
 }
 
+const SOCIAL: SectionBlueprint = {
+  code: 'S',
+  title: 'Social Media Interaction',
+  category: 'customer_experience',
+  description: 'Enquiry, complaint handling and brand tone across the outlet’s social channels.',
+  applicableTo: 'all',
+  questions: [
+    { text: 'Social-media enquiry answered within 2 hours', type: 'yes_no', weight: 4, evidence: true, guidance: 'Send a direct message asking about availability, hours or allergens. Screenshot the timestamps.', tag: 'social_response' },
+    { text: 'Time to first social-media response (minutes)', type: 'time', weight: 3, threshold: 120, guidance: 'Standard: first substantive reply within 120 minutes.', tag: 'social_time' },
+    { text: 'Response was helpful, accurate and on-brand', type: 'rating_5', weight: 3, comment: true, tag: 'social_quality' },
+    { text: 'Complaint raised on social media was acknowledged publicly', type: 'yes_no', weight: 3, evidence: true, tag: 'social_complaint' },
+    { text: 'Complaint moved to a private channel and given a named owner', type: 'yes_no', weight: 3, na: true },
+    { text: 'A remedy or next step was offered rather than a generic reply', type: 'rating_5', weight: 3, comment: true },
+    { text: 'Profile information current (hours, location, contact, menu link)', type: 'rating_5', weight: 2, evidence: true },
+    { text: 'Recent reviews and comments receive replies', type: 'rating_5', weight: 2, na: true },
+    { text: 'Booking or ordering request via social channel handled correctly', type: 'pass_fail', weight: 3, na: true, evidence: true },
+    { text: 'Tone consistent with brand guidelines throughout', type: 'rating_5', weight: 2 },
+  ],
+}
+
 const DELIVERY: SectionBlueprint = {
   code: 'H',
   title: 'Delivery & Packaging',
@@ -274,6 +294,16 @@ const TEMPLATE_BLUEPRINTS: TemplateBlueprint[] = [
     journey: 'Digital Interaction',
     isFollowUp: false,
     sections: [DIGITAL, UPSELL],
+  },
+  {
+    id: 'tpl-social',
+    code: 'SOCIAL',
+    name: 'Social Media Interaction Assessment',
+    description: 'Remote assessment of enquiry response time, complaint handling, brand tone and profile accuracy across social channels.',
+    segment: 'Both',
+    journey: 'Social Media Interaction',
+    isFollowUp: false,
+    sections: [SOCIAL, COMPLIANCE],
   },
   {
     id: 'tpl-followup',

@@ -125,7 +125,7 @@ export default function ExecutiveDashboardPage() {
           <TrendChart data={trend} series={[{ key: 'overall', label: 'Overall score' }]} area target={88} yDomain={[60, 100]} showLegend={false} />
         </ChartCard>
         <ChartCard title="Performance by assessment category" subtitle="Portfolio average vs KPI target" height={300}>
-          <RadarCompareChart data={radarData} series={[{ key: 'score', label: 'Actual' }, { key: 'target', label: 'Target', color: CHART_COLORS.amber }]} />
+          <RadarCompareChart data={radarData} series={[{ key: 'score', label: 'Actual' }, { key: 'target', label: 'Target', color: CHART_COLORS.guide }]} />
         </ChartCard>
       </div>
 

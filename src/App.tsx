@@ -137,7 +137,7 @@ export default function App() {
                   toastOptions={{
                     duration: 3500,
                     style: { fontSize: 13, borderRadius: 10, padding: '10px 14px' },
-                    success: { iconTheme: { primary: '#289f9c', secondary: '#fff' } },
+                    success: { iconTheme: { primary: '#f46b25', secondary: '#fff' } },
                   }}
                 />
               </GuidedDemoProvider>

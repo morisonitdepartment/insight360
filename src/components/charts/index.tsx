@@ -24,14 +24,16 @@ import { cn } from '@/utils/cn'
 import { useTheme } from '@/contexts/ThemeContext'
 import { riskFromScore } from '@/utils/format'
 
-/** Restrained enterprise palette — navy / teal accents, amber warnings, red only for critical. */
+/** Restrained enterprise palette — navy base, brand-orange accent, amber warnings, red only for critical. */
 export const CHART_COLORS = {
   navy: '#1c2d42',
   navyLight: '#6283a8',
-  teal: '#289f9c',
-  tealLight: '#7ad6d0',
+  teal: '#f46b25',
+  tealLight: '#ff9e6b',
   blue: '#3b82f6',
   amber: '#d97706',
+  /** Target / reference guides. Deliberately neutral so they never read as a data series. */
+  guide: '#94a3b8',
   red: '#dc2626',
   green: '#059669',
   slate: '#94a3b8',
@@ -50,7 +52,7 @@ function useChartTheme() {
   const dark = theme === 'dark'
   return {
     dark,
-    primary: dark ? '#7ad6d0' : CHART_COLORS.navy,
+    primary: dark ? '#ff9e6b' : CHART_COLORS.navy,
     secondary: dark ? '#95acc7' : CHART_COLORS.teal,
     axis: dark ? '#94a3b8' : '#64748b',
     grid: dark ? '#1c2d42' : '#e2e8f0',
@@ -114,7 +116,7 @@ export function TrendChart({ data, series, xKey = 'label', yDomain = [50, 100], 
         <YAxis domain={yDomain} tick={{ fontSize: 11, fill: t.axis }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}${unit}`} width={44} />
         <Tooltip {...tooltipStyle(t)} formatter={(v: unknown, name: unknown) => [typeof v === 'number' ? `${v.toFixed(1)}${unit}` : '—', String(name)]} />
         {showLegend && series.length > 1 && <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />}
-        {target !== undefined && <ReferenceLine y={target} stroke={CHART_COLORS.amber} strokeDasharray="4 4" label={{ value: `Target ${target}${unit}`, position: 'insideTopRight', fontSize: 10, fill: CHART_COLORS.amber }} />}
+        {target !== undefined && <ReferenceLine y={target} stroke={CHART_COLORS.guide} strokeDasharray="4 4" label={{ value: `Target ${target}${unit}`, position: 'insideTopRight', fontSize: 10, fill: CHART_COLORS.guide }} />}
         {series.map((s, i) =>
           area ? (
             <Area key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={s.color ?? (i === 0 ? t.primary : SERIES_COLORS[i])} strokeWidth={2} fill={`url(#grad-${s.key})`} dot={{ r: 2.5 }} activeDot={{ r: 5 }} connectNulls strokeDasharray={s.dashed ? '5 4' : undefined} />

@@ -162,7 +162,7 @@ export default function KpiAnalyticsPage() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <ChartCard title="KPI vs target" subtitle="Current portfolio average against configured target per category" height={300}>
-          <GroupedBarChart data={vsTarget} series={[{ key: 'Actual', label: 'Actual' }, { key: 'Target', label: 'Target', color: CHART_COLORS.amber }]} />
+          <GroupedBarChart data={vsTarget} series={[{ key: 'Actual', label: 'Actual' }, { key: 'Target', label: 'Target', color: CHART_COLORS.guide }]} />
         </ChartCard>
         <ChartCard title="Category trend" subtitle={`Monthly average per KPI over the last ${periodMonths} month${periodMonths === 1 ? '' : 's'}`} height={300}>
           <TrendChart data={trend} series={CATEGORY_KEYS.map((k, i) => ({ key: k, label: CATEGORY_SHORT[k], color: SERIES_COLORS[i % SERIES_COLORS.length] }))} yDomain={[50, 100]} />

@@ -233,7 +233,7 @@ export default function VisitReportPage() {
               </div>
             </div>
             <div className="h-64">
-              <RadarCompareChart data={radar} series={[{ key: 'Visit', label: 'This visit' }, { key: 'Target', label: 'Target', color: '#d97706' }]} />
+              <RadarCompareChart data={radar} series={[{ key: 'Visit', label: 'This visit' }, { key: 'Target', label: 'Target', color: '#94a3b8' }]} />
             </div>
           </section>
 

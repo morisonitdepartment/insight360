@@ -43,14 +43,14 @@ function TrendFlourish() {
     <svg viewBox="0 0 300 60" className="h-14 w-full" preserveAspectRatio="none" aria-hidden focusable="false">
       <defs>
         <linearGradient id="trend-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#43bcb7" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#43bcb7" stopOpacity="0" />
+          <stop offset="0%" stopColor="#f46b25" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="#f46b25" stopOpacity="0" />
         </linearGradient>
       </defs>
       <polygon points={area} fill="url(#trend-fill)" />
-      <polyline points={line} fill="none" stroke="#7ad6d0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <polyline points={line} fill="none" stroke="#ff9e6b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       {pts.slice(-1).map(([x, y]) => (
-        <circle key="last" cx={x} cy={y} r="3" fill="#7ad6d0" />
+        <circle key="last" cx={x} cy={y} r="3" fill="#ff9e6b" />
       ))}
     </svg>
   )
@@ -76,7 +76,7 @@ function CompletionRing({ value, max }: { value: number; max: number }) {
           cy={size / 2}
           r={r}
           fill="none"
-          stroke="#43bcb7"
+          stroke="#f46b25"
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={c}

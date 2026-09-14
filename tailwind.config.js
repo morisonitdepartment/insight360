@@ -22,17 +22,23 @@ export default {
           900: '#14202f',
           950: '#0b1420',
         },
+        /**
+         * Brand accent ramp, anchored on the Sterling orange #F46B25 sampled from the logo.
+         * The scale keeps the key name `teal` so no component markup had to change when the
+         * accent moved from teal to orange. Steps 600 and 700 are deliberately darker than the
+         * brand orange so white text on buttons and orange links on white both clear WCAG AA.
+         */
         teal: {
-          50: '#effbfa',
-          100: '#d6f4f1',
-          200: '#b0e8e3',
-          300: '#7ad6d0',
-          400: '#43bcb7',
-          500: '#289f9c',
-          600: '#1f807f',
-          700: '#1d6666',
-          800: '#1c5252',
-          900: '#1b4545',
+          50: '#fff4ed',
+          100: '#ffe4d2',
+          200: '#ffc5a3',
+          300: '#ff9e6b',
+          400: '#fa7f41',
+          500: '#f46b25',
+          600: '#c9500f',
+          700: '#a33f0c',
+          800: '#85350d',
+          900: '#6e2e0f',
         },
       },
       boxShadow: {

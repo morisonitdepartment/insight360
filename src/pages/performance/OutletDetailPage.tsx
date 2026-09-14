@@ -22,14 +22,14 @@ import { cn } from '@/utils/cn'
 
 export default function OutletDetailPage() {
   const { id } = useParams()
-  const { data, scopedOutlets, scopedVisits, dispatch } = useData()
+  const { data, authorizedOutlets, authorizedVisits, dispatch } = useData()
   const { can } = useAuth()
   const now = useNow()
   const navigate = useNavigate()
   const [preview, setPreview] = useState<Evidence | null>(null)
 
   const outlet = useMemo(() => data.outlets.find((o) => o.id === id), [data.outlets, id])
-  const allowed = useMemo(() => scopedOutlets.some((o) => o.id === id), [scopedOutlets, id])
+  const allowed = useMemo(() => authorizedOutlets.some((o) => o.id === id), [authorizedOutlets, id])
   useDocumentTitle(outlet ? outlet.name : 'Outlet')
 
   const history = useMemo(() => (outlet ? outletVisitHistory(data.visits, outlet.id) : []), [data.visits, outlet])
@@ -37,9 +37,9 @@ export default function OutletDetailPage() {
   const actions = useMemo(() => data.correctiveActions.filter((a) => a.outletId === id), [data.correctiveActions, id])
   const evidence = useMemo(() => data.evidence.filter((e) => e.outletId === id).slice(0, 8), [data.evidence, id])
   const trend = useMemo(() => monthlyTrend(data.visits.filter((v) => v.outletId === id), findings, actions, now, 12), [data.visits, id, findings, actions, now])
-  const orgTrend = useMemo(() => monthlyTrend(scopedVisits, data.findings, data.correctiveActions, now, 12), [scopedVisits, data.findings, data.correctiveActions, now])
-  const bench = useMemo(() => (outlet ? benchmarksFor(outlet, scopedOutlets) : []), [outlet, scopedOutlets])
-  const pct = useMemo(() => (outlet ? percentile(outlet, scopedOutlets) : null), [outlet, scopedOutlets])
+  const orgTrend = useMemo(() => monthlyTrend(authorizedVisits, data.findings, data.correctiveActions, now, 12), [authorizedVisits, data.findings, data.correctiveActions, now])
+  const bench = useMemo(() => (outlet ? benchmarksFor(outlet, authorizedOutlets) : []), [outlet, authorizedOutlets])
+  const pct = useMemo(() => (outlet ? percentile(outlet, authorizedOutlets) : null), [outlet, authorizedOutlets])
 
   // Main audit vs follow-up comparison: latest scored main audit and the follow-up that came after it
   const comparison = useMemo(() => {
@@ -127,7 +127,7 @@ export default function OutletDetailPage() {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
             <Stat label="Previous score" value={fmtPct(outlet.previousScore)} sub={delta !== null ? <span className={cn('inline-flex items-center gap-0.5', delta >= 0 ? 'text-emerald-600' : 'text-red-600')}>{delta >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}{fmtDelta(delta, 1, ' pts')}</span> : undefined} />
             <Stat label="Target score" value={`${outlet.targetScore}%`} sub={outlet.overallScore !== null ? `${fmtDelta(outlet.overallScore - outlet.targetScore, 1, ' pts')} vs target` : undefined} />
-            <Stat label="Rank" value={outlet.rank ? `#${outlet.rank}` : '—'} sub={`of ${scopedOutlets.filter((o) => o.overallScore !== null).length} outlets · P${pct ?? '—'}`} />
+            <Stat label="Rank" value={outlet.rank ? `#${outlet.rank}` : '—'} sub={`of ${authorizedOutlets.filter((o) => o.overallScore !== null).length} outlets · P${pct ?? '—'}`} />
             <Stat label="Visit completion" value={`${completed} / ${outlet.annualVisits}`} sub={<ProgressBar value={completed} max={outlet.annualVisits} tone="accent" size="sm" className="mt-1" />} />
             <Stat label="Main audit score" value={fmtPct(latestMain?.score)} sub={latestMain ? `${latestMain.type} · ${fmtDate(latestMain.visitDate)}` : 'Not yet assessed'} />
             <Stat label="Follow-up score" value={fmtPct(latestFollow?.score)} sub={latestFollow ? `${latestFollow.type} · ${fmtDate(latestFollow.visitDate)}${latestFollow.status === 'Submitted' || latestFollow.status === 'Under Review' ? ' · pending approval' : ''}` : 'Not yet assessed'} />

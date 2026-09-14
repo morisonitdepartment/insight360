@@ -4,6 +4,7 @@ import { getRepository, type DatasetPatch, type EvidenceUploadMeta } from '@/rep
 import { deriveOutlets } from '@/services/derive'
 import type { ActionContext } from '@/services/actions'
 import { useAuth } from './AuthContext'
+import { useFilters } from './FilterContext'
 import { useNow } from '@/hooks'
 
 export type ActionRecipe = (data: Dataset, ctx: ActionContext) => DatasetPatch
@@ -17,11 +18,25 @@ interface DataContextValue {
   dispatch: (recipe: ActionRecipe) => Promise<void>
   uploadEvidence: (file: File | null, meta: EvidenceUploadMeta) => Promise<Evidence>
   resetDemo: () => Promise<void>
-  /** Outlets visible to the signed-in user (manager scoping applied) */
+  /**
+   * Outlets the user may see AND that match the top-bar outlet selector.
+   * This is what dashboards, registers and reports should use so the selector
+   * actually narrows the whole application.
+   */
   scopedOutlets: Outlet[]
-  /** Visits visible to the signed-in user (manager + shopper scoping applied) */
+  /** Visits matching the same rule (shopper scoping also applied). */
   scopedVisits: Visit[]
   scopedOutletIds: Set<string>
+  /**
+   * Everything the user is authorised to see, ignoring the outlet selector.
+   * Use this for outlet detail pages, comparisons, peer benchmarks, the outlet
+   * selector itself and outlet master data — places that must not collapse to a
+   * single outlet just because one is selected.
+   */
+  authorizedOutlets: Outlet[]
+  authorizedVisits: Visit[]
+  /** True when the selector is narrowing the view to one outlet. */
+  isOutletFiltered: boolean
 }
 
 const DataContext = createContext<DataContextValue | null>(null)
@@ -30,6 +45,7 @@ const DERIVE_TRIGGERS: (keyof Dataset)[] = ['visits', 'findings', 'outlets']
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const { user, scopedOutletIds } = useAuth()
+  const { outletScope } = useFilters()
   const now = useNow()
   const repo = getRepository()
   const [data, setData] = useState<Dataset | null>(null)
@@ -84,16 +100,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [repo, reload])
 
   const scoped = useMemo(() => {
-    if (!data || !user) return { outlets: [] as Outlet[], visits: [] as Visit[], ids: new Set<string>() }
-    const outlets = scopedOutletIds ? data.outlets.filter((o) => scopedOutletIds.includes(o.id)) : data.outlets
+    const empty = { outlets: [] as Outlet[], visits: [] as Visit[], ids: new Set<string>(), authorizedOutlets: [] as Outlet[], authorizedVisits: [] as Visit[], filtered: false }
+    if (!data || !user) return empty
+
+    // 1. Authorisation: what this user is entitled to see at all.
+    const authorizedOutlets = scopedOutletIds ? data.outlets.filter((o) => scopedOutletIds.includes(o.id)) : data.outlets
+    const authorizedIds = new Set(authorizedOutlets.map((o) => o.id))
+    let authorizedVisits = data.visits.filter((v) => authorizedIds.has(v.outletId))
+    if (user.role === 'shopper') authorizedVisits = authorizedVisits.filter((v) => v.shopperId === user.shopperId)
+
+    // 2. Selection: the top-bar outlet selector narrows it further.
+    const selectionValid = outletScope !== 'all' && authorizedIds.has(outletScope)
+    const outlets = selectionValid ? authorizedOutlets.filter((o) => o.id === outletScope) : authorizedOutlets
     const ids = new Set(outlets.map((o) => o.id))
-    let visits = data.visits.filter((v) => ids.has(v.outletId))
-    if (user.role === 'shopper') visits = visits.filter((v) => v.shopperId === user.shopperId)
-    return { outlets, visits, ids }
-  }, [data, user, scopedOutletIds])
+    const visits = selectionValid ? authorizedVisits.filter((v) => ids.has(v.outletId)) : authorizedVisits
+
+    return { outlets, visits, ids, authorizedOutlets, authorizedVisits, filtered: selectionValid }
+  }, [data, user, scopedOutletIds, outletScope])
 
   const value = useMemo<DataContextValue>(
-    () => ({ data, loading, error, reload, dispatch, uploadEvidence, resetDemo, scopedOutlets: scoped.outlets, scopedVisits: scoped.visits, scopedOutletIds: scoped.ids }),
+    () => ({
+      data,
+      loading,
+      error,
+      reload,
+      dispatch,
+      uploadEvidence,
+      resetDemo,
+      scopedOutlets: scoped.outlets,
+      scopedVisits: scoped.visits,
+      scopedOutletIds: scoped.ids,
+      authorizedOutlets: scoped.authorizedOutlets,
+      authorizedVisits: scoped.authorizedVisits,
+      isOutletFiltered: scoped.filtered,
+    }),
     [data, loading, error, reload, dispatch, uploadEvidence, resetDemo, scoped],
   )
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

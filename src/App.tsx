@@ -53,8 +53,8 @@ export default function App() {
     <ThemeProvider>
       <BrowserRouter basename={basename}>
         <AuthProvider>
-          <DataProvider>
-            <FilterProvider>
+          <FilterProvider>
+            <DataProvider>
               <GuidedDemoProvider>
                 <Routes>
                   <Route
@@ -141,8 +141,8 @@ export default function App() {
                   }}
                 />
               </GuidedDemoProvider>
-            </FilterProvider>
-          </DataProvider>
+            </DataProvider>
+          </FilterProvider>
         </AuthProvider>
       </BrowserRouter>
     </ThemeProvider>

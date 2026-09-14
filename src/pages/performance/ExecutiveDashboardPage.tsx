@@ -15,7 +15,7 @@ import { AutomatedLabel, ProgressBar } from '@/components/ui/Misc'
 import { SegmentedControl } from '@/components/ui/Form'
 import { EmptyState } from '@/components/ui/States'
 import { CHART_COLORS, ChartCard, DonutChart, GroupedBarChart, HBarChart, HeatLegend, Heatmap, RadarCompareChart, TrendChart } from '@/components/charts'
-import { capaStats, categoryAverages, generateInsights, heatmapRows, kpiSummary, mainVsFollowUp, monthlyTrend, rankedOutlets, scopeOutlets, segmentComparison } from '@/services/analytics'
+import { capaStats, categoryAverages, generateInsights, heatmapRows, kpiSummary, mainVsFollowUp, monthlyTrend, rankedOutlets, segmentComparison } from '@/services/analytics'
 import { isCompleted, isOpenFinding } from '@/services/derive'
 import { createReport } from '@/services/actions'
 import { CATEGORY_KEYS, CATEGORY_SHORT } from '@/utils/scoring'
@@ -34,7 +34,7 @@ export default function ExecutiveDashboardPage() {
   const [rankMode, setRankMode] = useState<'top' | 'bottom'>('top')
   const [generating, setGenerating] = useState(false)
 
-  const outlets = useMemo(() => scopeOutlets(scopedOutlets, null, outletScope), [scopedOutlets, outletScope])
+  const outlets = scopedOutlets
   const outletIds = useMemo(() => new Set(outlets.map((o) => o.id)), [outlets])
   const visits = useMemo(() => scopedVisits.filter((v) => outletIds.has(v.outletId)), [scopedVisits, outletIds])
   const findings = useMemo(() => data.findings.filter((f) => outletIds.has(f.outletId)), [data.findings, outletIds])

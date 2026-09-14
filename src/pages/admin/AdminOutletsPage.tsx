@@ -59,7 +59,7 @@ export default function AdminOutletsPage() {
   const navigate = useNavigate()
   const now = useNow()
   const { can } = useAuth()
-  const { data, dispatch, scopedOutlets } = useData()
+  const { data, dispatch, authorizedOutlets: scopedOutlets } = useData()
   const canManage = can('admin.outlets')
 
   const brandById = useMemo(() => new Map(data.brands.map((b) => [b.id, b])), [data.brands])

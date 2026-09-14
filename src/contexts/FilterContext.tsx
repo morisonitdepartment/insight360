@@ -1,4 +1,5 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import { APP_CONFIG } from '@/config/app'
 
 export type PeriodKey = '1m' | '3m' | '6m' | '12m' | 'ytd'
 
@@ -21,9 +22,41 @@ interface FilterContextValue {
 
 const FilterContext = createContext<FilterContextValue | null>(null)
 
+const PERIOD_KEY = `${APP_CONFIG.storagePrefix}.filter.period`
+const OUTLET_KEY = `${APP_CONFIG.storagePrefix}.filter.outlet`
+
+function readStored(key: string, fallback: string): string {
+  try {
+    return localStorage.getItem(key) ?? fallback
+  } catch {
+    return fallback
+  }
+}
+
+function writeStored(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    /* storage disabled or full — the selection simply will not survive a reload */
+  }
+}
+
 export function FilterProvider({ children }: { children: ReactNode }) {
-  const [period, setPeriod] = useState<PeriodKey>('12m')
-  const [outletScope, setOutletScope] = useState<string>('all')
+  // Persisted so the chosen outlet and period survive a page refresh.
+  const [period, setPeriodState] = useState<PeriodKey>(() => {
+    const stored = readStored(PERIOD_KEY, '12m')
+    return PERIOD_OPTIONS.some((p) => p.key === stored) ? (stored as PeriodKey) : '12m'
+  })
+  const [outletScope, setOutletScopeState] = useState<string>(() => readStored(OUTLET_KEY, 'all'))
+
+  const setPeriod = useCallback((p: PeriodKey) => {
+    setPeriodState(p)
+    writeStored(PERIOD_KEY, p)
+  }, [])
+  const setOutletScope = useCallback((id: string) => {
+    setOutletScopeState(id)
+    writeStored(OUTLET_KEY, id)
+  }, [])
   const value = useMemo(
     () => ({
       period,
@@ -32,7 +65,7 @@ export function FilterProvider({ children }: { children: ReactNode }) {
       outletScope,
       setOutletScope,
     }),
-    [period, outletScope],
+    [period, outletScope, setPeriod, setOutletScope],
   )
   return <FilterContext.Provider value={value}>{children}</FilterContext.Provider>
 }

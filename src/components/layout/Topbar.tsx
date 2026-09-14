@@ -263,7 +263,7 @@ function ProfileMenu() {
 }
 
 function OutletSelector() {
-  const { scopedOutlets } = useDataState()
+  const { authorizedOutlets } = useDataState()
   const { outletScope, setOutletScope } = useFilters()
   const { role } = useAuth()
   if (role === 'shopper') return null
@@ -272,8 +272,8 @@ function OutletSelector() {
       <Building2 className="h-4 w-4 text-slate-400" aria-hidden />
       <span className="sr-only">Outlet scope</span>
       <select value={outletScope} onChange={(e) => setOutletScope(e.target.value)} className="select !w-48 !py-1.5 text-xs !rounded-full" aria-label="Outlet scope">
-        <option value="all">All outlets ({scopedOutlets.length})</option>
-        {[...scopedOutlets]
+        <option value="all">All outlets ({authorizedOutlets.length})</option>
+        {[...authorizedOutlets]
           .sort((a, b) => a.name.localeCompare(b.name))
           .map((o) => (
             <option key={o.id} value={o.id}>

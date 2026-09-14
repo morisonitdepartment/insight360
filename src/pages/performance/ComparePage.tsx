@@ -40,7 +40,7 @@ export default function ComparePage() {
   useDocumentTitle('Compare Outlets')
   const navigate = useNavigate()
   const { can } = useAuth()
-  const { data, scopedOutlets, scopedVisits, dispatch } = useData()
+  const { data, authorizedOutlets: scopedOutlets, authorizedVisits: scopedVisits, dispatch } = useData()
   const [params, setParams] = useSearchParams()
 
   const [search, setSearch] = useState('')

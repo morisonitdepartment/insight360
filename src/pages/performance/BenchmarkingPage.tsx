@@ -67,7 +67,7 @@ interface CycleRow {
 export default function BenchmarkingPage() {
   useDocumentTitle('Benchmarking')
   const navigate = useNavigate()
-  const { scopedOutlets, scopedVisits } = useData()
+  const { authorizedOutlets: scopedOutlets, authorizedVisits: scopedVisits } = useData()
   const [params, setParams] = useSearchParams()
   const [tab, setTab] = useState<TabKey>('brand')
 

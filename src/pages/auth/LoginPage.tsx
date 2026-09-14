@@ -7,6 +7,7 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { APP_CONFIG, isDemoMode } from '@/config/app'
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '@/config/demoAccounts'
 import { BrandMark } from '@/components/layout/Sidebar'
+import { ClientLockup } from '@/components/ui/ClientLogo'
 import { Checkbox, Field, Input } from '@/components/ui/Form'
 import type { Role } from '@/types'
 import { cn } from '@/utils/cn'
@@ -98,7 +99,10 @@ export default function LoginPage() {
             </li>
           ))}
         </ul>
-        <p className="relative mt-auto pt-10 text-[11px] text-navy-400">Demo Hospitality &amp; Entertainment Group · Mystery Shopping Programme 2025/26 · v{APP_CONFIG.version}</p>
+        <div className="relative mt-auto pt-10">
+          <ClientLockup />
+          <p className="mt-4 text-[11px] text-navy-400">Mystery Shopping Programme 2025/26 · INSIGHT360 v{APP_CONFIG.version}</p>
+        </div>
       </section>
 
       {/* Form panel */}

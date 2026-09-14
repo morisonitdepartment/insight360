@@ -44,7 +44,7 @@ const LOCALES = [
   { value: 'ar-AE', label: 'Arabic (United Arab Emirates)' },
 ]
 
-const DEMO_DATA_KEY = `${APP_CONFIG.storagePrefix}.demo.data.v1`
+const DEMO_DATA_KEY = `${APP_CONFIG.storagePrefix}.demo.data.v2`
 
 const SECURITY_CHECKLIST: { title: string; detail: string }[] = [
   { title: 'No service-role key in the frontend', detail: 'Only the anonymous key is bundled; privileged operations run server-side.' },

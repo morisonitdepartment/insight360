@@ -12,6 +12,8 @@ import { ProgressBar, Timeline } from '@/components/ui/Misc'
 import { EmptyState } from '@/components/ui/States'
 import { EvidenceCard, EvidencePreviewModal } from '@/components/ui/EvidenceThumb'
 import { RadarCompareChart } from '@/components/charts'
+import { ClientLogo } from '@/components/ui/ClientLogo'
+import { CLIENT_BRAND } from '@/config/client'
 import { approveVisit, getVisitQuestions, getVisitSections, logExport, rejectVisit, startReview } from '@/services/actions'
 import { CATEGORY_KEYS, CATEGORY_LABELS, CATEGORY_SHORT, computeVisitScores } from '@/utils/scoring'
 import { exportCsv, exportElementToPdf, printPage } from '@/utils/export'
@@ -155,6 +157,13 @@ export default function VisitReportPage() {
       <div ref={printRef} className="print-area card overflow-hidden">
         {/* Report header */}
         <header className="bg-navy-900 text-white px-6 py-6 sm:px-8">
+          <div className="mb-5 flex items-center justify-between gap-4 border-b border-white/10 pb-4">
+            <ClientLogo size="sm" />
+            <span className="text-right text-[10px] uppercase tracking-[0.18em] text-navy-300">
+              {CLIENT_BRAND.name}
+              <span className="block normal-case tracking-normal text-navy-400">Assessed by INSIGHT360</span>
+            </span>
+          </div>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-teal-300">Mystery Shopping Visit Report</p>

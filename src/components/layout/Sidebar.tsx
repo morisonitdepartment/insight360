@@ -5,6 +5,8 @@ import { hasAnyPermission, hasPermission, ROLE_LABELS } from '@/config/permissio
 import { useAuth } from '@/contexts/AuthContext'
 import { useGuidedDemo } from '@/contexts/GuidedDemoContext'
 import { APP_CONFIG, isDemoMode } from '@/config/app'
+import { CLIENT_BRAND } from '@/config/client'
+import { ClientLogo } from '@/components/ui/ClientLogo'
 import { cn } from '@/utils/cn'
 
 export function BrandMark({ className, size = 'md' }: { className?: string; size?: 'sm' | 'md' | 'lg' }) {
@@ -85,6 +87,19 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: { co
             <PlayCircle className="h-4 w-4 shrink-0" aria-hidden />
             {!collapsed && 'Launch Guided Demo'}
           </button>
+        )}
+        {!collapsed ? (
+          <div className="flex items-center gap-2.5 rounded-lg bg-navy-800/60 px-2.5 py-2">
+            <ClientLogo size="xs" />
+            <span className="min-w-0">
+              <span className="block text-[9px] font-semibold uppercase tracking-wider text-navy-400">Client</span>
+              <span className="block truncate text-xs font-medium text-white">{CLIENT_BRAND.shortName}</span>
+            </span>
+          </div>
+        ) : (
+          <div className="flex justify-center" title={CLIENT_BRAND.name}>
+            <ClientLogo size="xs" />
+          </div>
         )}
         {!collapsed && user && (
           <div className="rounded-lg bg-navy-800/60 px-3 py-2">

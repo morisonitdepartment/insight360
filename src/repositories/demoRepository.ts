@@ -5,7 +5,8 @@ import type { Dataset, Evidence, User } from '@/types'
 import { hashString } from '@/utils/prng'
 import type { DatasetPatch, EvidenceUploadMeta, Repository } from './types'
 
-const DATA_KEY = `${APP_CONFIG.storagePrefix}.demo.data.v1`
+// Bumped when the seeded data model changes, so returning visitors are not served a stale overlay.
+const DATA_KEY = `${APP_CONFIG.storagePrefix}.demo.data.v2`
 const SESSION_KEY = `${APP_CONFIG.storagePrefix}.session`
 
 /** Collections that may be overridden by local demo mutations. */

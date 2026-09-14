@@ -1,7 +1,8 @@
 import type { KpiConfig, NotificationRule, OrganizationSettings, TrainingModule } from '@/types'
+import { CLIENT_BRAND } from '@/config/client'
 
 export const DEFAULT_ORGANIZATION: OrganizationSettings = {
-  name: 'Demo Hospitality & Entertainment Group',
+  name: CLIENT_BRAND.name,
   engagementName: 'Mystery Shopping Programme 2025/26',
   engagementStart: '2025-10-01',
   engagementEnd: '2026-11-30',

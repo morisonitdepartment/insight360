@@ -6,8 +6,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/contexts/ThemeContext'
 import { APP_CONFIG, isDemoMode } from '@/config/app'
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '@/config/demoAccounts'
-import { BrandMark } from '@/components/layout/Sidebar'
-import { ClientLockup } from '@/components/ui/ClientLogo'
+import { ClientLogo } from '@/components/ui/ClientLogo'
+import { CLIENT_BRAND } from '@/config/client'
 import { Checkbox, Field, Input } from '@/components/ui/Form'
 import type { Role } from '@/types'
 import { cn } from '@/utils/cn'
@@ -74,10 +74,9 @@ export default function LoginPage() {
           </svg>
         </div>
         <div className="relative flex items-center gap-3">
-          <BrandMark size="lg" className="bg-teal-600" />
+          <ClientLogo size="lg" />
           <div>
-            <p className="text-2xl font-bold tracking-tight leading-none">{APP_CONFIG.name}</p>
-            <p className="mt-1 text-xs font-medium uppercase tracking-[0.18em] text-teal-300">{APP_CONFIG.tagline}</p>
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-teal-300">{APP_CONFIG.tagline}</p>
           </div>
         </div>
         <div className="relative mt-14 lg:mt-24 max-w-xl">
@@ -99,10 +98,7 @@ export default function LoginPage() {
             </li>
           ))}
         </ul>
-        <div className="relative mt-auto pt-10">
-          <ClientLockup />
-          <p className="mt-4 text-[11px] text-navy-400">Mystery Shopping Programme 2025/26 · INSIGHT360 v{APP_CONFIG.version}</p>
-        </div>
+        <p className="relative mt-auto pt-10 text-[11px] text-navy-400">{CLIENT_BRAND.name} · Mystery Shopping Programme 2025/26 · v{APP_CONFIG.version}</p>
       </section>
 
       {/* Form panel */}

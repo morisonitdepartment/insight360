@@ -80,7 +80,7 @@ export class SupabaseRepository implements Repository {
   private async profileFor(authId: string): Promise<User> {
     // Role is read from the users table (server-side truth), never from client state.
     const { data, error } = await getSupabase().from('users').select('*').eq('auth_id', authId).single()
-    if (error || !data) throw new Error('No INSIGHT360 profile is linked to this account.')
+    if (error || !data) throw new Error('No platform profile is linked to this account.')
     const user = rowToModel<User>(data)
     if (user.status !== 'active') throw new Error('This account is not active.')
     return user

@@ -723,7 +723,7 @@ export default function ReportBuilderPage() {
                 )}
 
                 <footer className="border-t border-slate-200 pt-3 text-[10px] text-slate-500 dark:border-navy-800 dark:text-slate-400">
-                  {title.trim() || 'Untitled report'} · {type} · Draft generated from live INSIGHT360 data on {fmtDateTime(now)} by {user?.name ?? '—'} · Confidential — prepared for {data.organization.name}
+                  {title.trim() || 'Untitled report'} · {type} · Draft generated from live programme data on {fmtDateTime(now)} by {user?.name ?? '—'} · Confidential — prepared for {data.organization.name}
                 </footer>
               </div>
             </div>

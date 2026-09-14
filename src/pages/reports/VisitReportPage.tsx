@@ -161,7 +161,7 @@ export default function VisitReportPage() {
             <ClientLogo size="sm" />
             <span className="text-right text-[10px] uppercase tracking-[0.18em] text-navy-300">
               {CLIENT_BRAND.name}
-              <span className="block normal-case tracking-normal text-navy-400">Assessed by INSIGHT360</span>
+              <span className="block normal-case tracking-normal text-navy-400">Mystery Shopping Programme</span>
             </span>
           </div>
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -410,7 +410,7 @@ export default function VisitReportPage() {
               <Timeline items={visit.approvalHistory.map((h) => ({ at: h.at, by: h.by, action: h.action, note: h.comment }))} />
             </div>
           </section>
-          <p className="border-t border-slate-200 dark:border-navy-800 pt-3 text-[10px] text-slate-400">INSIGHT360 · {data.organization.name} · {data.organization.engagementName} · Confidential — generated {fmtDateTime(new Date())}. Scores derive from the weighted scoring model (question → section → category → visit).</p>
+          <p className="border-t border-slate-200 dark:border-navy-800 pt-3 text-[10px] text-slate-400">{data.organization.name} · {data.organization.engagementName} · Confidential — generated {fmtDateTime(new Date())}. Scores derive from the weighted scoring model (question → section → category → visit).</p>
         </div>
       </div>
 

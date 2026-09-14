@@ -5,19 +5,13 @@ import { hasAnyPermission, hasPermission, ROLE_LABELS } from '@/config/permissio
 import { useAuth } from '@/contexts/AuthContext'
 import { useGuidedDemo } from '@/contexts/GuidedDemoContext'
 import { APP_CONFIG, isDemoMode } from '@/config/app'
-import { CLIENT_BRAND } from '@/config/client'
-import { ClientLogo } from '@/components/ui/ClientLogo'
 import { cn } from '@/utils/cn'
 
 export function BrandMark({ className, size = 'md' }: { className?: string; size?: 'sm' | 'md' | 'lg' }) {
   const s = size === 'sm' ? 'h-7 w-7' : size === 'lg' ? 'h-12 w-12' : 'h-9 w-9'
   return (
-    <span className={cn('inline-flex shrink-0 items-center justify-center rounded-lg bg-navy-900 dark:bg-teal-600', s, className)} aria-hidden>
-      <svg viewBox="0 0 64 64" className="h-[62%] w-[62%]">
-        <circle cx="32" cy="32" r="17" fill="none" stroke="#43bcb7" strokeWidth="6" className="dark:stroke-white" />
-        <circle cx="32" cy="32" r="6" fill="#43bcb7" className="dark:fill-white" />
-        <path d="M32 6v9M32 49v9M6 32h9M49 32h9" stroke="#43bcb7" strokeWidth="5" strokeLinecap="round" className="dark:stroke-white" />
-      </svg>
+    <span className={cn('inline-flex shrink-0 items-center justify-center rounded-lg bg-white ring-1 ring-black/5', s, className)} aria-hidden>
+      <img src={`${import.meta.env.BASE_URL}client-mark.png`} alt="" className="h-[74%] w-[74%] object-contain" />
     </span>
   )
 }
@@ -87,19 +81,6 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: { co
             <PlayCircle className="h-4 w-4 shrink-0" aria-hidden />
             {!collapsed && 'Launch Guided Demo'}
           </button>
-        )}
-        {!collapsed ? (
-          <div className="flex items-center gap-2.5 rounded-lg bg-navy-800/60 px-2.5 py-2">
-            <ClientLogo size="xs" />
-            <span className="min-w-0">
-              <span className="block text-[9px] font-semibold uppercase tracking-wider text-navy-400">Client</span>
-              <span className="block truncate text-xs font-medium text-white">{CLIENT_BRAND.shortName}</span>
-            </span>
-          </div>
-        ) : (
-          <div className="flex justify-center" title={CLIENT_BRAND.name}>
-            <ClientLogo size="xs" />
-          </div>
         )}
         {!collapsed && user && (
           <div className="rounded-lg bg-navy-800/60 px-3 py-2">

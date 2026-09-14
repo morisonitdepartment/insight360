@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useData } from '@/contexts/DataContext'
+import { CLIENT_BRAND } from '@/config/client'
 import { useDocumentTitle, useNow } from '@/hooks'
 import { ROLE_LABELS } from '@/config/permissions'
 import { logExport } from '@/services/actions'
@@ -518,7 +519,7 @@ export default function ExportsPage() {
 
       {/* ── Print-only compact summary ── */}
       <section className="hidden print:block print-area">
-        <h1 className="text-xl font-semibold text-slate-900">INSIGHT360 — Export summary</h1>
+        <h1 className="text-xl font-semibold text-slate-900">{CLIENT_BRAND.name} — Export summary</h1>
         <p className="mt-1 text-sm text-slate-600">
           {data.organization.name} · {data.organization.engagementName} · generated {fmtDateTime(now)}
         </p>

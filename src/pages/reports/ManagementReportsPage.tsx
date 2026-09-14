@@ -696,7 +696,7 @@ function ReportPreview({ model, data, now, compact }: { model: ReportModel; data
       )}
 
       <footer className="border-t border-slate-200 pt-3 text-[10px] text-slate-500">
-        {report.code} · {report.title} · Generated from live INSIGHT360 data on {fmtDateTime(now)} · Confidential — prepared for {data.organization.name}
+        {report.code} · {report.title} · Generated from live programme data on {fmtDateTime(now)} · Confidential — prepared for {data.organization.name}
       </footer>
     </div>
   )

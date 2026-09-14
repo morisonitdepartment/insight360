@@ -68,7 +68,7 @@ export function usePagination<T>(items: T[], pageSize = 15) {
 export function useDocumentTitle(title: string) {
   useEffect(() => {
     const prev = document.title
-    document.title = `${title} · INSIGHT360`
+    document.title = `${title} · ${APP_CONFIG.name}`
     return () => {
       document.title = prev
     }

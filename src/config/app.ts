@@ -3,7 +3,7 @@ export type AppMode = 'demo' | 'live'
 const rawMode = (import.meta.env.VITE_APP_MODE as string | undefined)?.toLowerCase()
 
 export const APP_CONFIG = {
-  name: 'INSIGHT360',
+  name: 'Sterling',
   tagline: 'Mystery Shopping Intelligence Platform',
   subtitle: 'Customer Experience • Compliance • Analytics • Continuous Improvement',
   version: '1.0.0',

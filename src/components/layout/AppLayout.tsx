@@ -9,6 +9,7 @@ import { useDataState } from '@/contexts/DataContext'
 import { ErrorState, LoadingState, PageSkeleton } from '@/components/ui/States'
 import { cn } from '@/utils/cn'
 import { isDemoMode } from '@/config/app'
+import { CLIENT_BRAND } from '@/config/client'
 
 export function AppLayout() {
   const [collapsed, setCollapsed] = useLocalStorage('sidebar.collapsed', false)
@@ -36,7 +37,7 @@ export function AppLayout() {
             <Breadcrumbs />
           </div>
           {loading && !data ? (
-            <LoadingState full label="Loading INSIGHT360 workspace…" />
+            <LoadingState full label="Loading workspace…" />
           ) : error ? (
             <ErrorState title="Unable to load data" message={error} onRetry={() => void reload()} />
           ) : data ? (
@@ -48,7 +49,7 @@ export function AppLayout() {
           ) : null}
         </main>
         <footer className="px-6 py-4 text-center text-[11px] text-slate-400 dark:text-slate-500 no-print">
-          INSIGHT360 · Mystery Shopping Intelligence Platform · Customer Experience • Compliance • Analytics • Continuous Improvement
+          {CLIENT_BRAND.name} · Mystery Shopping Intelligence Platform · Customer Experience • Compliance • Analytics • Continuous Improvement
         </footer>
       </div>
       <GuidedDemoOverlay />

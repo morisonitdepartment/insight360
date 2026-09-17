@@ -71,6 +71,7 @@ Open **SQL Editor → New query** and run the files one at a time, top to bottom
 6. paste and run `migrations/0006_user_provisioning.sql`
 7. paste and run `migrations/0007_admin_provisioning_rpc.sql`
 8. paste and run `migrations/0008_provisioning_fixes.sql`
+9. paste and run `migrations/0009_policy_consistency.sql`
 
 Each file is idempotent (`create table if not exists`, `create or replace function`,
 `drop policy if exists` before every `create policy`, `on conflict … do nothing`), so a

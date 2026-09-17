@@ -7,23 +7,38 @@
 -- user granting themselves permissions.
 --
 -- BEFORE RUNNING
---   1. Authentication -> Users -> Add user -> Create new user
---      Enter the real email and a password, and tick "Auto Confirm User".
---   2. Replace the three values in the `details` block below.
+--   Authentication -> Users -> Add user -> Create new user
+--   Enter the email and a password, and tick "Auto Confirm User".
 --
 -- Safe to re-run, and safe to run for several administrators: the row id is
 -- derived from the email, so each person gets their own record.
 -- ============================================================================
 
+
+-- ############################################################################
+--  EDIT ONLY THE THREE QUOTED VALUES BELOW.
+--  Keep the quotes. Do not change the words after "as" — those are column
+--  names, not places to type.
+--
+--    'value goes here'   as email          <-- correct
+--    'email'             as you@work.com   <-- wrong, causes a syntax error
+-- ############################################################################
+
 with details as (
   select
-    'REPLACE-WITH-THE-EMAIL-YOU-CREATED'::text as email,      -- must match the Auth user exactly
-    'Administrator Name'::text                 as full_name,
-    'Platform Administrator'::text             as job_title
+    'it@morisonqatar.com'      as email,       -- must match the Auth user exactly
+    'Basim Mohammed'           as full_name,   -- shown in the app header
+    'IT'                       as job_title    -- shown on the profile page
 ),
+
+
+-- ############################################################################
+--  Nothing below this line needs editing.
+-- ############################################################################
+
 auth_account as (
   select
-    u.id                                       as auth_id,
+    u.id                                         as auth_id,
     d.email,
     d.full_name,
     d.job_title,
@@ -53,6 +68,7 @@ select
   (select email  from upserted)  as email,
   (select role   from upserted)  as role,
   (select status from upserted)  as status;
+
 
 -- ---------------------------------------------------------------------------
 -- Afterwards, confirm the link is sound:

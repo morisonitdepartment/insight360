@@ -21,12 +21,45 @@ const ROLE_ICONS: Record<Role, LucideIcon> = {
   executive: ShieldCheck,
 }
 
-/** Programme facts, matching the seeded dataset exactly. */
+/**
+ * Programme figures, matching the seeded dataset exactly.
+ *
+ * DEMO ONLY. The sign-in page runs before anyone has authenticated, so it cannot
+ * read the real programme — and it should not: those totals are the client's
+ * business, not something to publish on a public login screen. Showing these
+ * numbers in Live Mode would state the demo's 50 outlets and 146 visits as fact
+ * to a client who has neither. Live Mode gets `CapabilityPanel` instead, which
+ * describes the method and claims no data.
+ */
 const PROGRAMME = {
   outlets: 50,
   plannedVisits: 200,
   completedVisits: 146,
   visitsPerOutlet: 4,
+}
+
+/** What the platform does. True regardless of how much data exists yet. */
+const CAPABILITIES: { title: string; detail: string }[] = [
+  { title: 'Weighted scoring', detail: 'Category weights roll up to outlet, brand and portfolio' },
+  { title: 'Critical-finding escalation', detail: 'Failures raise an alert with an escalation clock' },
+  { title: 'Corrective actions', detail: 'Owners, target dates and verification on every finding' },
+  { title: '24–48h reporting', detail: 'Reports due within 48 hours, targeted at 24' },
+]
+
+function CapabilityPanel() {
+  return (
+    <div className="hidden rounded-xl border border-white/10 bg-white/[0.04] p-5 lg:block">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-navy-300">How it works</p>
+      <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-4">
+        {CAPABILITIES.map((c) => (
+          <div key={c.title}>
+            <dt className="text-[13px] font-semibold leading-tight text-white">{c.title}</dt>
+            <dd className="mt-1 text-[11px] leading-snug text-navy-300">{c.detail}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  )
 }
 
 /** Shape of the 12-month portfolio trend, drawn as an unlabelled flourish. */
@@ -180,7 +213,9 @@ export default function LoginPage() {
               </p>
             </div>
 
-            {/* Programme snapshot — desktop only, so the form stays above the fold on phones */}
+            {/* Programme snapshot — desktop only, so the form stays above the fold on
+                phones. Demo only: see the note on PROGRAMME. */}
+            {!isDemoMode() ? <CapabilityPanel /> : (
             <div className="hidden rounded-xl border border-white/10 bg-white/[0.04] p-5 lg:block">
               <div className="flex items-center justify-between gap-4">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-navy-300">Programme to date</p>
@@ -208,9 +243,15 @@ export default function LoginPage() {
                 <p className="mt-1 text-[10px] text-navy-400">Portfolio score trend · last 12 months</p>
               </div>
             </div>
+            )}
 
             <p className="hidden text-[11px] text-navy-400 lg:block">
-              {CLIENT_BRAND.name} · Mystery Shopping Programme 2025/26 · v{APP_CONFIG.version}
+              {/* The programme year was hardcoded to 2025/26, which is simply wrong
+                  for a client whose engagement starts later. Live Mode names the
+                  platform instead of asserting a year it cannot know. */}
+              {isDemoMode()
+                ? `${CLIENT_BRAND.name} · Mystery Shopping Programme 2025/26 · v${APP_CONFIG.version}`
+                : `${CLIENT_BRAND.name} · ${APP_CONFIG.tagline} · v${APP_CONFIG.version}`}
             </p>
           </section>
 

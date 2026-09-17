@@ -21,10 +21,15 @@ insert into public.organizations (
   reporting_sla_hours, escalation_sla_hours, timezone, currency, locale
 ) values (
   'org-001',
-  'Demo Hospitality & Entertainment Group',
-  'Mystery Shopping Programme 2025/26',
-  date '2025-10-01',
-  date '2026-11-30',
+  -- Placeholders, not facts. This row is what a brand-new Live Mode install
+  -- shows in its header and on every report, so it must not ship the demo's
+  -- fictional company name or a programme year borrowed from the storyline.
+  -- Set the real values under Administration -> Settings on day one; the
+  -- engagement dates in particular are contractual and only the client knows them.
+  'Set your organisation name in Administration -> Settings',
+  'Mystery Shopping Programme',
+  current_date,
+  (current_date + interval '1 year')::date,
   48,
   24,
   'Asia/Qatar (GMT+3)',

@@ -160,4 +160,6 @@ select
   check_name                                    as "check",
   case when passed then 'OK' else 'MISSING' end as "result"
 from expectations
-order by seq;
+-- Failures sort to the top, so a problem is the first thing visible rather than
+-- something you have to scroll 23 rows to find.
+order by passed asc, seq;

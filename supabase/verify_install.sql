@@ -190,6 +190,17 @@ with expectations as (
             join pg_namespace n on n.oid = c.relnamespace
            where n.nspname = 'public' and c.relname = 'user_access_review')
 
+  union all
+  -- PostgREST serves the `public` schema, so this wrapper is reachable over
+  -- HTTP. Only the service-role key may run it; a signed-in user must not be
+  -- able to mint a super_admin by calling /rest/v1/rpc/admin_provision_user.
+  select 29, '0007', 'admin_provision_user is service-role only',
+         (select not (has_function_privilege('anon', p.oid, 'execute')
+                   or has_function_privilege('authenticated', p.oid, 'execute'))
+            from pg_proc p
+            join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'public' and p.proname = 'admin_provision_user')
+
   -- ---- Clean install: transactional tables still empty ----
   union all
   select 22, 'fresh', 'no outlets yet (clean install)',

@@ -69,6 +69,7 @@ Open **SQL Editor → New query** and run the files one at a time, top to bottom
 4. paste and run `migrations/0004_scenarios_and_sla.sql`
 5. paste and run `migrations/0005_fix_grants.sql`
 6. paste and run `migrations/0006_user_provisioning.sql`
+7. paste and run `migrations/0007_admin_provisioning_rpc.sql`
 
 Each file is idempotent (`create table if not exists`, `create or replace function`,
 `drop policy if exists` before every `create policy`, `on conflict … do nothing`), so a
@@ -160,6 +161,23 @@ This cuts both ways, and it is the single most common onboarding mistake: **crea
 user inside the app (Administration → Users) writes the profile only.** It cannot set a
 password, so the person is left at the login screen. Use the script below to create a
 login; use the app afterwards to change roles and outlets.
+
+### The quick way: from inside the app
+
+Once `0007_admin_provisioning_rpc.sql` is applied and the `provision-user` Edge Function is
+deployed (see `supabase/functions/README.md`), **Administration → Users → Create user**
+does the whole job: it creates the Auth account, writes the profile and role, applies the
+outlet scope, and shows you a temporary password once to pass on. That is the day-to-day
+way to onboard staff.
+
+The function is what makes this safe: creating an Auth account needs the service-role key,
+which bypasses all RLS and must never be in a browser bundle, so the work happens
+server-side where the caller's entitlement is checked against `public.users`.
+
+### The SQL way: bootstrapping, and when the function is not deployed
+
+The very first administrator has nobody to create them from inside the app, so they are
+always made this way.
 
 **Step 1 — create the password.** Dashboard → **Authentication → Users → Add user**
 (real email, tick *Auto Confirm User*), or via the Admin API with the service-role key

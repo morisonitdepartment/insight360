@@ -11,9 +11,20 @@
 -- means a password with no linked profile cannot sign in, and a profile with no
 -- password is just a name in a list.
 --
--- IMPORTANT: creating a user inside the app (Administration -> Users) writes the
--- profile only. It cannot set a password, so that person will be stuck at the
--- login screen. Use this file instead.
+-- WHICH WAY SHOULD YOU USE?
+--
+--   Day to day, use the app: Administration -> Users -> Create user. With the
+--   provision-user Edge Function deployed (supabase/functions/README.md) that
+--   does everything this file does, and shows you a temporary password to pass
+--   on. No SQL needed.
+--
+--   Use this file when there is no app to click yet - the first administrator
+--   has nobody to create them - or when the Edge Function is not deployed, or
+--   to onboard a batch of people in one go.
+--
+--   If the Edge Function is NOT deployed, note that Create user in the app
+--   writes the profile only. It cannot set a password, so that person would be
+--   stuck at the login screen. The form says so when that is the case.
 --
 --
 -- ────────────────────────────────────────────────────────────────────────────

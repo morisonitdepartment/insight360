@@ -8,6 +8,7 @@ import { useDocumentTitle, useNow } from '@/hooks'
 import type { Role, User, UserStatus } from '@/types'
 import { PERMISSIONS, ROLE_LABELS, ROLE_PERMISSIONS, type Permission } from '@/config/permissions'
 import { isLiveMode } from '@/config/app'
+import { provisionUser } from '@/services/provisionUser'
 import { createUser, logExport, resetPassword, updateUser, type NewUserInput } from '@/services/actions'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { KpiCard } from '@/components/ui/KpiCard'
@@ -102,7 +103,7 @@ export default function UsersPage() {
   useDocumentTitle('Users')
   const now = useNow()
   const { user: me, can } = useAuth()
-  const { data, dispatch } = useData()
+  const { data, dispatch, reload } = useData()
   const [params, setParams] = useSearchParams()
 
   const canAll = can('admin.users')
@@ -158,6 +159,9 @@ export default function UsersPage() {
   const [confirm, setConfirm] = useState<'deactivate' | 'reactivate' | 'reset' | null>(null)
   const [form, setForm] = useState<UserForm>({ name: '', email: '', role: manageableRoles[0] ?? 'analyst', title: '', outletIds: [] })
   const [errors, setErrors] = useState<Partial<Record<keyof UserForm, string>>>({})
+  // Shown once after a Live Mode account is created. The password is never
+  // stored or re-readable, so closing this dialog is the last chance to copy it.
+  const [credentials, setCredentials] = useState<{ name: string; email: string; password: string | null; warning: string | null } | null>(null)
 
   const run = async (label: string, recipe: Parameters<typeof dispatch>[0], after?: () => void) => {
     setBusy(true)
@@ -199,12 +203,28 @@ export default function UsersPage() {
     ev.preventDefault()
     if (!canCreate || !validate(true)) return
     const input: NewUserInput = { name: form.name.trim(), email: form.email.trim().toLowerCase(), role: form.role, title: form.title.trim(), outletIds: form.role === 'ops_manager' ? form.outletIds : [] }
-    // No email is actually sent in Live Mode, and the account cannot sign in until
-    // a login is linked, so do not report an invitation that did not happen.
-    const message = isLiveMode()
-      ? `Profile created for ${input.email} — link their login to activate it`
-      : `Invitation sent to ${input.email}`
-    await run(message, (d, ctx) => createUser(d, ctx, input), () => setCreateOpen(false))
+
+    if (!isLiveMode()) {
+      await run(`Invitation sent to ${input.email}`, (d, ctx) => createUser(d, ctx, input), () => setCreateOpen(false))
+      return
+    }
+
+    // Live Mode: the account is created server-side, because minting a login
+    // needs a key that must never reach the browser. The local action is not
+    // used here — it would write a profile with no password behind it.
+    setBusy(true)
+    try {
+      const codes = data.outlets.filter((o) => input.outletIds.includes(o.id)).map((o) => o.code)
+      const result = await provisionUser({ ...input, outletCodes: codes })
+      await reload()
+      setCreateOpen(false)
+      setCredentials({ name: input.name, email: input.email, password: result.temporaryPassword, warning: result.warning })
+      toast.success(result.reusedExisting ? `${input.name} linked to their existing login` : `${input.name} can now sign in`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not create the account.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   const submitEdit = async (ev: FormEvent) => {
@@ -498,7 +518,7 @@ export default function UsersPage() {
         description={
           createOpen
             ? isLiveMode()
-              ? 'This sets the role and outlet access. The password is created separately — see below.'
+              ? 'Creates the login, the role and the outlet access in one step.'
               : 'The account is created in “Invited” status and receives an onboarding email (demo).'
             : 'Update profile details and role.'
         }
@@ -522,10 +542,9 @@ export default function UsersPage() {
             <div className="flex gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
               <KeyRound className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <p>
-                This creates the profile and its permissions only — it does not set a password.
-                To let this person sign in, an administrator must also create their login in
-                Supabase and link it with <code className="font-mono text-xs">app.provision_user()</code>.
-                See <span className="font-medium">supabase/create_user.sql</span>.
+                This creates a working login. A temporary password is generated and shown to you
+                once, on the next screen — it is not emailed, so you will need to pass it on
+                yourself and ask them to change it.
               </p>
             </div>
           )}
@@ -555,6 +574,72 @@ export default function UsersPage() {
             </Field>
           )}
         </form>
+      </Modal>
+
+      {/* ── Credentials, shown once ──
+          The temporary password exists nowhere else: it is not stored, not
+          emailed and not recoverable. Closing this dialog is the last chance to
+          copy it, so say so rather than letting it disappear quietly. */}
+      <Modal
+        open={credentials !== null}
+        onClose={() => setCredentials(null)}
+        title={credentials?.password ? 'Account created' : 'Account linked'}
+        description={credentials?.password
+          ? 'Share these details with the employee. The password is shown only once.'
+          : 'This person already had a login, so their existing password still applies.'}
+        size="md"
+        footer={
+          <button type="button" className="btn-primary" onClick={() => setCredentials(null)}>
+            Done
+          </button>
+        }
+      >
+        {credentials && (
+          <div className="space-y-4">
+            <DescriptionList
+              columns={1}
+              items={[
+                { label: 'Name', value: credentials.name },
+                { label: 'Email', value: <span className="font-mono text-sm">{credentials.email}</span> },
+                ...(credentials.password
+                  ? [{
+                      label: 'Temporary password',
+                      value: (
+                        <span className="flex items-center gap-2">
+                          <code className="select-all rounded bg-slate-100 px-2 py-1 font-mono text-sm tracking-wide dark:bg-navy-800">
+                            {credentials.password}
+                          </code>
+                          <button
+                            type="button"
+                            className="link text-xs"
+                            onClick={() => {
+                              void navigator.clipboard?.writeText(credentials.password ?? '')
+                              toast.success('Password copied')
+                            }}
+                          >
+                            Copy
+                          </button>
+                        </span>
+                      ),
+                    }]
+                  : []),
+              ]}
+            />
+            {credentials.password && (
+              <div className="flex gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+                <KeyRound className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <p>
+                  Send it over a channel only they can read, and ask them to change it after their
+                  first sign-in. It is not saved anywhere and cannot be shown again — if it is lost,
+                  use <span className="font-medium">Reset password</span> on their account.
+                </p>
+              </div>
+            )}
+            {credentials.warning && (
+              <p className="text-sm text-amber-700 dark:text-amber-300">{credentials.warning}</p>
+            )}
+          </div>
+        )}
       </Modal>
 
       <ConfirmDialog

@@ -4,6 +4,7 @@ import type {
   Alert,
   AlertStatus,
   AuditTemplate,
+  Brand,
   CapaStatus,
   Comment,
   CorrectiveAction,
@@ -528,6 +529,19 @@ export function updateNotificationRule(data: Dataset, ctx: ActionContext, id: st
 
 export function updateOrganization(data: Dataset, ctx: ActionContext, patch: Partial<OrganizationSettings>): DatasetPatch {
   return { organization: { ...data.organization, ...patch }, activityLogs: withLog(data, ctx, 'System settings updated', 'System Settings', 'organization') }
+}
+
+/**
+ * Brands arrived with the seeded demo data, so on a real, empty database there
+ * was no way to create one — and an outlet cannot be created without a brand.
+ * This is what breaks that deadlock.
+ */
+export function upsertBrand(data: Dataset, ctx: ActionContext, brand: Brand): DatasetPatch {
+  const exists = data.brands.some((b) => b.id === brand.id)
+  return {
+    brands: exists ? replace(data.brands, brand) : [...data.brands, brand],
+    activityLogs: withLog(data, ctx, exists ? 'Brand updated' : 'Brand created', 'Outlets', brand.id, `${brand.name} · ${brand.segment}`),
+  }
 }
 
 export function upsertOutlet(data: Dataset, ctx: ActionContext, outlet: Outlet): DatasetPatch {

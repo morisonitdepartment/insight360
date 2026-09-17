@@ -5,8 +5,8 @@ import { Activity, Building2, Download, ExternalLink, Pencil, Plus, Store, Tags,
 import { useAuth } from '@/contexts/AuthContext'
 import { useData } from '@/contexts/DataContext'
 import { useDocumentTitle, useNow } from '@/hooks'
-import type { EntSubcategory, FnbSubcategory, Outlet, OutletStatus, Segment, Subcategory } from '@/types'
-import { logExport, upsertOutlet } from '@/services/actions'
+import type { Brand, EntSubcategory, FnbSubcategory, Outlet, OutletStatus, Segment, Subcategory } from '@/types'
+import { logExport, upsertBrand, upsertOutlet } from '@/services/actions'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { KpiCard } from '@/components/ui/KpiCard'
 import { Card } from '@/components/ui/Card'
@@ -106,6 +106,11 @@ export default function AdminOutletsPage() {
   const [form, setForm] = useState<OutletForm>(emptyForm)
   const [errors, setErrors] = useState<Partial<Record<keyof OutletForm, string>>>({})
   const [busy, setBusy] = useState(false)
+  // Brands had no creation path anywhere in the app, so a real portfolio could
+  // never get its first outlet. Created here, where the need actually arises.
+  const [brandModal, setBrandModal] = useState(false)
+  const [brandForm, setBrandForm] = useState<{ name: string; segment: Segment }>({ name: '', segment: 'F&B' })
+  const [brandError, setBrandError] = useState('')
 
   const selectedBrand = form.brandId ? brandById.get(form.brandId) : undefined
   const segment: Segment | null = selectedBrand?.segment ?? null
@@ -123,8 +128,10 @@ export default function AdminOutletsPage() {
   }
   const closeForm = () => setEditing(null)
 
-  const setBrand = (brandId: string) => {
-    const b = brandById.get(brandId)
+  const setBrand = (brandId: string, known?: Brand) => {
+    // `known` covers the just-created brand: dispatch has not re-rendered yet, so
+    // it is not in brandById, and without it the segment would come back empty.
+    const b = known ?? brandById.get(brandId)
     setForm((f) => {
       const seg = b?.segment
       const subOk = seg && (seg === 'F&B' ? FNB_SUBCATEGORIES : ENT_SUBCATEGORIES).includes(f.subcategory as never)
@@ -132,6 +139,34 @@ export default function AdminOutletsPage() {
       const hours = editing?.outlet ? f.openingHours : seg === 'Entertainment' ? '10:00 – 23:00' : '11:00 – 00:00'
       return { ...f, brandId, subcategory: subOk ? f.subcategory : '', code, openingHours: hours }
     })
+  }
+
+  const submitBrand = async (ev: FormEvent) => {
+    ev.preventDefault()
+    const name = brandForm.name.trim()
+    if (!name) {
+      setBrandError('Brand name is required.')
+      return
+    }
+    if (data.brands.some((b) => b.name.toLowerCase() === name.toLowerCase())) {
+      setBrandError('That brand already exists.')
+      return
+    }
+    const brand: Brand = { id: `brd-${Date.now().toString(36)}`, name, segment: brandForm.segment, outletCount: 0 }
+    setBusy(true)
+    try {
+      await dispatch((d, ctx) => upsertBrand(d, ctx, brand))
+      // Select it immediately: the only reason to be here is to use it.
+      setBrand(brand.id, brand)
+      toast.success(`${name} added`)
+      setBrandModal(false)
+      setBrandForm({ name: '', segment: 'F&B' })
+      setBrandError('')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not add the brand')
+    } finally {
+      setBusy(false)
+    }
   }
 
   const validate = (): boolean => {
@@ -318,15 +353,27 @@ export default function AdminOutletsPage() {
         }
       >
         <form id="outlet-form" onSubmit={submit} className="grid grid-cols-1 gap-4 sm:grid-cols-2" noValidate>
-          <Field label="Brand" required error={errors.brandId} htmlFor="outlet-brand">
-            <Select id="outlet-brand" value={form.brandId} onChange={(e) => setBrand(e.target.value)} invalid={!!errors.brandId}>
-              <option value="">Select brand…</option>
-              {data.brands.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name} · {b.segment}
-                </option>
-              ))}
-            </Select>
+          <Field
+            label="Brand"
+            required
+            error={errors.brandId}
+            htmlFor="outlet-brand"
+            hint={data.brands.length === 0 ? 'No brands yet — add your first one.' : undefined}
+          >
+            <div className="flex gap-2">
+              <Select id="outlet-brand" value={form.brandId} onChange={(e) => setBrand(e.target.value)} invalid={!!errors.brandId} className="min-w-0 flex-1">
+                <option value="">{data.brands.length ? 'Select brand…' : 'No brands yet'}</option>
+                {data.brands.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} · {b.segment}
+                  </option>
+                ))}
+              </Select>
+              <button type="button" className="btn-secondary shrink-0 px-3" onClick={() => setBrandModal(true)} title="Add a brand">
+                <Plus className="h-4 w-4" aria-hidden />
+                <span className="sr-only">Add a brand</span>
+              </button>
+            </div>
           </Field>
           <Field label="Segment" hint="Derived from the selected brand.">
             <div className="flex h-[38px] items-center">{segment ? <SegmentBadge segment={segment} size="md" /> : <span className="text-xs text-slate-400">—</span>}</div>
@@ -350,15 +397,32 @@ export default function AdminOutletsPage() {
           <Field label="Location" required error={errors.location} htmlFor="outlet-location">
             <Input id="outlet-location" value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} placeholder="e.g. Lusail Marina" invalid={!!errors.location} />
           </Field>
-          <Field label="Region" required error={errors.region} htmlFor="outlet-region">
-            <Select id="outlet-region" value={form.region} onChange={(e) => setForm((f) => ({ ...f, region: e.target.value }))} invalid={!!errors.region}>
-              <option value="">Select region…</option>
+          {/* Free text with suggestions, not a fixed list. The options were derived
+              from the regions of existing outlets, so on an empty portfolio the
+              dropdown was empty and could never be filled — the first outlet was
+              impossible to create. Typing also lets each client use their own
+              geography instead of one baked into the product. */}
+          <Field
+            label="Region"
+            required
+            error={errors.region}
+            htmlFor="outlet-region"
+            hint={regions.length ? 'Pick an existing region or type a new one.' : 'Type a region, e.g. Doha Central.'}
+          >
+            <Input
+              id="outlet-region"
+              list="outlet-regions"
+              value={form.region}
+              onChange={(e) => setForm((f) => ({ ...f, region: e.target.value }))}
+              placeholder="e.g. Doha Central"
+              invalid={!!errors.region}
+              autoComplete="off"
+            />
+            <datalist id="outlet-regions">
               {regions.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
+                <option key={r} value={r} />
               ))}
-            </Select>
+            </datalist>
           </Field>
           <Field label="Outlet manager" htmlFor="outlet-manager">
             <Input id="outlet-manager" value={form.manager} onChange={(e) => setForm((f) => ({ ...f, manager: e.target.value }))} placeholder="Full name" />
@@ -377,6 +441,47 @@ export default function AdminOutletsPage() {
           </Field>
           <Field label="Target score (%)" error={errors.targetScore} htmlFor="outlet-target" hint="Brand standard the outlet is benchmarked against.">
             <Input id="outlet-target" type="number" min={50} max={100} step={1} value={form.targetScore} onChange={(e) => setForm((f) => ({ ...f, targetScore: e.target.value }))} invalid={!!errors.targetScore} />
+          </Field>
+        </form>
+      </Modal>
+
+      {/* ── New brand ──
+          Sits above the outlet dialog rather than replacing it, so the outlet
+          being filled in is not lost. The segment lives on the brand, which is
+          why it is asked for here and derived there. */}
+      <Modal
+        open={brandModal}
+        onClose={() => { setBrandModal(false); setBrandError('') }}
+        title="Add a brand"
+        description="Every outlet belongs to a brand, and the brand sets its segment."
+        size="sm"
+        footer={
+          <>
+            <button type="button" className="btn-secondary" onClick={() => { setBrandModal(false); setBrandError('') }} disabled={busy}>
+              Cancel
+            </button>
+            <button type="submit" form="brand-form" className="btn-primary" disabled={busy}>
+              {busy ? 'Saving…' : 'Add brand'}
+            </button>
+          </>
+        }
+      >
+        <form id="brand-form" onSubmit={submitBrand} className="space-y-4" noValidate>
+          <Field label="Brand name" required error={brandError} htmlFor="brand-name">
+            <Input
+              id="brand-name"
+              value={brandForm.name}
+              onChange={(e) => { setBrandForm((f) => ({ ...f, name: e.target.value })); setBrandError('') }}
+              placeholder="e.g. Urban Fork"
+              invalid={!!brandError}
+              autoComplete="off"
+            />
+          </Field>
+          <Field label="Segment" required htmlFor="brand-segment" hint="Determines which subcategories its outlets may use.">
+            <Select id="brand-segment" value={brandForm.segment} onChange={(e) => setBrandForm((f) => ({ ...f, segment: e.target.value as Segment }))}>
+              <option value="F&B">F&amp;B</option>
+              <option value="Entertainment">Entertainment</option>
+            </Select>
           </Field>
         </form>
       </Modal>

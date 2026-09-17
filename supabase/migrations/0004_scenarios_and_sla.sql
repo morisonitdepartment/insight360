@@ -11,6 +11,37 @@
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
+-- 0. Helper guards
+--    0001 creates these. They are redefined here, idempotently, so this file can
+--    be applied on its own and cannot fail with
+--    "function app.attach_updated_at(unknown) does not exist".
+-- ---------------------------------------------------------------------------
+create schema if not exists app;
+grant usage on schema app to anon, authenticated, service_role;
+
+create or replace function app.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+create or replace function app.attach_updated_at(p_table regclass)
+returns void
+language plpgsql
+as $$
+begin
+  execute format(
+    'drop trigger if exists set_updated_at on %s; create trigger set_updated_at before update on %s for each row execute function app.set_updated_at();',
+    p_table, p_table
+  );
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
 -- 1. Scenario library
 -- ---------------------------------------------------------------------------
 create table if not exists public.scenarios (

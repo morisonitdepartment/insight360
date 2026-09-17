@@ -55,6 +55,18 @@ alter default privileges in schema public
 alter default privileges in schema public
   revoke all on tables from anon;
 
+-- NOTE, added after the fact: these three statements rewrote the default
+-- privileges for `public` and named only `authenticated` and `anon`. The entry
+-- they produced left `service_role` with truncate/references/trigger and none of
+-- select/insert/update/delete, and every table created afterwards inherited it.
+--
+-- That surfaced much later as `permission denied for table users`, from the
+-- provision-user Edge Function. It has been left as it stands rather than
+-- "corrected", because no part of this system needs service_role to read tables
+-- and a secret key with no table privileges behind it is a much smaller loss if
+-- it ever leaks. See supabase/README.md, "Why service_role cannot read your
+-- tables", before granting anything back.
+
 -- ---------------------------------------------------------------------------
 -- 5. Verification
 --

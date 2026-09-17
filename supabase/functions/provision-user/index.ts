@@ -190,11 +190,24 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } })
 
   // Prove the key works before creating anything, so a bad key cannot leave an
-  // Auth account behind with no profile.
-  const { error: keyError } = await admin.from('users').select('id').limit(1)
+  // Auth account behind with no profile to go with it.
+  //
+  // This deliberately probes the RPC rather than reading a table. `service_role`
+  // holds no select/insert/update/delete on public in this project — see
+  // supabase/README.md, "Why service_role cannot read your tables" — so a table
+  // read would fail here even when everything needed is in place. Passing an
+  // empty email makes app.provision_user() return its "email is required"
+  // refusal immediately, writing nothing, which is exactly the no-op we want.
+  const { error: keyError } = await admin.rpc('admin_provision_user', {
+    p_email: '',
+    p_name: '',
+    p_title: '',
+    p_role: 'analyst',
+    p_outlet_codes: '',
+  })
   if (keyError) {
     return json(
-      { error: `The service-role key was rejected: ${keyError.message}`, step: 'service-key' },
+      { error: `The service-role key could not run the provisioning function: ${keyError.message}`, step: 'service-key' },
       500,
     )
   }

@@ -245,6 +245,44 @@ Notes:
 ---
 
 
+### Why `service_role` cannot read your tables
+
+`service_role` holds no `select`/`insert`/`update`/`delete` on `public` in this project.
+Check it with:
+
+```sql
+select grantee, string_agg(distinct privilege_type, ',' order by privilege_type)
+from information_schema.role_table_grants
+where table_schema = 'public' group by grantee;
+```
+
+This started as a mistake — migration 0005 rebuilt the default privileges for
+`authenticated` and `anon` and left `service_role` with a stripped set, which every table
+then inherited. It surfaced as `permission denied for table users` the first time the Edge
+Function tried to read a profile.
+
+It has been kept deliberately, because nothing needs it and it is the safer posture. The
+secret key is the one credential that bypasses every RLS policy; with no table privileges
+behind it, a leak cannot be turned into `GET /rest/v1/users` and a copy of your data. The
+provisioning path works entirely through the Auth admin API and
+`public.admin_provision_user`, which is `security definer` and owned by `postgres`, so it
+touches tables with the *owner's* rights rather than the caller's.
+
+Verified directly:
+
+```
+as service_role:
+  rpc probe   -> FAILED - email is required.     (works)
+  table read  -> refused (permission denied)     (still closed)
+```
+
+**If you ever add server-side work that genuinely needs table access** — a backup job, an
+integration — it will fail with `permission denied` until you grant it. Grant the narrowest
+thing that works, e.g. `grant select on public.visits to service_role;`, rather than
+restoring blanket access.
+
+---
+
 ## 5. Frontend environment variables
 
 Copy `.env.example` to `.env` at the project root:

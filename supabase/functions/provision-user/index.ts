@@ -14,6 +14,16 @@
 //   5. Deletes the Auth account again if step 4 fails, so a half-made user is
 //      never left behind.
 //
+// The caller's own profile is read with the CALLER's client, not the service
+// key: they are allowed to read their own row, so asking for more privilege than
+// the question needs would be gratuitous — and it would make an unrelated
+// service-key problem look like "your account is not active".
+//
+// Every failure says which step failed and why. An earlier version answered
+// "Your account is not active on this platform." whether the profile was
+// missing, inactive, or simply could not be read, which sent the administrator
+// looking at the wrong thing entirely.
+//
 // The temporary password is returned once, to the administrator who asked. It is
 // never stored, never logged, and never emailed — Supabase's built-in SMTP is
 // rate-limited to a handful of messages an hour and is not fit for onboarding.
@@ -73,44 +83,64 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   if (req.method !== 'POST') return json({ error: 'Method not allowed.' }, 405)
 
-  const url = Deno.env.get('SUPABASE_URL')!
-  const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const url = Deno.env.get('SUPABASE_URL') ?? ''
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+  // SB_SECRET_KEY is only needed on projects where the injected legacy
+  // service-role key is absent or disabled; normally it is not set.
+  const serviceKey = Deno.env.get('SB_SECRET_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+
+  if (!url || !anonKey) {
+    return json({ error: 'Server misconfigured: SUPABASE_URL or SUPABASE_ANON_KEY is not set.', step: 'env' }, 500)
+  }
 
   // -------------------------------------------------------------------------
   // 1. Who is asking? Taken from their token, so the body cannot claim an
   //    identity. An unsigned or expired token stops here.
   // -------------------------------------------------------------------------
   const authHeader = req.headers.get('Authorization') ?? ''
-  if (!authHeader.startsWith('Bearer ')) return json({ error: 'Sign in first.' }, 401)
+  if (!authHeader.startsWith('Bearer ')) return json({ error: 'Sign in first.', step: 'auth' }, 401)
 
   const caller = createClient(url, anonKey, {
     global: { headers: { Authorization: authHeader } },
   })
   const { data: authData, error: authError } = await caller.auth.getUser()
-  if (authError || !authData?.user) return json({ error: 'Your session has expired. Sign in again.' }, 401)
-
-  const admin = createClient(url, serviceKey, { auth: { persistSession: false } })
+  if (authError || !authData?.user) {
+    return json({ error: 'Your session has expired. Sign in again.', step: 'auth' }, 401)
+  }
 
   // -------------------------------------------------------------------------
   // 2. Is the caller allowed to create this particular role?
-  //    The role comes from the database, never from the request.
+  //    Read through the caller's own client: they may read their own row, and
+  //    the role must come from the database rather than from the request.
   // -------------------------------------------------------------------------
-  const { data: profile } = await admin
+  const { data: profile, error: profileError } = await caller
     .from('users')
     .select('id, role, status')
     .eq('auth_id', authData.user.id)
     .maybeSingle()
 
-  if (!profile || profile.status !== 'active') {
-    return json({ error: 'Your account is not active on this platform.' }, 403)
+  if (profileError) {
+    // Distinct from "no profile": something stopped us reading it at all.
+    return json(
+      { error: `Could not read your profile: ${profileError.message}`, step: 'profile-lookup' },
+      500,
+    )
+  }
+  if (!profile) {
+    return json(
+      { error: 'No platform profile is linked to this account. Run supabase/create_user.sql for it.', step: 'profile-missing' },
+      403,
+    )
+  }
+  if (profile.status !== 'active') {
+    return json({ error: `Your account is ${profile.status}, not active.`, step: 'profile-inactive' }, 403)
   }
 
   let body: Record<string, unknown>
   try {
     body = await req.json()
   } catch {
-    return json({ error: 'Malformed request.' }, 400)
+    return json({ error: 'Malformed request.', step: 'body' }, 400)
   }
 
   const email = String(body.email ?? '').trim().toLowerCase()
@@ -119,8 +149,8 @@ Deno.serve(async (req: Request) => {
   const role = String(body.role ?? '').trim()
   const outletCodes = String(body.outletCodes ?? '').trim()
 
-  if (!email || !name) return json({ error: 'Name and email are required.' }, 400)
-  if (!ALL_ROLES.includes(role)) return json({ error: `"${role}" is not a role.` }, 400)
+  if (!email || !name) return json({ error: 'Name and email are required.', step: 'input' }, 400)
+  if (!ALL_ROLES.includes(role)) return json({ error: `"${role}" is not a role.`, step: 'input' }, 400)
 
   const allowed =
     profile.role === 'super_admin'
@@ -130,18 +160,47 @@ Deno.serve(async (req: Request) => {
         : []
 
   if (!allowed.includes(role)) {
-    return json({ error: `A ${profile.role} may not create a ${role}.` }, 403)
+    return json({ error: `A ${profile.role} may not create a ${role}.`, step: 'authorize' }, 403)
   }
 
   // An operations manager's access is an explicit list. Creating one with an
   // empty list produces an account that opens to a blank application, which
   // reads as a broken login rather than a configuration mistake.
   if (role === 'ops_manager' && !outletCodes) {
-    return json({ error: 'An operations manager needs at least one outlet.' }, 400)
+    return json({ error: 'An operations manager needs at least one outlet.', step: 'input' }, 400)
   }
 
   // -------------------------------------------------------------------------
-  // 3. Create the Auth account. If one already exists for this address we keep
+  // 3. From here on we need the service-role key. Say so plainly if it is
+  //    missing, rather than failing later in a way that looks like a data
+  //    problem.
+  // -------------------------------------------------------------------------
+  if (!serviceKey) {
+    return json(
+      {
+        error:
+          'Server misconfigured: no service-role key available to this function. ' +
+          'Set SB_SECRET_KEY as a function secret (Edge Functions -> Secrets) using the project\'s secret API key.',
+        step: 'service-key',
+      },
+      500,
+    )
+  }
+
+  const admin = createClient(url, serviceKey, { auth: { persistSession: false } })
+
+  // Prove the key works before creating anything, so a bad key cannot leave an
+  // Auth account behind with no profile.
+  const { error: keyError } = await admin.from('users').select('id').limit(1)
+  if (keyError) {
+    return json(
+      { error: `The service-role key was rejected: ${keyError.message}`, step: 'service-key' },
+      500,
+    )
+  }
+
+  // -------------------------------------------------------------------------
+  // 4. Create the Auth account. If one already exists for this address we keep
   //    it and leave its password alone — re-running must never reset a working
   //    login, and must never hand the caller somebody else's credentials.
   // -------------------------------------------------------------------------
@@ -159,14 +218,16 @@ Deno.serve(async (req: Request) => {
   if (createError) {
     const alreadyExists =
       createError.status === 422 || /already been registered|already exists/i.test(createError.message)
-    if (!alreadyExists) return json({ error: `Could not create the login: ${createError.message}` }, 400)
+    if (!alreadyExists) {
+      return json({ error: `Could not create the login: ${createError.message}`, step: 'create-auth-user' }, 400)
+    }
     reusedExisting = true
   } else {
     createdAuthId = created?.user?.id ?? null
   }
 
   // -------------------------------------------------------------------------
-  // 4. Profile, role and outlet scope. One call, which reports its own result.
+  // 5. Profile, role and outlet scope. One call, which reports its own result.
   // -------------------------------------------------------------------------
   const { data: result, error: rpcError } = await admin.rpc('admin_provision_user', {
     p_email: email,
@@ -183,7 +244,10 @@ Deno.serve(async (req: Request) => {
     // Roll back, so a failed attempt does not leave a password that belongs to
     // no profile. Only remove an account this request created.
     if (createdAuthId) await admin.auth.admin.deleteUser(createdAuthId)
-    return json({ error: rpcError?.message ?? message ?? 'Could not write the profile.' }, 400)
+    return json(
+      { error: rpcError?.message ?? message ?? 'Could not write the profile.', step: 'provision' },
+      400,
+    )
   }
 
   return json({

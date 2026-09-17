@@ -305,7 +305,13 @@ export default function AdminOutletsPage() {
     <div className="space-y-5">
       <PageHeader
         title="Outlets"
-        subtitle="Master data for the 50-outlet portfolio"
+        subtitle={
+          // Was hardcoded to the demo's 50. A real portfolio grows from nothing,
+          // and a heading that contradicts the count beside it reads as a bug.
+          scopedOutlets.length === 0
+            ? 'Master data — no outlets yet'
+            : `Master data for the ${scopedOutlets.length}-outlet portfolio`
+        }
         actions={
           <>
             <button type="button" className="btn-secondary" onClick={doExport}>

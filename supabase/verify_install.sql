@@ -58,8 +58,17 @@ with expectations as (
   select 1 as seq, '0001' as from_migration, 'app.set_updated_at() exists' as check_name,
          (to_regprocedure('app.set_updated_at()') is not null) as passed
   union all
-  select 2, '0001', 'app.attach_updated_at(regclass) exists',
-         (to_regprocedure('app.attach_updated_at(regclass)') is not null)
+  -- Note: 0001 drops app.attach_updated_at on its last line once it has finished
+  -- using it, so its absence is correct. What matters is that the triggers it
+  -- attached actually exist, which is what this checks.
+  select 2, '0001', 'updated_at triggers attached (expect 20+)',
+         (select count(*) >= 20
+            from pg_trigger t
+            join pg_class c on c.oid = t.tgrelid
+            join pg_namespace n on n.oid = c.relnamespace
+           where n.nspname = 'public'
+             and not t.tgisinternal
+             and t.tgname = 'set_updated_at')
   union all
   select 3, '0001', 'core tables present (expect 26)',
          (select count(*) >= 26 from information_schema.tables

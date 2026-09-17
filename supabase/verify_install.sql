@@ -201,6 +201,20 @@ with expectations as (
             join pg_namespace n on n.oid = p.pronamespace
            where n.nspname = 'public' and p.proname = 'admin_provision_user')
 
+  union all
+  -- Policies are irrelevant on a table that never consults them.
+  select 30, 'rls', 'row level security enabled on every table',
+         (select count(*) = 0
+            from pg_class c join pg_namespace n on n.oid = c.relnamespace
+           where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity)
+  union all
+  -- A function without a fixed search_path resolves unqualified names against
+  -- whatever the caller set, so the access-control helpers pin theirs.
+  select 31, '0008', 'every app.* function pins its search_path',
+         (select count(*) = 0
+            from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'app' and p.proconfig is null)
+
   -- ---- Clean install: transactional tables still empty ----
   union all
   select 22, 'fresh', 'no outlets yet (clean install)',

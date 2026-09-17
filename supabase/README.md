@@ -70,6 +70,7 @@ Open **SQL Editor → New query** and run the files one at a time, top to bottom
 5. paste and run `migrations/0005_fix_grants.sql`
 6. paste and run `migrations/0006_user_provisioning.sql`
 7. paste and run `migrations/0007_admin_provisioning_rpc.sql`
+8. paste and run `migrations/0008_provisioning_fixes.sql`
 
 Each file is idempotent (`create table if not exists`, `create or replace function`,
 `drop policy if exists` before every `create policy`, `on conflict … do nothing`), so a
@@ -228,7 +229,11 @@ Notes:
   created in the app starts as `invited`, which is another reason it cannot sign in.
 * `outlet_ids` empty means **all outlets** for every role *except* `ops_manager`, who is
   always restricted to an explicit list (see `app.can_see_outlet`). An ops manager with an
-  empty `outlet_ids` sees nothing — deliberate, fail-closed behaviour.
+  empty `outlet_ids` sees nothing — deliberate, fail-closed behaviour. Both
+  `app.provision_user()` and `public.user_access_review` report that case as `NONE`
+  rather than "all outlets", which is the same empty array meaning the opposite thing.
+* The only active `super_admin` cannot be moved to another role. Losing them would leave
+  nobody able to manage users, recoverable only from the SQL editor.
 * A `shopper` row requires `shopper_id` (`users_shopper_link` check constraint in 0001).
 * `app.prevent_privilege_escalation` lets a signed-in **super_admin** change role, status
   and outlet scope from within the app, and blocks everyone else from changing their own.

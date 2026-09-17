@@ -84,7 +84,29 @@ export default function ExecutiveDashboardPage() {
     }
   }
 
-  if (!outlets.length) return <EmptyState title="No outlets in scope" message="Your account has no authorised outlets." />
+  // An empty system and a permissions problem look identical from here, so distinguish them:
+  // on day one an administrator needs a way forward, not a message implying they lack access.
+  if (!outlets.length) {
+    const systemIsEmpty = data.outlets.length === 0
+    return (
+      <EmptyState
+        icon={systemIsEmpty ? Store : ShieldCheck}
+        title={systemIsEmpty ? 'No outlets yet' : 'No outlets in scope'}
+        message={
+          systemIsEmpty
+            ? 'The programme has no outlets on record. Add the outlets to be assessed, then schedule their visits.'
+            : 'Your account is not authorised for any outlets. Ask an administrator to assign them.'
+        }
+        action={
+          systemIsEmpty && can('admin.outlets') ? (
+            <Link to="/admin/outlets" className="btn-primary">
+              <Store className="h-4 w-4" /> Add the first outlet
+            </Link>
+          ) : undefined
+        }
+      />
+    )
+  }
 
   return (
     <div className="space-y-5">

@@ -1077,6 +1077,52 @@ export function generateDataset(): Dataset {
 
 // ───────────────────────────── helpers ─────────────────────────────
 
+/**
+ * A dataset containing configuration only — no outlets, visits, findings, reports or evidence.
+ *
+ * This mirrors exactly what Live Mode looks like on day one: migrations 0001-0004 seed the
+ * organisation, roles, permissions, KPI weightings, score thresholds, training modules,
+ * notification rules, assessment templates and the scenario library, and nothing else.
+ *
+ * Used to preview a day-one system and to exercise every empty state before go-live.
+ * The demo sign-in accounts are retained, because without a user record nobody could log in.
+ */
+export function emptyDataset(): Dataset {
+  const { templates, sections, questions } = buildTemplates()
+  return {
+    organization: DEFAULT_ORGANIZATION,
+    brands: [],
+    outlets: [],
+    users: [
+      mkUser('usr-001', 'Adam Reynolds', 'admin@insight360.demo', 'super_admin', 'Platform Administrator', [], null),
+      mkUser('usr-002', 'Fatima Al-Kuwari', 'clientadmin@insight360.demo', 'client_admin', 'Head of Customer Experience', [], null),
+      mkUser('usr-003', 'Rajesh Menon', 'manager@insight360.demo', 'ops_manager', 'Regional Operations Manager', [], null),
+      mkUser('usr-004', 'Sara Al-Naimi', 'shopper@insight360.demo', 'shopper', 'Senior Mystery Shopper', [], null, 'shp-001'),
+      mkUser('usr-005', 'Priya Nair', 'analyst@insight360.demo', 'analyst', 'Customer Experience Analyst', [], null),
+      mkUser('usr-006', 'Khalid Al-Mansoori', 'executive@insight360.demo', 'executive', 'Chief Operating Officer', [], null),
+    ],
+    shoppers: [],
+    trainingModules: TRAINING_MODULES,
+    templates,
+    scenarios: SCENARIOS,
+    sections,
+    questions,
+    visits: [],
+    answers: [],
+    evidence: [],
+    findings: [],
+    alerts: [],
+    correctiveActions: [],
+    comments: [],
+    notifications: [],
+    activityLogs: [],
+    kpiConfig: DEFAULT_KPI_CONFIG,
+    thresholds: DEFAULT_THRESHOLDS,
+    reports: [],
+    notificationRules: DEFAULT_NOTIFICATION_RULES,
+  }
+}
+
 function mkUser(id: string, name: string, email: string, role: Role, title: string, outletIds: string[], lastLogin: string | null, shopperId?: string): User {
   return {
     id,

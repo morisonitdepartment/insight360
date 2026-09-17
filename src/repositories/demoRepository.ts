@@ -1,6 +1,6 @@
 import { APP_CONFIG } from '@/config/app'
 import { DEMO_ACCOUNTS } from '@/config/demoAccounts'
-import { generateDataset } from '@/data/seed'
+import { emptyDataset, generateDataset } from '@/data/seed'
 import type { Dataset, Evidence, User } from '@/types'
 import { hashString } from '@/utils/prng'
 import type { DatasetPatch, EvidenceUploadMeta, Repository } from './types'
@@ -8,6 +8,7 @@ import type { DatasetPatch, EvidenceUploadMeta, Repository } from './types'
 // Bumped when the seeded data model changes, so returning visitors are not served a stale overlay.
 const DATA_KEY = `${APP_CONFIG.storagePrefix}.demo.data.v2`
 const SESSION_KEY = `${APP_CONFIG.storagePrefix}.session`
+const SEED_KEY = `${APP_CONFIG.storagePrefix}.demo.seed`
 
 /** Collections that may be overridden by local demo mutations. */
 const PERSISTED_KEYS: (keyof Dataset)[] = [
@@ -74,9 +75,26 @@ export class DemoRepository implements Repository {
     }
   }
 
+  /**
+   * Which seed the demo starts from. `?seed=empty` (sticky, stored) yields a configuration-only
+   * dataset matching day-one Live Mode; anything else yields the full demonstration portfolio.
+   */
+  private seedMode(): 'full' | 'empty' {
+    try {
+      const fromUrl = new URLSearchParams(window.location.search).get('seed')
+      if (fromUrl === 'empty' || fromUrl === 'full') {
+        localStorage.setItem(SEED_KEY, fromUrl)
+        return fromUrl
+      }
+      return localStorage.getItem(SEED_KEY) === 'empty' ? 'empty' : 'full'
+    } catch {
+      return 'full'
+    }
+  }
+
   private dataset(): Dataset {
     if (!this.cache) {
-      const seed = generateDataset()
+      const seed = this.seedMode() === 'empty' ? emptyDataset() : generateDataset()
       this.cache = { ...seed, ...this.overlay }
     }
     return this.cache

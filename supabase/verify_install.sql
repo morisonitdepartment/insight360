@@ -147,6 +147,24 @@ with expectations as (
            where table_schema = 'public' and table_name = 'organizations'
              and column_name = 'reporting_target_hours')
 
+  -- ---- Grants: RLS is evaluated on top of table privileges, so a missing
+  --      grant denies access no matter how correct the policies are ----
+  union all
+  select 24, '0005', 'authenticated granted on every table',
+         (select count(*) = 0
+            from information_schema.tables t
+           where t.table_schema = 'public' and t.table_type = 'BASE TABLE'
+             and not exists (
+               select 1 from information_schema.role_table_grants g
+                where g.table_schema = 'public'
+                  and g.table_name = t.table_name
+                  and g.grantee = 'authenticated'
+                  and g.privilege_type = 'SELECT'))
+  union all
+  select 25, '0005', 'anon granted on no table',
+         (select count(*) = 0 from information_schema.role_table_grants
+           where table_schema = 'public' and grantee = 'anon')
+
   -- ---- Clean install: transactional tables still empty ----
   union all
   select 22, 'fresh', 'no outlets yet (clean install)',

@@ -131,6 +131,10 @@ create policy scenarios_manage on public.scenarios
   for all using (app.has_permission('admin.templates'))
   with check (app.has_permission('admin.templates'));
 
+-- Table privileges are checked before row level security, so the grant matters as
+-- much as the policies. 0002 granted "on all tables in schema" before this table
+-- existed, so it must be granted explicitly here.
+grant select, insert, update, delete on public.scenarios to authenticated;
 revoke all on public.scenarios from anon;
 
 -- ---------------------------------------------------------------------------

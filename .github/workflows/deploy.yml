@@ -1,5 +1,14 @@
 name: Deploy INSIGHT360 to GitHub Pages
 
+# Publishes two builds of the same codebase to one Pages site:
+#
+#   /<repo>/      demo      — seeded synthetic data, no backend, for pitching
+#   /<repo>/app/  live       — Supabase-backed production system
+#
+# The live build is produced only when SUPABASE_URL and SUPABASE_ANON_KEY are set
+# as repository secrets. Without them the job still publishes the demo, rather
+# than shipping a production build that cannot reach its database.
+
 on:
   push:
     branches: [main]
@@ -30,14 +39,57 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build (demo mode, base path = /<repo>/)
+      - name: Decide whether the live build can be produced
+        id: live
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "Live build enabled."
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::SUPABASE_URL / SUPABASE_ANON_KEY not set — publishing the demo only."
+          fi
+
+      - name: Build demo (root)
         env:
           VITE_APP_MODE: demo
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
         run: npm run build
 
-      - name: Add SPA fallback
-        run: node scripts/spa-fallback.cjs
+      - name: Build live (/app/)
+        if: steps.live.outputs.enabled == 'true'
+        env:
+          VITE_APP_MODE: live
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/app/
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        # Built straight into dist/app, so the demo output is never moved around.
+        # emptyOutDir is scoped to dist/app and leaves the demo build untouched.
+        run: |
+          npm run build -- --outDir dist/app --emptyOutDir
+          # The nested build must not carry its own fallback; Pages serves only the root one.
+          rm -f dist/app/404.html
+
+      - name: Write SPA fallback
+        run: |
+          if [ "${{ steps.live.outputs.enabled }}" = "true" ]; then
+            node scripts/spa-fallback.cjs --with-app
+          else
+            node scripts/spa-fallback.cjs
+          fi
+
+      - name: Summarise what is being published
+        run: |
+          echo "### Published builds" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Demo: \`/${{ github.event.repository.name }}/\`" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.live.outputs.enabled }}" = "true" ]; then
+            echo "- Live: \`/${{ github.event.repository.name }}/app/\`" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Live: not built (Supabase secrets absent)" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

@@ -165,6 +165,31 @@ with expectations as (
          (select count(*) = 0 from information_schema.role_table_grants
            where table_schema = 'public' and grantee = 'anon')
 
+  -- ---- User provisioning ----
+  union all
+  select 26, '0006', 'app.provision_user() installed',
+         (select count(*) = 1 from pg_proc p
+            join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'app' and p.proname = 'provision_user')
+  union all
+  -- Minting logins is an administrator action. If the browser-facing roles can
+  -- execute this, anyone signed in could grant themselves any role.
+  select 27, '0006', 'provision_user not callable from the browser',
+         (select not (has_function_privilege('anon', p.oid, 'execute')
+                   or has_function_privilege('authenticated', p.oid, 'execute'))
+            from pg_proc p
+            join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'app' and p.proname = 'provision_user')
+  union all
+  -- Without security_invoker the view would run as its owner and expose every
+  -- users row, straight past the RLS on that table.
+  select 28, '0006', 'user_access_review respects the caller''s RLS',
+         (select c.reloptions @> array['security_invoker=true']
+              or c.reloptions @> array['security_invoker=on']
+            from pg_class c
+            join pg_namespace n on n.oid = c.relnamespace
+           where n.nspname = 'public' and c.relname = 'user_access_review')
+
   -- ---- Clean install: transactional tables still empty ----
   union all
   select 22, 'fresh', 'no outlets yet (clean install)',

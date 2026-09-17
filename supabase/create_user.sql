@@ -1,0 +1,91 @@
+-- ============================================================================
+-- create_user.sql — give your employees their logins.
+--
+-- Two systems have to agree before anyone can sign in:
+--
+--   Supabase Auth  owns the email and password.
+--   public.users   owns the role and the outlets they may see.
+--
+-- The app reads the role from public.users and NEVER from anything the browser
+-- sends — that is what stops a user granting themselves permissions. It also
+-- means a password with no linked profile cannot sign in, and a profile with no
+-- password is just a name in a list.
+--
+-- IMPORTANT: creating a user inside the app (Administration -> Users) writes the
+-- profile only. It cannot set a password, so that person will be stuck at the
+-- login screen. Use this file instead.
+--
+--
+-- ────────────────────────────────────────────────────────────────────────────
+-- STEP 1 — create the password (once per employee)
+--
+--   Authentication -> Users -> Add user -> Create new user
+--   Enter their work email and a password, and tick "Auto Confirm User".
+--
+-- STEP 2 — run 0006_user_provisioning.sql once, if you have not already.
+--
+-- STEP 3 — edit the list below and run this file.
+-- ────────────────────────────────────────────────────────────────────────────
+--
+-- Safe to re-run. Running it again updates people rather than duplicating them,
+-- so this is also how you change somebody's role or outlets later.
+-- ============================================================================
+
+
+-- ############################################################################
+--  ONE LINE PER EMPLOYEE. The values are, in order:
+--
+--     email, full name, job title, role, outlet codes
+--
+--  ROLE — one of these six, spelled exactly:
+--
+--     'super_admin'   Everything, including user management. Keep to 1-2 people.
+--     'client_admin'  Runs the programme: outlets, questionnaires, schedule, reports.
+--     'ops_manager'   Their own outlets only. Reads reports, owns corrective actions.
+--     'analyst'       Reads everything and builds reports. Changes no settings.
+--     'executive'     Read-only dashboards and reports across the whole business.
+--     'shopper'       Field auditor. Own visits only, no management reporting.
+--
+--  OUTLET CODES — comma-separated, as shown under Administration -> Outlets.
+--
+--     ''  means every outlet.
+--     An ops_manager with '' sees NOTHING. That is deliberate: their access is
+--     an explicit list, so a forgotten entry shows too little, never too much.
+--     Every other role treats '' as "all outlets".
+--
+--  Delete the example lines you do not need. Keep the commas between lines and
+--  the semicolon on the last one.
+-- ############################################################################
+
+select app.provision_user('ops@example.com',       'Operations Lead',   'Operations Manager',    'ops_manager',  'OUT-001,OUT-002');
+select app.provision_user('analyst@example.com',   'Quality Analyst',   'QA Analyst',            'analyst',      '');
+select app.provision_user('director@example.com',  'Managing Director', 'Managing Director',     'executive',    '');
+select app.provision_user('auditor@example.com',   'Field Auditor',     'Mystery Shopper',       'shopper',      '');
+
+-- Each line prints its own result. Read every one of them:
+--
+--   OK       - the person can sign in, and the outlets they will see are listed.
+--   FAILED   - nothing was written. Usually the Auth user does not exist yet,
+--              or the email does not match the one in Authentication -> Users.
+--   WARNING  - the account was created, but an outlet code matched nothing, or
+--              an ops_manager was left with no outlets and will see an empty app.
+
+
+-- ---------------------------------------------------------------------------
+-- AFTERWARDS — review the whole roster. Run this on its own:
+--
+--   select * from public.user_access_review order by role, name;
+--
+-- `can_sign_in` must be true for every person. False means the profile exists
+-- but has no password behind it.
+--
+--
+-- WHEN SOMEONE LEAVES:
+--
+--   update public.users set status = 'inactive' where email = 'name@example.com';
+--
+-- Every access check ignores non-active accounts, so this revokes their access
+-- immediately while keeping their name on the visits and reports they produced.
+-- Deleting the row would orphan that history. Remove their Auth user too, under
+-- Authentication -> Users, so the password stops working as well.
+-- ---------------------------------------------------------------------------

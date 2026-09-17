@@ -7,6 +7,7 @@ import { useData } from '@/contexts/DataContext'
 import { useDocumentTitle, useNow } from '@/hooks'
 import type { Role, User, UserStatus } from '@/types'
 import { PERMISSIONS, ROLE_LABELS, ROLE_PERMISSIONS, type Permission } from '@/config/permissions'
+import { isLiveMode } from '@/config/app'
 import { createUser, logExport, resetPassword, updateUser, type NewUserInput } from '@/services/actions'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { KpiCard } from '@/components/ui/KpiCard'
@@ -198,7 +199,12 @@ export default function UsersPage() {
     ev.preventDefault()
     if (!canCreate || !validate(true)) return
     const input: NewUserInput = { name: form.name.trim(), email: form.email.trim().toLowerCase(), role: form.role, title: form.title.trim(), outletIds: form.role === 'ops_manager' ? form.outletIds : [] }
-    await run(`Invitation sent to ${input.email}`, (d, ctx) => createUser(d, ctx, input), () => setCreateOpen(false))
+    // No email is actually sent in Live Mode, and the account cannot sign in until
+    // a login is linked, so do not report an invitation that did not happen.
+    const message = isLiveMode()
+      ? `Profile created for ${input.email} — link their login to activate it`
+      : `Invitation sent to ${input.email}`
+    await run(message, (d, ctx) => createUser(d, ctx, input), () => setCreateOpen(false))
   }
 
   const submitEdit = async (ev: FormEvent) => {
@@ -489,7 +495,13 @@ export default function UsersPage() {
         open={createOpen || editOpen}
         onClose={() => { setCreateOpen(false); setEditOpen(false) }}
         title={createOpen ? 'Create user' : `Edit ${selected?.name ?? 'user'}`}
-        description={createOpen ? 'The account is created in “Invited” status and receives an onboarding email (demo).' : 'Update profile details and role.'}
+        description={
+          createOpen
+            ? isLiveMode()
+              ? 'This sets the role and outlet access. The password is created separately — see below.'
+              : 'The account is created in “Invited” status and receives an onboarding email (demo).'
+            : 'Update profile details and role.'
+        }
         size="md"
         footer={
           <>
@@ -503,6 +515,20 @@ export default function UsersPage() {
         }
       >
         <form id="user-form" onSubmit={createOpen ? submitCreate : submitEdit} className="space-y-4" noValidate>
+          {/* In Live Mode the password lives in Supabase Auth, not here. Creating a
+              profile alone leaves someone unable to sign in, which looks like a
+              broken login rather than a missing step — so say it plainly. */}
+          {createOpen && isLiveMode() && (
+            <div className="flex gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+              <KeyRound className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <p>
+                This creates the profile and its permissions only — it does not set a password.
+                To let this person sign in, an administrator must also create their login in
+                Supabase and link it with <code className="font-mono text-xs">app.provision_user()</code>.
+                See <span className="font-medium">supabase/create_user.sql</span>.
+              </p>
+            </div>
+          )}
           <Field label="Full name" required error={errors.name} htmlFor="user-name">
             <Input id="user-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} invalid={!!errors.name} autoComplete="off" />
           </Field>

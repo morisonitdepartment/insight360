@@ -36,10 +36,11 @@ Everything the backend needs lives in this folder:
 
 ---
 
-## 2. Run the three migrations, in order
+## 2. Run the migrations, in order
 
-Order matters: `0002` references tables created in `0001`, and `0003` seeds rows that
-`0002`'s `app.has_permission()` reads.
+Order matters, and numeric order is the only safe order: `0002` references tables created
+in `0001`; `0003` seeds rows that `0002`'s `app.has_permission()` reads; `0005` repairs
+privileges on the table `0004` adds; `0006` builds on all of it.
 
 ### Option A — Supabase CLI (recommended)
 
@@ -65,6 +66,9 @@ Open **SQL Editor → New query** and run the files one at a time, top to bottom
 1. paste and run `migrations/0001_schema.sql`
 2. paste and run `migrations/0002_rls.sql`
 3. paste and run `migrations/0003_seed_reference.sql`
+4. paste and run `migrations/0004_scenarios_and_sla.sql`
+5. paste and run `migrations/0005_fix_grants.sql`
+6. paste and run `migrations/0006_user_provisioning.sql`
 
 Each file is idempotent (`create table if not exists`, `create or replace function`,
 `drop policy if exists` before every `create policy`, `on conflict … do nothing`), so a
@@ -147,84 +151,75 @@ Because the bucket is private, files are fetched with `createSignedUrl()` (short
 
 ## 4. Create auth users and link them to `public.users`
 
-Supabase Auth owns credentials; INSIGHT360 owns the profile. `public.users.auth_id` is the
-join, and `SupabaseRepository.profileFor()` looks the profile up by `auth_id` — so a user
-who has no linked row simply cannot sign in ("No INSIGHT360 profile is linked to this
+Supabase Auth owns credentials; the platform owns the profile. `public.users.auth_id` is
+the join, and `SupabaseRepository.profileFor()` looks the profile up by `auth_id` — so a
+user who has no linked row simply cannot sign in ("No platform profile is linked to this
 account.").
 
-**Step 1 — create the auth user.** Dashboard → **Authentication → Users → Add user**
-(set a real email, tick *Auto Confirm User*), or via the Admin API / CLI with the
-service-role key from a trusted machine.
+This cuts both ways, and it is the single most common onboarding mistake: **creating a
+user inside the app (Administration → Users) writes the profile only.** It cannot set a
+password, so the person is left at the login screen. Use the script below to create a
+login; use the app afterwards to change roles and outlets.
 
-**Step 2 — link the profile.** In the SQL editor:
+**Step 1 — create the password.** Dashboard → **Authentication → Users → Add user**
+(real email, tick *Auto Confirm User*), or via the Admin API with the service-role key
+from a trusted machine.
 
-```sql
--- Super admin
-insert into public.users (id, auth_id, name, email, role, status, title, outlet_ids, brand_ids, mfa_enabled)
-select
-  'usr-001',
-  a.id,
-  'Programme Administrator',
-  a.email,
-  'super_admin',
-  'active',
-  'Head of Quality Assurance',
-  '{}'::text[],          -- empty = all outlets
-  '{}'::text[],
-  true
-from auth.users a
-where a.email = 'admin@example.com'
-on conflict (id) do update
-  set auth_id = excluded.auth_id,
-      status  = 'active';
-```
+**Step 2 — provision the profile.** Run `supabase/create_user.sql`, one line per person:
 
 ```sql
--- Operations manager scoped to three outlets
-insert into public.users (id, auth_id, name, email, role, status, title, outlet_ids)
-select 'usr-003', a.id, 'Regional Operations Manager', a.email, 'ops_manager', 'active',
-       'Operations Manager — West',
-       array['out-012','out-021','out-034']
-from auth.users a
-where a.email = 'manager@example.com'
-on conflict (id) do update set auth_id = excluded.auth_id;
+select app.provision_user(
+  'ops@example.com',     -- must match the auth user exactly
+  'Operations Lead',     -- name shown in the app
+  'Operations Manager',  -- job title
+  'ops_manager',         -- role
+  'OUT-001,OUT-002'      -- outlet codes; '' = all outlets
+);
 ```
+
+`app.provision_user()` (migration 0006) does the whole job in order and reports what it
+actually granted: it refuses to write anything when no auth user matches, creates the
+`shoppers` record that the `users_shopper_link` constraint requires before writing a
+`shopper` profile, translates outlet codes into ids, and warns when a code matched nothing
+or an `ops_manager` was left with no outlets. Re-running it updates the person rather than
+duplicating them, which makes it the supported way to change a role later as well.
+
+It is deliberately **not callable from the browser** — `execute` is revoked from `anon` and
+`authenticated`, so minting a login requires the SQL editor or a service-role connection.
+Verifier checks 26–28 assert this.
+
+**Step 3 — review the roster.**
 
 ```sql
--- Mystery shopper: the shoppers row must exist first (users_shopper_link constraint)
-insert into public.shoppers (id, code, name, gender, age_range, profile_type)
-values ('shp-001', 'MS-001', 'Field Auditor 001', 'Female', '25-34', 'Individual')
-on conflict (id) do nothing;
-
-insert into public.users (id, auth_id, name, email, role, status, shopper_id)
-select 'usr-004', a.id, 'Field Auditor 001', a.email, 'shopper', 'active', 'shp-001'
-from auth.users a
-where a.email = 'shopper@example.com'
-on conflict (id) do update set auth_id = excluded.auth_id;
+select * from public.user_access_review order by role, name;
 ```
 
-Re-link an existing profile to a new auth account:
+`can_sign_in` must be true for everyone; false means a profile with no password behind it.
+The view is defined `with (security_invoker = true)` so it shows each caller only what
+their own RLS allows — without that option a view runs as its owner and would leak every
+row of `public.users`.
 
-```sql
-update public.users u
-set auth_id = a.id
-from auth.users a
-where a.email = u.email
-  and u.id = 'usr-002';
-```
+**When someone leaves:** set `status = 'inactive'` rather than deleting the row, and delete
+their auth user. Every `app.*` helper ignores non-active accounts, so access stops at once
+while their name stays attached to the visits and reports they produced.
 
 Notes:
 
 * `status` must be `'active'` — every `app.*` helper ignores `invited` and `inactive`
-  accounts, so an inactive user is invisible to RLS even with a valid JWT.
+  accounts, so an inactive user is invisible to RLS even with a valid JWT. A profile
+  created in the app starts as `invited`, which is another reason it cannot sign in.
 * `outlet_ids` empty means **all outlets** for every role *except* `ops_manager`, who is
   always restricted to an explicit list (see `app.can_see_outlet`). An ops manager with an
-  empty `outlet_ids` sees nothing — that is deliberate, fail-closed behaviour.
+  empty `outlet_ids` sees nothing — deliberate, fail-closed behaviour.
 * A `shopper` row requires `shopper_id` (`users_shopper_link` check constraint in 0001).
+* `app.prevent_privilege_escalation` lets a signed-in **super_admin** change role, status
+  and outlet scope from within the app, and blocks everyone else from changing their own.
+  Migrations and the SQL editor run without `auth.uid()` and are not subject to it.
 * Normalised alternatives to the arrays exist: `public.user_outlets` (unioned into
   `app.user_outlet_ids()`) and `public.user_roles` (unioned into `app.has_permission()`).
 
 ---
+
 
 ## 5. Frontend environment variables
 

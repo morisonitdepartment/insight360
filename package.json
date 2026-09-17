@@ -10,7 +10,10 @@
     "lint": "oxlint",
     "typecheck": "tsc -b --noEmit",
     "predeploy": "npm run build && node scripts/spa-fallback.cjs",
-    "deploy": "gh-pages -d dist -t true"
+    "deploy": "gh-pages -d dist -t true",
+    "check:rls": "node scripts/check-rls.mjs",
+    "check:roles": "node scripts/check-role-scoping.mjs",
+    "check:spa": "node scripts/test-spa-fallback.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

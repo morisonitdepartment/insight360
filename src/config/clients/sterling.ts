@@ -29,6 +29,15 @@ export const sterling: ClientProfile = {
     trend: [82.6, 84.7, 82.4, 86.7, 84.5, 84.6, 85.4, 89.0, 89.2, 86.4, 85.2, 86.3],
   },
 
+  accent: {
+    ramp: {
+      50: '#fff4ed', 100: '#ffe4d2', 200: '#ffc5a3', 300: '#ff9e6b', 400: '#fa7f41',
+      500: '#f46b25', 600: '#c9500f', 700: '#a33f0c', 800: '#85350d', 900: '#6e2e0f',
+    },
+    chart: '#f46b25',
+    chartLight: '#ff9e6b',
+  },
+
   org: {
     engagementName: 'Mystery Shopping Programme 2025/26',
     engagementStart: '2025-10-01',

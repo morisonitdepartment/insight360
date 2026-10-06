@@ -72,6 +72,25 @@ export interface ClientProfile {
     trend: number[]
   }
 
+  /**
+   * The client's accent colour, as a full 50-900 ramp.
+   *
+   * Applied as CSS custom properties at start-up, so all ~240 `teal-*` classes
+   * follow without being touched. The key is still `teal` in the Tailwind config;
+   * renaming it would mean editing every one of them for no gain.
+   *
+   * Pick 600 with care: it is the solid button fill, and it must stay clearly
+   * distinct from the red that marks critical findings (#dc2626), or a primary
+   * action and an alert badge read as the same thing.
+   */
+  accent: {
+    ramp: Record<50 | 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900, string>
+    /** Series colour in charts. Must not be mistakable for the critical red. */
+    chart: string
+    /** Lighter companion, used for fills and the dark-theme line. */
+    chartLight: string
+  }
+
   /** Seeds `DEFAULT_ORGANIZATION`; all of it is editable at runtime under Settings. */
   org: {
     engagementName: string

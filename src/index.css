@@ -5,6 +5,21 @@
 @layer base {
   :root {
     color-scheme: light;
+    /*
+     * Accent ramp, as space-separated RGB so Tailwind can apply opacity to it.
+     * Overwritten at start-up from the selected client profile; these values are
+     * the fallback and match the default client.
+     */
+    --accent-50: 255 244 237;
+    --accent-100: 255 228 210;
+    --accent-200: 255 197 163;
+    --accent-300: 255 158 107;
+    --accent-400: 250 127 65;
+    --accent-500: 244 107 37;
+    --accent-600: 201 80 15;
+    --accent-700: 163 63 12;
+    --accent-800: 133 53 13;
+    --accent-900: 110 46 15;
   }
   .dark {
     color-scheme: dark;

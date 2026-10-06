@@ -28,17 +28,23 @@ export default {
          * accent moved from teal to orange. Steps 600 and 700 are deliberately darker than the
          * brand orange so white text on buttons and orange links on white both clear WCAG AA.
          */
+        /**
+         * The client accent. Values come from CSS custom properties set at
+         * start-up from the selected client profile, so all ~240 `teal-*` classes
+         * re-colour without being edited. The key stays `teal` for that reason.
+         * src/index.css holds the fallback ramp for before the script runs.
+         */
         teal: {
-          50: '#fff4ed',
-          100: '#ffe4d2',
-          200: '#ffc5a3',
-          300: '#ff9e6b',
-          400: '#fa7f41',
-          500: '#f46b25',
-          600: '#c9500f',
-          700: '#a33f0c',
-          800: '#85350d',
-          900: '#6e2e0f',
+          50: 'rgb(var(--accent-50) / <alpha-value>)',
+          100: 'rgb(var(--accent-100) / <alpha-value>)',
+          200: 'rgb(var(--accent-200) / <alpha-value>)',
+          300: 'rgb(var(--accent-300) / <alpha-value>)',
+          400: 'rgb(var(--accent-400) / <alpha-value>)',
+          500: 'rgb(var(--accent-500) / <alpha-value>)',
+          600: 'rgb(var(--accent-600) / <alpha-value>)',
+          700: 'rgb(var(--accent-700) / <alpha-value>)',
+          800: 'rgb(var(--accent-800) / <alpha-value>)',
+          900: 'rgb(var(--accent-900) / <alpha-value>)',
         },
       },
       boxShadow: {

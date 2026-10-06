@@ -41,6 +41,22 @@ export const hermanos: ClientProfile = {
     trend: [81.2, 82.4, 80.9, 83.6, 82.1, 83.0, 84.2, 85.1, 84.4, 83.1, 82.8, 83.6],
   },
 
+  // The mark's red is #dd2419, which is all but identical to the #dc2626 this app
+  // uses for critical findings. 500 keeps the brand red exactly, because that is
+  // the colour people recognise; 600 — the solid button fill, and the shade that
+  // would otherwise sit next to an alert badge looking like one — is taken down
+  // to a deeper brick that reads as deliberate rather than alarming. Charts use
+  // the lighter 400, which separates cleanly from a solid red bar and stays
+  // legible on the dark theme.
+  accent: {
+    ramp: {
+      50: '#fef3f2', 100: '#fde3e0', 200: '#fac8c3', 300: '#f3a099', 400: '#e86a5e',
+      500: '#dd2419', 600: '#b31b12', 700: '#8f160f', 800: '#76150f', 900: '#611611',
+    },
+    chart: '#e0574a',
+    chartLight: '#f3a099',
+  },
+
   org: {
     engagementName: 'Brand Standards Programme 2026/27',
     engagementStart: '2026-01-05',

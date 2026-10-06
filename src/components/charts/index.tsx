@@ -23,13 +23,15 @@ import {
 import { cn } from '@/utils/cn'
 import { useTheme } from '@/contexts/ThemeContext'
 import { riskFromScore } from '@/utils/format'
+import { CLIENT } from '@/config/client'
 
 /** Restrained enterprise palette — navy base, brand-orange accent, amber warnings, red only for critical. */
 export const CHART_COLORS = {
   navy: '#1c2d42',
   navyLight: '#6283a8',
-  teal: '#f46b25',
-  tealLight: '#ff9e6b',
+  /** The client accent. Chosen in the profile to stay distinct from `red` below. */
+  teal: CLIENT.accent.chart,
+  tealLight: CLIENT.accent.chartLight,
   blue: '#3b82f6',
   amber: '#d97706',
   /** Target / reference guides. Deliberately neutral so they never read as a data series. */
@@ -52,7 +54,7 @@ function useChartTheme() {
   const dark = theme === 'dark'
   return {
     dark,
-    primary: dark ? '#ff9e6b' : CHART_COLORS.navy,
+    primary: dark ? CHART_COLORS.tealLight : CHART_COLORS.navy,
     secondary: dark ? '#95acc7' : CHART_COLORS.teal,
     axis: dark ? '#94a3b8' : '#64748b',
     grid: dark ? '#1c2d42' : '#e2e8f0',

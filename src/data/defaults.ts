@@ -1,17 +1,19 @@
 import type { KpiConfig, NotificationRule, OrganizationSettings, TrainingModule } from '@/types'
-import { CLIENT_BRAND } from '@/config/client'
+import { CLIENT, CLIENT_BRAND } from '@/config/client'
 
 export const DEFAULT_ORGANIZATION: OrganizationSettings = {
   name: CLIENT_BRAND.name,
-  engagementName: 'Mystery Shopping Programme 2025/26',
-  engagementStart: '2025-10-01',
-  engagementEnd: '2026-11-30',
+  // Engagement, timezone, currency and locale follow the client profile — a Malta
+  // operator should not be shown QAR and Doha time. All editable under Settings.
+  engagementName: CLIENT.org.engagementName,
+  engagementStart: CLIENT.org.engagementStart,
+  engagementEnd: CLIENT.org.engagementEnd,
   reportingSlaHours: 48,
   reportingTargetHours: 24,
   escalationSlaHours: 24,
-  timezone: 'Asia/Qatar (GMT+3)',
-  currency: 'QAR',
-  locale: 'en-QA',
+  timezone: CLIENT.org.timezone,
+  currency: CLIENT.org.currency,
+  locale: CLIENT.org.locale,
 }
 
 export const DEFAULT_KPI_CONFIG: KpiConfig[] = [

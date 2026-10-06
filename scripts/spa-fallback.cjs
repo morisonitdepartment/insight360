@@ -19,7 +19,10 @@ const dist = path.join(__dirname, '..', 'dist');
 const withApp = process.argv.includes('--with-app');
 
 // Sub-applications published beneath the repository base path.
-const SUB_APPS = withApp ? ['app'] : [];
+// Sub-applications published beneath the repository base path. `app` is the live
+// Supabase build; the rest are per-client demonstrations.
+const CLIENT_DEMOS = ['hermanos'];
+const SUB_APPS = withApp ? ['app'].concat(CLIENT_DEMOS) : CLIENT_DEMOS.slice();
 
 const fallback = `<!doctype html>
 <html lang="en">

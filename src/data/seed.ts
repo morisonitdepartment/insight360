@@ -38,6 +38,7 @@ import { buildTemplates } from './templates'
 import { BRAND_DEFS, IMPROVEMENT_OBSERVATIONS, IPS, MANAGER_NAMES, MAP_BY_LOCATION, NARRATIVE_OPENERS, POSITIVE_OBSERVATIONS, REGION_BY_LOCATION, ROOT_CAUSES, SHOPPER_NAMES } from './lists'
 import { DEFAULT_KPI_CONFIG, DEFAULT_NOTIFICATION_RULES, DEFAULT_ORGANIZATION, TRAINING_MODULES } from './defaults'
 import { SCENARIOS } from './scenarios'
+import { CLIENT } from '@/config/client'
 import { deriveOutlets } from '@/services/derive'
 
 const iso = (d: Date) => format(d, "yyyy-MM-dd'T'HH:mm:ss")
@@ -46,7 +47,7 @@ const dayIso = (d: Date) => format(d, 'yyyy-MM-dd')
 /** Fixed "today" for the demo storyline. */
 export const DEMO_NOW = new Date(2026, 8, 13, 10, 0, 0)
 
-const STORYLINE_OUTLET_KEY = 'br-04:Al Wakrah' // Urban Fork – Al Wakrah
+const STORYLINE_OUTLET_KEY = CLIENT.portfolio.storylineKey
 export const STORYLINE = {
   outletId: 'out-012',
   mainAuditVisitId: '',
@@ -90,11 +91,19 @@ export function generateDataset(): Dataset {
   // ───────────────────────────── Brands & Outlets ─────────────────────────────
   const brands: Brand[] = BRAND_DEFS.map((b) => ({ id: b.id, name: b.name, segment: b.segment, outletCount: b.locations.length }))
   const outletsBase: Outlet[] = []
+  // Portfolio size varies by client, so pick the non-trading sites proportionally.
+  const totalLocations = BRAND_DEFS.reduce((n, b) => n + b.locations.length, 0)
+  const RENOVATING_AT = Math.max(1, Math.round(totalLocations * 0.54))
+  const SEASONAL_AT = Math.max(2, Math.round(totalLocations * 0.88))
   let fb = 0
   let en = 0
   let idx = 0
   for (const b of BRAND_DEFS) {
-    for (const loc of b.locations) {
+    for (const locDef of b.locations) {
+      // A location is either a plain name or a name with its own format, so that a
+      // single brand can run full restaurants and smaller counters side by side.
+      const loc = typeof locDef === 'string' ? locDef : locDef.name
+      const sub = typeof locDef === 'string' ? b.subcategory : locDef.subcategory
       idx++
       const code = b.segment === 'F&B' ? `FB-${String(++fb).padStart(3, '0')}` : `EN-${String(++en).padStart(3, '0')}`
       const [mx, my] = MAP_BY_LOCATION[loc] ?? [50, 50]
@@ -105,13 +114,18 @@ export function generateDataset(): Dataset {
         brandId: b.id,
         brand: b.name,
         segment: b.segment,
-        subcategory: b.subcategory,
+        subcategory: sub,
         location: loc,
-        region: REGION_BY_LOCATION[loc] ?? 'Central Doha',
+        // Unmapped locations land in "Unassigned" rather than a Doha region, which
+        // would be nonsense for any client outside Qatar.
+        region: REGION_BY_LOCATION[loc] ?? 'Unassigned',
         manager: MANAGER_NAMES[(idx - 1) % MANAGER_NAMES.length],
-        status: idx === 27 ? 'Under Renovation' : idx === 44 ? 'Seasonal' : 'Active',
-        openingHours: b.segment === 'F&B' ? (b.subcategory === 'Café' ? '07:00 – 23:00' : '11:00 – 00:00') : '10:00 – 23:00',
-        targetScore: b.subcategory === 'Fine Dining' ? 92 : b.segment === 'Entertainment' ? 90 : 88,
+        // Roughly one site refurbishing and one seasonal, wherever the portfolio
+        // happens to be sized. Fixed indices of 27 and 44 never fired on a
+        // portfolio smaller than 44, leaving every outlet permanently Active.
+        status: idx === RENOVATING_AT ? 'Under Renovation' : idx === SEASONAL_AT ? 'Seasonal' : 'Active',
+        openingHours: b.segment === 'F&B' ? (sub === 'Café' ? '07:00 – 23:00' : '11:00 – 00:00') : '10:00 – 23:00',
+        targetScore: sub === 'Fine Dining' ? 92 : b.segment === 'Entertainment' ? 90 : 88,
         annualVisits: 4,
         mapX: mx + rng.range(-2, 2),
         mapY: my + rng.range(-2, 2),
@@ -724,11 +738,17 @@ export function generateDataset(): Dataset {
   }
 
   // ───────────────────────────── Reconcile open finding counts ─────────────────────────
-  // Targets: 7 critical open, 18 high open, 31 medium open.
-  reconcileOpen(findings, 'Critical', 7, rng)
-  reconcileOpen(findings, 'High', 18, rng)
-  reconcileOpen(findings, 'Medium', 31, rng)
-  reconcileOpen(findings, 'Low', 12, rng)
+  // The original targets — 7 critical, 18 high, 31 medium, 12 low — were absolute,
+  // and tuned for a 50-outlet portfolio. Applied unchanged to a smaller estate they
+  // described a business in far worse shape than its own score claimed: 31 open
+  // medium findings across 18 outlets, next to a portfolio average of 83%.
+  //
+  // Holding the per-outlet rate instead keeps the picture coherent at any size.
+  const perOutlet = (atFifty: number) => Math.max(1, Math.round((atFifty / 50) * totalLocations))
+  reconcileOpen(findings, 'Critical', perOutlet(7), rng)
+  reconcileOpen(findings, 'High', perOutlet(18), rng)
+  reconcileOpen(findings, 'Medium', perOutlet(31), rng)
+  reconcileOpen(findings, 'Low', perOutlet(12), rng)
 
   // ───────────────────────────── Alerts ─────────────────────────────
   const outletById = new Map(outletsBase.map((o) => [o.id, o]))
@@ -1032,9 +1052,16 @@ export function generateDataset(): Dataset {
   }
 
   // ───────────────────────────── Management reports ─────────────────────────────
+  // The seeded reports describe the portfolio, so their wording has to follow it.
+  // "All 50 outlets" across "F&B and entertainment" was true of one client only.
+  const outletCount = outletsBase.length
+  const segmentsPresent = Array.from(new Set(outletsBase.map((o) => o.segment)))
+  const estateLabel = segmentsPresent.length > 1 ? 'F&B and entertainment' : segmentsPresent[0] === 'F&B' ? 'food & beverage' : 'entertainment'
+  const allOutlets = `All ${outletCount} outlets`
+
   const reports: ManagementReport[] = [
-    { id: 'rep-001', code: 'RPT-2026-001', title: 'Main Audit 1 — Portfolio Report', type: 'Main Audit Report', period: 'Oct – Dec 2025', generatedAt: '2026-01-12T10:00:00', generatedBy: 'Omar Saleh', status: 'Published', scope: 'All 50 outlets', outletIds: [], summary: 'Baseline assessment across 50 F&B and entertainment outlets. Portfolio average 83.2%; upselling and service speed identified as primary gaps.', pages: 46 },
-    { id: 'rep-002', code: 'RPT-2026-002', title: 'Follow-up 1 — Summary Report', type: 'Follow-up Report', period: 'Jan – Mar 2026', generatedAt: '2026-04-09T14:30:00', generatedBy: 'Omar Saleh', status: 'Published', scope: 'All 50 outlets', outletIds: [], summary: 'Verification of corrective actions raised at Main Audit 1. 78% of actions verified effective; average score improved 2.1 points.', pages: 28 },
+    { id: 'rep-001', code: 'RPT-2026-001', title: 'Main Audit 1 — Portfolio Report', type: 'Main Audit Report', period: 'Oct – Dec 2025', generatedAt: '2026-01-12T10:00:00', generatedBy: 'Omar Saleh', status: 'Published', scope: allOutlets, outletIds: [], summary: `Baseline assessment across ${outletCount} ${estateLabel} outlets. Portfolio average 83.2%; upselling and service speed identified as primary gaps.`, pages: 46 },
+    { id: 'rep-002', code: 'RPT-2026-002', title: 'Follow-up 1 — Summary Report', type: 'Follow-up Report', period: 'Jan – Mar 2026', generatedAt: '2026-04-09T14:30:00', generatedBy: 'Omar Saleh', status: 'Published', scope: allOutlets, outletIds: [], summary: 'Verification of corrective actions raised at Main Audit 1. 78% of actions verified effective; average score improved 2.1 points.', pages: 28 },
     { id: 'rep-003', code: 'RPT-2026-003', title: 'Q1 2026 Quarterly Performance', type: 'Quarterly Performance', period: 'Jan – Mar 2026', generatedAt: '2026-04-15T09:00:00', generatedBy: 'Priya Nair', status: 'Published', scope: 'All brands', outletIds: [], summary: 'Quarterly KPI performance, brand ranking and trend analysis.', pages: 22 },
     { id: 'rep-004', code: 'RPT-2026-004', title: 'Q2 2026 Quarterly Performance', type: 'Quarterly Performance', period: 'Apr – Jun 2026', generatedAt: '2026-07-10T09:00:00', generatedBy: 'Priya Nair', status: 'Published', scope: 'All brands', outletIds: [], summary: 'Quarterly KPI performance, brand ranking and trend analysis.', pages: 24 },
     { id: 'rep-005', code: 'RPT-2026-005', title: 'Main Audit 2 — Portfolio Report', type: 'Main Audit Report', period: 'Apr – Aug 2026', generatedAt: '2026-08-28T16:45:00', generatedBy: 'Omar Saleh', status: 'Final', scope: '46 approved visits', outletIds: [], summary: 'Second main audit cycle. Portfolio average 87.4%; 7 critical findings escalated; three outlets below 70%.', pages: 52 },

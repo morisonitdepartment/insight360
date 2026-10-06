@@ -3,11 +3,12 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { ArrowRight, Briefcase, Eye, EyeOff, LineChart, Loader2, LockKeyhole, Mail, Moon, ShieldCheck, ShoppingBag, Sun, UserCog, Users, type LucideIcon } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useDocumentTitle } from '@/hooks'
 import { useTheme } from '@/contexts/ThemeContext'
 import { APP_CONFIG, isDemoMode } from '@/config/app'
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '@/config/demoAccounts'
 import { ClientLogo } from '@/components/ui/ClientLogo'
-import { CLIENT_BRAND } from '@/config/client'
+import { CLIENT, CLIENT_BRAND } from '@/config/client'
 import { Checkbox, Field, Input } from '@/components/ui/Form'
 import type { Role } from '@/types'
 import { cn } from '@/utils/cn'
@@ -31,12 +32,7 @@ const ROLE_ICONS: Record<Role, LucideIcon> = {
  * to a client who has neither. Live Mode gets `CapabilityPanel` instead, which
  * describes the method and claims no data.
  */
-const PROGRAMME = {
-  outlets: 50,
-  plannedVisits: 200,
-  completedVisits: 146,
-  visitsPerOutlet: 4,
-}
+const PROGRAMME = CLIENT.snapshot
 
 /** What the platform does. True regardless of how much data exists yet. */
 const CAPABILITIES: { title: string; detail: string }[] = [
@@ -63,7 +59,14 @@ function CapabilityPanel() {
 }
 
 /** Shape of the 12-month portfolio trend, drawn as an unlabelled flourish. */
-const TREND = [82.6, 84.7, 82.4, 86.7, 84.5, 84.6, 85.4, 89.0, 89.2, 86.4, 85.2, 86.3]
+const TREND = CLIENT.snapshot.trend
+
+/** Programme window as "2026 / 27", read from the engagement dates. */
+const PROGRAMME_YEARS = (() => {
+  const start = new Date(CLIENT.org.engagementStart).getFullYear()
+  const end = new Date(CLIENT.org.engagementEnd).getFullYear()
+  return end > start ? `${start} / ${String(end).slice(-2)}` : String(start)
+})()
 
 function TrendFlourish() {
   const min = Math.min(...TREND)
@@ -127,6 +130,8 @@ function CompletionRing({ value, max }: { value: number; max: number }) {
 }
 
 export default function LoginPage() {
+  // index.html is client-neutral, so the tab name comes from here.
+  useDocumentTitle('Sign in')
   const { signIn } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
@@ -209,7 +214,7 @@ export default function LoginPage() {
                 <span className="bg-gradient-to-r from-teal-300 to-teal-100 bg-clip-text text-transparent">actionable intelligence.</span>
               </h1>
               <p className="mt-3 max-w-md text-[13px] leading-relaxed text-navy-200 sm:text-sm lg:mt-4">
-                Evidence-based mystery shopping across food &amp; beverage and entertainment outlets — weighted scoring, critical-finding escalation, corrective-action tracking and executive reporting in one platform.
+                Evidence-based mystery shopping across {CLIENT.brand.estate} — weighted scoring, critical-finding escalation, corrective-action tracking and executive reporting in one platform.
               </p>
             </div>
 
@@ -219,7 +224,7 @@ export default function LoginPage() {
             <div className="hidden rounded-xl border border-white/10 bg-white/[0.04] p-5 lg:block">
               <div className="flex items-center justify-between gap-4">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-navy-300">Programme to date</p>
-                <span className="rounded-full border border-teal-400/30 bg-teal-400/10 px-2 py-0.5 text-[10px] font-medium text-teal-200">2025 / 26</span>
+                <span className="rounded-full border border-teal-400/30 bg-teal-400/10 px-2 py-0.5 text-[10px] font-medium text-teal-200">{PROGRAMME_YEARS}</span>
               </div>
               <div className="mt-4 flex items-center gap-5">
                 <CompletionRing value={PROGRAMME.completedVisits} max={PROGRAMME.plannedVisits} />
@@ -250,7 +255,7 @@ export default function LoginPage() {
                   for a client whose engagement starts later. Live Mode names the
                   platform instead of asserting a year it cannot know. */}
               {isDemoMode()
-                ? `${CLIENT_BRAND.name} · Mystery Shopping Programme 2025/26 · v${APP_CONFIG.version}`
+                ? `${CLIENT_BRAND.name} · ${CLIENT.org.engagementName} · v${APP_CONFIG.version}`
                 : `${CLIENT_BRAND.name} · ${APP_CONFIG.tagline} · v${APP_CONFIG.version}`}
             </p>
           </section>

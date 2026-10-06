@@ -12,7 +12,7 @@
  * Run: node scripts/test-spa-fallback.mjs
  */
 
-const SUB_APPS = ['app']
+const SUB_APPS = ['app', 'hermanos']
 
 // Mirrors the script written into dist/404.html by scripts/spa-fallback.cjs.
 function fallbackRedirect(pathname, search = '', hash = '') {
@@ -49,8 +49,11 @@ const cases = [
   ['/insight360/app/performance/executive', '/insight360/app/performance/executive', 'live'],
   ['/insight360/app/admin/outlets', '/insight360/app/admin/outlets', 'live'],
   ['/insight360/app/login', '/insight360/app/login', 'live'],
+  ['/insight360/hermanos/performance/outlets', '/insight360/hermanos/performance/outlets', 'hermanos'],
+  ['/insight360/hermanos/admin/outlets', '/insight360/hermanos/admin/outlets', 'hermanos'],
   // A demo route whose first segment merely resembles a sub-app name must not be hijacked.
   ['/insight360/application/thing', '/insight360/application/thing', 'demo'],
+  ['/insight360/hermanosburgers/thing', '/insight360/hermanosburgers/thing', 'demo'],
 ]
 
 let failures = 0
@@ -59,7 +62,11 @@ console.log('request -> after 404 redirect -> after index decode\n')
 for (const [requested, expected, expectedApp] of cases) {
   const redirected = fallbackRedirect(requested)
   const final = indexDecode(redirected)
-  const servedByApp = redirected.startsWith('/insight360/app/') ? 'live' : 'demo'
+  const servedByApp = redirected.startsWith('/insight360/app/')
+    ? 'live'
+    : redirected.startsWith('/insight360/hermanos/')
+      ? 'hermanos'
+      : 'demo'
   const ok = final === expected && servedByApp === expectedApp
   if (!ok) failures++
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${requested}`)

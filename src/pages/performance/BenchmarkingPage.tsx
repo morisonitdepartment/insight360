@@ -207,13 +207,20 @@ export default function BenchmarkingPage() {
     { key: 'openIssues', header: 'Open issues', align: 'right', sortValue: (b) => b.openIssues, render: (b) => <span className="tabular-nums">{b.openIssues}</span> },
   ]
 
+  // A single-segment portfolio has nothing to compare across segments, and the
+  // view would render two empty Entertainment columns beside the real F&B ones.
+  const hasBothSegments = useMemo(
+    () => scopedOutlets.some((o) => o.segment === 'F&B') && scopedOutlets.some((o) => o.segment === 'Entertainment'),
+    [scopedOutlets],
+  )
+
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'brand', label: 'Outlet vs Brand' },
     { key: 'category', label: 'Outlet vs Category' },
     { key: 'org', label: 'Outlet vs Organisation' },
     { key: 'previous', label: 'Current vs Previous Audit' },
     { key: 'mafu', label: 'Main Audit vs Follow-Up' },
-    { key: 'segment', label: 'F&B vs Entertainment' },
+    ...(hasBothSegments ? [{ key: 'segment' as TabKey, label: 'F&B vs Entertainment' }] : []),
   ]
 
   const isOutletTab = OUTLET_TABS.includes(tab)

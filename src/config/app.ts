@@ -1,9 +1,12 @@
 export type AppMode = 'demo' | 'live'
 
+import { CLIENT } from './client'
+
 const rawMode = (import.meta.env.VITE_APP_MODE as string | undefined)?.toLowerCase()
 
 export const APP_CONFIG = {
-  name: 'Sterling',
+  /** Short client name, used in document titles. Follows the selected client. */
+  name: CLIENT.brand.shortName,
   tagline: 'Mystery Shopping Intelligence Platform',
   subtitle: 'Customer Experience • Compliance • Analytics • Continuous Improvement',
   version: '1.0.0',

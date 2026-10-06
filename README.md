@@ -187,6 +187,10 @@ Copy `.env.example` to `.env`:
 ```bash
 # "demo" (no backend, seeded data) or "live" (Supabase)
 VITE_APP_MODE=demo
+# Which organisation this build is for. Selects a profile from
+# src/config/clients/. Defaults to the first profile when unset.
+VITE_CLIENT=
+
 
 # Live Mode only. Only the public anon key belongs here.
 # NEVER put the service-role key in any frontend configuration.

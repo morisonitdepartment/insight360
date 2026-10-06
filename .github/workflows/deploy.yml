@@ -2,8 +2,12 @@ name: Deploy INSIGHT360 to GitHub Pages
 
 # Publishes two builds of the same codebase to one Pages site:
 #
-#   /<repo>/      demo      — seeded synthetic data, no backend, for pitching
-#   /<repo>/app/  live       — Supabase-backed production system
+#   /<repo>/           demo (Sterling)  — seeded synthetic data, no backend
+#   /<repo>/hermanos/  demo (Hermanos)  — same build, different client profile
+#   /<repo>/app/       live             — Supabase-backed production system
+#
+# Each demo is one codebase built with a different VITE_CLIENT. Adding a prospect
+# is a profile under src/config/clients/ plus a build step here.
 #
 # The live build is produced only when SUPABASE_URL and SUPABASE_ANON_KEY are set
 # as repository secrets. Without them the job still publishes the demo, rather
@@ -53,16 +57,29 @@ jobs:
             echo "::warning::SUPABASE_URL / SUPABASE_ANON_KEY not set — publishing the demo only."
           fi
 
-      - name: Build demo (root)
+      - name: Build demo — Sterling (root)
         env:
           VITE_APP_MODE: demo
+          VITE_CLIENT: sterling
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
         run: npm run build
+
+      - name: Build demo — Hermanos Burgers (/hermanos/)
+        env:
+          VITE_APP_MODE: demo
+          VITE_CLIENT: hermanos
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/hermanos/
+        # Built into dist/hermanos; emptyOutDir is scoped there and leaves the
+        # root demo untouched. The nested build must not carry its own fallback.
+        run: |
+          npm run build -- --outDir dist/hermanos --emptyOutDir
+          rm -f dist/hermanos/404.html
 
       - name: Build live (/app/)
         if: steps.live.outputs.enabled == 'true'
         env:
           VITE_APP_MODE: live
+          VITE_CLIENT: sterling
           VITE_BASE_PATH: /${{ github.event.repository.name }}/app/
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -84,7 +101,8 @@ jobs:
       - name: Summarise what is being published
         run: |
           echo "### Published builds" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Demo: \`/${{ github.event.repository.name }}/\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Demo (Sterling): \`/${{ github.event.repository.name }}/\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Demo (Hermanos): \`/${{ github.event.repository.name }}/hermanos/\`" >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ steps.live.outputs.enabled }}" = "true" ]; then
             echo "- Live: \`/${{ github.event.repository.name }}/app/\`" >> "$GITHUB_STEP_SUMMARY"
           else

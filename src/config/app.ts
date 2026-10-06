@@ -13,7 +13,17 @@ export const APP_CONFIG = {
   mode: (rawMode === 'live' ? 'live' : 'demo') as AppMode,
   supabaseUrl: (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? '',
   supabaseAnonKey: (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? '',
-  storagePrefix: 'insight360',
+  /**
+   * Namespace for every localStorage key.
+   *
+   * Includes the client id because the demonstrations are published to sub-paths
+   * of one domain and therefore share an origin and its storage. With a single
+   * prefix, mutating one demo persisted its visits, findings, alerts, users and
+   * organisation under a key the next demo would read — so clicking through one
+   * client's demo and then opening another showed the first client's data and
+   * name on the second one's outlets.
+   */
+  storagePrefix: `insight360.${CLIENT.id}`,
   /** Fixed "today" for the demo dataset so the storyline is stable */
   demoToday: '2026-09-13T10:00:00',
 } as const

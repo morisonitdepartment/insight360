@@ -48,6 +48,8 @@ export const CLIENT_BRAND = {
   shortName: CLIENT.brand.shortName,
   /** BASE_URL keeps this correct under a GitHub Pages sub-path. */
   logo: `${import.meta.env.BASE_URL}${CLIENT.brand.logoFile}`,
+  /** Square mark for the sidebar chip and the browser tab icon. */
+  mark: `${import.meta.env.BASE_URL}${CLIENT.brand.markFile}`,
   logoAlt: CLIENT.brand.logoAlt,
   descriptor: CLIENT.brand.descriptor,
 } as const

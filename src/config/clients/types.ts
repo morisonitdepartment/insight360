@@ -41,6 +41,11 @@ export interface ClientProfile {
     shortName: string
     /** Path relative to BASE_URL, so it stays correct under a Pages sub-path. */
     logoFile: string
+    /**
+     * Square mark for the sidebar chip and the browser tab icon. Separate from
+     * logoFile because a wide wordmark is unreadable at 28px.
+     */
+    markFile: string
     /** Alt text — describes the mark for screen readers. */
     logoAlt: string
     /** Shown beneath the logo on the login page. */

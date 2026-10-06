@@ -24,6 +24,8 @@ export const hermanos: ClientProfile = {
     name: 'Hermanos Burgers',
     shortName: 'Hermanos',
     logoFile: 'brands/hermanos/logo.jpg',
+    // The mark is already square, so it doubles as the wordmark.
+    markFile: 'brands/hermanos/mark.jpg',
     logoAlt: 'Hermanos Burgers',
     descriptor: 'Burger restaurants and Express counters across Malta',
     estate: 'burger restaurants and Express counters',

@@ -5,13 +5,14 @@ import { hasAnyPermission, hasPermission, ROLE_LABELS } from '@/config/permissio
 import { useAuth } from '@/contexts/AuthContext'
 import { useGuidedDemo } from '@/contexts/GuidedDemoContext'
 import { APP_CONFIG, isDemoMode } from '@/config/app'
+import { CLIENT_BRAND } from '@/config/client'
 import { cn } from '@/utils/cn'
 
 export function BrandMark({ className, size = 'md' }: { className?: string; size?: 'sm' | 'md' | 'lg' }) {
   const s = size === 'sm' ? 'h-7 w-7' : size === 'lg' ? 'h-12 w-12' : 'h-9 w-9'
   return (
     <span className={cn('inline-flex shrink-0 items-center justify-center rounded-lg bg-white ring-1 ring-black/5', s, className)} aria-hidden>
-      <img src={`${import.meta.env.BASE_URL}client-mark.png`} alt="" className="h-[74%] w-[74%] object-contain" />
+      <img src={CLIENT_BRAND.mark} alt="" className="h-[74%] w-[74%] object-contain" />
     </span>
   )
 }

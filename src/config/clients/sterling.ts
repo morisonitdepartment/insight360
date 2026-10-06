@@ -15,6 +15,7 @@ export const sterling: ClientProfile = {
     name: 'Sterling Catering Services',
     shortName: 'Sterling',
     logoFile: 'brands/sterling/logo.png',
+    markFile: 'brands/sterling/mark.png',
     logoAlt: 'Sterling Catering Services',
     descriptor: 'Food & beverage and entertainment portfolio',
     estate: 'food & beverage and entertainment outlets',

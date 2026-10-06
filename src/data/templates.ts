@@ -1,4 +1,5 @@
 import type { AuditTemplate, CategoryKey, JourneyType, Question, QuestionType, Section, Segment } from '@/types'
+import { CLIENT } from '@/config/client'
 
 /**
  * Assessment template blueprints. Sections are defined once and instantiated per template so
@@ -325,13 +326,46 @@ export interface TemplateBundle {
   tags: Map<string, string>
 }
 
+/**
+ * The segments this client actually trades in.
+ *
+ * Read from the portfolio rather than declared, so it cannot drift from the
+ * outlets that exist.
+ */
+const CLIENT_SEGMENTS = new Set<Segment>(CLIENT.portfolio.brands.map((b) => b.segment))
+
+/** True when a section is worth asking of this client at all. */
+function sectionApplies(s: SectionBlueprint): boolean {
+  return s.applicableTo === 'all' || s.applicableTo.some((seg) => CLIENT_SEGMENTS.has(seg))
+}
+
+/**
+ * The questionnaire library, scoped to the client.
+ *
+ * Every client used to receive all seven templates, including the Entertainment
+ * assessment and the entertainment halves of the follow-up audit. A burger group
+ * was shown a 47-question ticketing-and-safety-briefing questionnaire it will
+ * never use, and a 61-question follow-up of which a third did not apply — in the
+ * one screen whose whole purpose is to show the client what they will be assessed
+ * against.
+ *
+ * Nothing was broken by it: sections are filtered against each outlet's segment
+ * when a visit is conducted, so no shopper was ever asked those questions. It
+ * simply described the wrong business.
+ */
+const BLUEPRINTS_FOR_CLIENT: TemplateBlueprint[] = TEMPLATE_BLUEPRINTS
+  .filter((t) => t.segment === 'Both' || CLIENT_SEGMENTS.has(t.segment))
+  .map((t) => ({ ...t, sections: t.sections.filter(sectionApplies) }))
+  // A template whose sections have all been filtered away has nothing to ask.
+  .filter((t) => t.sections.length > 0)
+
 export function buildTemplates(): TemplateBundle {
   const templates: AuditTemplate[] = []
   const sections: Section[] = []
   const questions: Question[] = []
   const tags = new Map<string, string>()
 
-  for (const t of TEMPLATE_BLUEPRINTS) {
+  for (const t of BLUEPRINTS_FOR_CLIENT) {
     const sectionIds: string[] = []
     let qCount = 0
     t.sections.forEach((s, si) => {

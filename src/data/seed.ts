@@ -38,14 +38,18 @@ import { buildTemplates } from './templates'
 import { BRAND_DEFS, IMPROVEMENT_OBSERVATIONS, IPS, MANAGER_NAMES, MAP_BY_LOCATION, NARRATIVE_OPENERS, POSITIVE_OBSERVATIONS, REGION_BY_LOCATION, ROOT_CAUSES, SHOPPER_NAMES } from './lists'
 import { DEFAULT_KPI_CONFIG, DEFAULT_NOTIFICATION_RULES, DEFAULT_ORGANIZATION, TRAINING_MODULES } from './defaults'
 import { SCENARIOS } from './scenarios'
+import { STORYLINE_ANCHOR, shiftDemoDates } from './demoClock'
 import { CLIENT } from '@/config/client'
 import { deriveOutlets } from '@/services/derive'
 
 const iso = (d: Date) => format(d, "yyyy-MM-dd'T'HH:mm:ss")
 const dayIso = (d: Date) => format(d, 'yyyy-MM-dd')
 
-/** Fixed "today" for the demo storyline. */
-export const DEMO_NOW = new Date(2026, 8, 13, 10, 0, 0)
+/**
+ * "Today" for the demo. Re-exported so existing imports keep working; the value
+ * and the reasoning live in demoClock.
+ */
+export { DEMO_NOW } from './demoClock'
 
 const STORYLINE_OUTLET_KEY = CLIENT.portfolio.storylineKey
 export const STORYLINE = {
@@ -71,7 +75,9 @@ const VISIT_ORDER: VisitType[] = ['Main Audit 1', 'Follow-up 1', 'Main Audit 2',
 
 export function generateDataset(): Dataset {
   const rng = new Rng(20260913)
-  const now = DEMO_NOW
+  // Everything is built against the anchor so the hardcoded storyline dates and
+  // the computed ones agree; shiftDemoDates moves the finished dataset as a whole.
+  const now = STORYLINE_ANCHOR
   const { templates, sections, questions, tags } = buildTemplates()
   const kpiConfig = DEFAULT_KPI_CONFIG
   const thresholds = DEFAULT_THRESHOLDS
@@ -1075,7 +1081,7 @@ export function generateDataset(): Dataset {
 
   const outlets = deriveOutlets(outletsBase, visits, findings, thresholds)
 
-  return {
+  return shiftDemoDates({
     organization: DEFAULT_ORGANIZATION,
     brands,
     outlets,
@@ -1099,7 +1105,7 @@ export function generateDataset(): Dataset {
     thresholds,
     reports,
     notificationRules: DEFAULT_NOTIFICATION_RULES,
-  }
+  })
 }
 
 // ───────────────────────────── helpers ─────────────────────────────

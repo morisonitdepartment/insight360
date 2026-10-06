@@ -1,6 +1,7 @@
 export type AppMode = 'demo' | 'live'
 
 import { CLIENT } from './client'
+import { DEMO_NOW } from '@/data/demoClock'
 
 const rawMode = (import.meta.env.VITE_APP_MODE as string | undefined)?.toLowerCase()
 
@@ -24,8 +25,11 @@ export const APP_CONFIG = {
    * name on the second one's outlets.
    */
   storagePrefix: `insight360.${CLIENT.id}`,
-  /** Fixed "today" for the demo dataset so the storyline is stable */
-  demoToday: '2026-09-13T10:00:00',
+  /**
+   * "Today" in Demo Mode. Tracks the real date in whole-week steps so the
+   * storyline never reads as stale; see src/data/demoClock.ts.
+   */
+  demoToday: DEMO_NOW.toISOString(),
 } as const
 
 export const isDemoMode = () => APP_CONFIG.mode === 'demo'

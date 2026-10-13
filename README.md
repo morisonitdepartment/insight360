@@ -239,6 +239,24 @@ npm run lint      # oxlint
 
 `npm run build` fails on any type error — the build is the type gate.
 
+### Building for one client
+
+Each demonstration is the same codebase with a different client profile from
+`src/config/clients/`. Select one with `VITE_CLIENT`, and set `VITE_BASE_PATH` to the
+sub-path it will be served from:
+
+```bash
+# macOS / Linux
+VITE_CLIENT=<id> VITE_BASE_PATH=/<repo>/<id>/ npm run build -- --outDir dist/<id> --emptyOutDir
+```
+
+On **Windows under Git Bash**, prefix the command with `MSYS_NO_PATHCONV=1`. Without it
+the shell rewrites a leading-slash value like `/<repo>/<id>/` into a Windows path, and the
+build silently produces a bundle whose asset URLs 404. macOS and Linux are unaffected.
+
+CI does this for every client in `.github/workflows/deploy.yml`, so building by hand is
+only needed to preview a client locally.
+
 ---
 
 ## Deployment to GitHub Pages

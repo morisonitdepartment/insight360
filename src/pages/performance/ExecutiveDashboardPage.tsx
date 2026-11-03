@@ -18,10 +18,11 @@ import { CHART_COLORS, ChartCard, DonutChart, GroupedBarChart, HBarChart, HeatLe
 import { capaStats, categoryAverages, generateInsights, heatmapRows, kpiSummary, mainVsFollowUp, monthlyTrend, rankedOutlets, segmentComparison } from '@/services/analytics'
 import { isCompleted, isOpenFinding } from '@/services/derive'
 import { createReport } from '@/services/actions'
-import { CATEGORY_KEYS, CATEGORY_SHORT } from '@/utils/scoring'
+import { CATEGORY_KEYS, CATEGORY_SHORT, SAFETY_KPI_LABEL } from '@/utils/scoring'
 import { fmtDate, fmtDateTime, fmtPct, relativeTime } from '@/utils/format'
 import { isDemoMode } from '@/config/app'
 import { cn } from '@/utils/cn'
+import { T } from '@/config/terms'
 
 export default function ExecutiveDashboardPage() {
   useDocumentTitle('Executive Dashboard')
@@ -71,7 +72,7 @@ export default function ExecutiveDashboardPage() {
           type: 'Executive Summary',
           period: `${trend[0]?.label ?? ''} – ${trend[trend.length - 1]?.label ?? ''}`,
           status: 'Draft',
-          scope: outletScope === 'all' ? `All ${outlets.length} outlets` : outletName(outletScope),
+          scope: outletScope === 'all' ? `All ${outlets.length} ${T.outlets}` : outletName(outletScope),
           outletIds: outletScope === 'all' ? [] : [outletScope],
           summary: `Portfolio score ${fmtPct(kpi.overall)} · ${kpi.visitsCompleted}/${kpi.visitsPlanned} visits completed · ${kpi.criticalIssues} open critical findings · CAPA closure ${fmtPct(kpi.capaClosureRate, 0)}.`,
           pages: 8,
@@ -91,16 +92,16 @@ export default function ExecutiveDashboardPage() {
     return (
       <EmptyState
         icon={systemIsEmpty ? Store : ShieldCheck}
-        title={systemIsEmpty ? 'No outlets yet' : 'No outlets in scope'}
+        title={systemIsEmpty ? `No ${T.outlets} yet` : `No ${T.outlets} in scope`}
         message={
           systemIsEmpty
-            ? 'The programme has no outlets on record. Add the outlets to be assessed, then schedule their visits.'
-            : 'Your account is not authorised for any outlets. Ask an administrator to assign them.'
+            ? `The programme has no ${T.outlets} on record. Add the ${T.outlets} to be assessed, then schedule their visits.`
+            : `Your account is not authorised for any ${T.outlets}. Ask an administrator to assign them.`
         }
         action={
           systemIsEmpty && can('admin.outlets') ? (
             <Link to="/admin/outlets" className="btn-primary">
-              <Store className="h-4 w-4" /> Add the first outlet
+              <Store className="h-4 w-4" /> Add the first {T.outlet}
             </Link>
           ) : undefined
         }
@@ -112,7 +113,7 @@ export default function ExecutiveDashboardPage() {
     <div className="space-y-5">
       <PageHeader
         title="Executive Dashboard"
-        subtitle={`${data.organization.name} · ${data.organization.engagementName} · ${outletScope === 'all' ? `${outlets.length} outlets` : outletName(outletScope)} · as of ${fmtDate(now)}`}
+        subtitle={`${data.organization.name} · ${data.organization.engagementName} · ${outletScope === 'all' ? `${outlets.length} ${T.outlets}` : outletName(outletScope)} · as of ${fmtDate(now)}`}
         actions={
           <>
             {isDemoMode() && (
@@ -135,7 +136,7 @@ export default function ExecutiveDashboardPage() {
         <KpiCard label="Operational Compliance" value={fmtPct(kpi.categories.operational_compliance.value)} delta={kpi.categories.operational_compliance.delta} icon={ClipboardCheck} tone="good" onClick={() => navigate('/performance/kpi')} />
         <KpiCard label="Service Experience" value={fmtPct(kpi.categories.customer_experience.value)} delta={kpi.categories.customer_experience.delta} icon={Sparkles} onClick={() => navigate('/performance/kpi')} />
         <KpiCard label="Environment & Product" value={fmtPct(kpi.categories.product_environment.value)} delta={kpi.categories.product_environment.delta} icon={Utensils} onClick={() => navigate('/performance/kpi')} />
-        <KpiCard label="Entertainment Safety Compliance" value={fmtPct(kpi.entertainmentSafety)} delta={kpi.entertainmentSafetyDelta} icon={ShieldCheck} tone="good" onClick={() => navigate('/performance/benchmarking')} />
+        <KpiCard label={SAFETY_KPI_LABEL} value={fmtPct(kpi.entertainmentSafety)} delta={kpi.entertainmentSafetyDelta} icon={ShieldCheck} tone="good" onClick={() => navigate('/performance/benchmarking')} />
         <KpiCard label="Visits Completed" value={<span>{kpi.visitsCompleted} <span className="text-base text-slate-400 font-medium">/ {kpi.visitsPlanned}</span></span>} sub={`${kpi.visitsInProgress} in progress · ${kpi.visitsAwaiting} awaiting approval`} icon={Store} onClick={() => navigate('/operations/visits')} />
         <KpiCard label="Critical Issues" value={kpi.criticalIssues} sub={`${kpi.highIssues} high · ${kpi.mediumIssues} medium open`} icon={AlertOctagon} tone={kpi.criticalIssues > 0 ? 'critical' : 'good'} onClick={() => navigate('/quality/findings?severity=Critical')} />
         <KpiCard label="Corrective Action Closure" value={fmtPct(kpi.capaClosureRate, 0)} delta={kpi.capaClosureDelta} deltaSuffix=" pts" icon={Wrench} tone={kpi.capaOverdue > 0 ? 'warn' : 'good'} onClick={() => navigate('/quality/corrective-actions')} />
@@ -154,8 +155,8 @@ export default function ExecutiveDashboardPage() {
       {/* Ranking + MA vs FU + completion */}
       <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
         <ChartCard
-          title="Outlet ranking"
-          subtitle={rankMode === 'top' ? 'Top 10 outlets by latest approved score' : 'Bottom 10 outlets requiring attention'}
+          title={`${T.Outlet} ranking`}
+          subtitle={rankMode === 'top' ? `Top 10 ${T.outlets} by latest approved score` : `Bottom 10 ${T.outlets} requiring attention`}
           className="lg:col-span-2"
           height={360}
           actions={<SegmentedControl options={[{ value: 'top', label: 'Top 10' }, { value: 'bottom', label: 'Bottom 10' }]} value={rankMode} onChange={setRankMode} ariaLabel="Ranking mode" />}
@@ -184,7 +185,7 @@ export default function ExecutiveDashboardPage() {
 
       {/* Segment comparison + critical trend */}
       <div className="grid gap-4 xl:grid-cols-2">
-        <ChartCard title="F&B vs Entertainment" subtitle={`${seg[0].count} F&B outlets (${fmtPct(seg[0].overall)}) · ${seg[1].count} Entertainment outlets (${fmtPct(seg[1].overall)})`} height={280}>
+        <ChartCard title="F&B vs Entertainment" subtitle={`${seg[0].count} F&B ${T.outlets} (${fmtPct(seg[0].overall)}) · ${seg[1].count} Entertainment ${T.outlets} (${fmtPct(seg[1].overall)})`} height={280}>
           <GroupedBarChart data={segData} series={[{ key: 'F&B', label: 'F&B', color: CHART_COLORS.teal }, { key: 'Entertainment', label: 'Entertainment', color: CHART_COLORS.violet }]} domain={[40, 100]} />
         </ChartCard>
         <ChartCard title="Critical issue trend" subtitle="Critical findings raised per month" height={280}>
@@ -194,7 +195,7 @@ export default function ExecutiveDashboardPage() {
 
       {/* Heatmap */}
       <Card>
-        <CardHeader title="KPI performance heatmap" subtitle="Latest approved category scores per outlet, ranked by overall score" actions={<HeatLegend />} />
+        <CardHeader title="KPI performance heatmap" subtitle={`Latest approved category scores per ${T.outlet}, ranked by overall score`} actions={<HeatLegend />} />
         <CardBody>
           <Heatmap rows={heat.map((r) => ({ id: r.outletId, label: r.name, sub: r.code, values: CATEGORY_KEYS.map((k) => r[k]) }))} columns={CATEGORY_KEYS.map((k) => CATEGORY_SHORT[k])} onRowClick={(id) => navigate(`/performance/outlets/${id}`)} maxHeight={380} />
         </CardBody>
@@ -202,8 +203,8 @@ export default function ExecutiveDashboardPage() {
 
       {/* Top / bottom lists */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <RankList title="Top 5 performing outlets" subtitle="Consistently exceeding brand standards" icon={TrendingUp} items={ranked.slice(0, 5)} />
-        <RankList title="Bottom 5 outlets requiring attention" subtitle="Prioritised for intervention and follow-up" icon={TrendingDown} items={[...ranked].reverse().slice(0, 5)} highlight />
+        <RankList title={`Top 5 performing ${T.outlets}`} subtitle="Consistently exceeding brand standards" icon={TrendingUp} items={ranked.slice(0, 5)} />
+        <RankList title={`Bottom 5 ${T.outlets} requiring attention`} subtitle="Prioritised for intervention and follow-up" icon={TrendingDown} items={[...ranked].reverse().slice(0, 5)} highlight />
       </div>
 
       {/* Recent visits + open critical */}
@@ -215,7 +216,7 @@ export default function ExecutiveDashboardPage() {
               <thead>
                 <tr>
                   <th>Visit</th>
-                  <th>Outlet</th>
+                  <th>{T.Outlet}</th>
                   <th>Type</th>
                   <th>Date</th>
                   <th className="text-right">Score</th>

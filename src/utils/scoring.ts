@@ -9,6 +9,7 @@ import type {
   Section,
   VisitAnswer,
 } from '@/types'
+import { CLIENT } from '@/config/client'
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -34,14 +35,23 @@ export const CATEGORY_KEYS: CategoryKey[] = [
   'safety_entertainment',
 ]
 
+/** Whether this client's estate includes entertainment venues at all. */
+const HAS_ENTERTAINMENT = CLIENT.portfolio.brands.some((b) => b.segment === 'Entertainment')
+
 export const CATEGORY_LABELS: Record<CategoryKey, string> = {
   customer_experience: 'Customer Experience',
   service_speed: 'Service Speed',
   operational_compliance: 'Operational Compliance',
   product_environment: 'Product & Environment',
   upselling_sales: 'Upselling & Sales',
-  safety_entertainment: 'Safety & Entertainment',
+  // The category key is fixed, but the word "Entertainment" is only true of an
+  // estate that has entertainment venues. On a food-only estate the same
+  // category is the food-safety score, and should say so wherever it appears.
+  safety_entertainment: HAS_ENTERTAINMENT ? 'Safety & Entertainment' : 'Food Safety',
 }
+
+/** Executive KPI card label for the safety category, with the same split. */
+export const SAFETY_KPI_LABEL = HAS_ENTERTAINMENT ? 'Entertainment Safety Compliance' : 'Food Safety Compliance'
 
 export const CATEGORY_SHORT: Record<CategoryKey, string> = {
   customer_experience: 'Cust. Exp.',

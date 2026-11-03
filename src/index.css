@@ -20,6 +20,16 @@
     --accent-700: 163 63 12;
     --accent-800: 133 53 13;
     --accent-900: 110 46 15;
+    /*
+     * Typography. Defaults reproduce the platform look exactly (Inter, semibold,
+     * tight tracking), so a client with no `theme` block is unchanged. A client
+     * that sets one gets its display face only where .display-heading is used.
+     */
+    --font-body: Inter;
+    --font-display: var(--font-body);
+    --display-weight: 600;
+    --display-tracking: -0.025em;
+    --display-transform: none;
   }
   .dark {
     color-scheme: dark;
@@ -119,8 +129,19 @@
   .kbd {
     @apply inline-flex items-center rounded border border-slate-300 dark:border-navy-700 bg-slate-50 dark:bg-navy-800 px-1.5 text-[10px] font-medium text-slate-500 dark:text-slate-400;
   }
+  /*
+   * The one place a client's display face appears. Weight, tracking and case are
+   * variable-driven because single-weight faces (Anton) must not be faux-bolded
+   * by a hard-coded font-semibold.
+   */
+  .display-heading {
+    @apply font-display;
+    font-weight: var(--display-weight);
+    letter-spacing: var(--display-tracking);
+    text-transform: var(--display-transform);
+  }
   .page-title {
-    @apply text-xl md:text-2xl font-semibold text-slate-900 dark:text-white tracking-tight;
+    @apply display-heading text-xl md:text-2xl text-slate-900 dark:text-white;
   }
   .page-subtitle {
     @apply text-sm text-slate-500 dark:text-slate-400 mt-1;

@@ -3,6 +3,7 @@ import type { CategoryKey, CategoryScores, CorrectiveAction, Dataset, Finding, O
 import { CATEGORY_KEYS, CATEGORY_LABELS, averageCategoryScores } from '@/utils/scoring'
 import { avg, round } from '@/utils/format'
 import { isCompleted, isInProgress, isOpenFinding, isScored, isAwaitingApproval } from './derive'
+import { T, countOutlets } from '@/config/terms'
 
 // ───────────────────────────── Scoping ─────────────────────────────
 
@@ -113,9 +114,22 @@ export function kpiSummary(data: Dataset, outlets: Outlet[]): KpiSummary {
     const prev = prevCats && !Number.isNaN(prevCats[k]) ? prevCats[k] : null
     categories[k] = { value: cur, delta: cur !== null && prev !== null ? cur - prev : null }
   }
-  const entOutlets = scored.filter((o) => o.segment === 'Entertainment')
-  const entSafety = avg(entOutlets.map((o) => o.categoryScores?.safety_entertainment ?? null))
-  const entPrev = avg(prevVisits.filter((v) => outlets.find((o) => o.id === v.outletId)?.segment === 'Entertainment').map((v) => v.categoryScores?.safety_entertainment ?? null))
+  // The safety category is scored at every outlet, but this KPI used to average
+  // it over Entertainment outlets only. On an estate with none it averaged over
+  // nothing and the card showed "—" under a label about entertainment. Scope it
+  // to Entertainment only where Entertainment exists; otherwise it is simply the
+  // estate's food-safety figure. Mixed estates see exactly the number they did.
+  const estateHasEnt = data.outlets.some((o) => o.segment === 'Entertainment')
+  const inSafetyScope = (segment: Outlet['segment']) => !estateHasEnt || segment === 'Entertainment'
+  const entSafety = avg(scored.filter((o) => inSafetyScope(o.segment)).map((o) => o.categoryScores?.safety_entertainment ?? null))
+  const entPrev = avg(
+    prevVisits
+      .filter((v) => {
+        const o = outlets.find((x) => x.id === v.outletId)
+        return !!o && inSafetyScope(o.segment)
+      })
+      .map((v) => v.categoryScores?.safety_entertainment ?? null),
+  )
 
   const open = findings.filter(isOpenFinding)
   const closed = actions.filter((a) => a.status === 'Closed').length
@@ -332,7 +346,7 @@ export function generateInsights(data: Dataset, outlets: Outlet[], now: Date): I
     out.push({
       id: 'repeat',
       tone: 'warning',
-      text: `${repeatedOutlets.size} outlet${repeatedOutlets.size === 1 ? ' has' : 's have'} repeated cleanliness findings across two consecutive assessments. Root-cause review recommended.`,
+      text: `${countOutlets(repeatedOutlets.size)} ${repeatedOutlets.size === 1 ? 'has' : 'have'} repeated cleanliness findings across two consecutive assessments. Root-cause review recommended.`,
       link: '/quality/findings?repeated=1',
     })
   }
@@ -369,7 +383,7 @@ export function generateInsights(data: Dataset, outlets: Outlet[], now: Date): I
     out.push({
       id: 'below70',
       tone: 'critical',
-      text: `${critical.length === 1 ? 'One outlet requires' : `${numberWord(critical.length)} outlets require`} immediate intervention due to scores below 70%: ${critical.map((o) => o.name).join(', ')}.`,
+      text: `${critical.length === 1 ? `One ${T.outlet} requires` : `${numberWord(critical.length)} ${T.outlets} require`} immediate intervention due to scores below 70%: ${critical.map((o) => o.name).join(', ')}.`,
       link: '/performance/outlets?risk=Critical',
     })
   }

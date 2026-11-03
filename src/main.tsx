@@ -20,6 +20,31 @@ for (const [step, hex] of Object.entries(CLIENT.accent.ramp)) {
 }
 
 /**
+ * Typography, when the client declares any. index.html is shared, so the font
+ * stylesheet is injected here rather than linked there; the preconnects to
+ * Google Fonts already exist in index.html. Only the variables a client sets are
+ * written, so the :root defaults in index.css carry everything else.
+ */
+const theme = CLIENT.theme
+if (theme) {
+  const link = document.createElement('link')
+  link.rel = 'stylesheet'
+  link.href = theme.googleFontsHref
+  document.head.append(link)
+  const style = document.documentElement.style
+  if (theme.bodyFont) style.setProperty('--font-body', `"${theme.bodyFont}"`)
+  if (theme.displayFont) {
+    const d = theme.displayFont
+    style.setProperty('--font-display', `"${d.family}"`)
+    style.setProperty('--display-weight', String(d.weight))
+    if (d.letterSpacing) style.setProperty('--display-tracking', d.letterSpacing)
+    if (d.uppercase) style.setProperty('--display-transform', 'uppercase')
+  }
+}
+// Lets a browser check, or a stylesheet, tell clients apart without guessing.
+document.documentElement.dataset.client = CLIENT.id
+
+/**
  * index.html is shared by every client build, so its <link rel="icon"> cannot name
  * one client's file — the Hermanos tab would carry the Sterling mark. Point it at
  * the selected client's mark once, before first paint.

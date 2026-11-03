@@ -8,10 +8,12 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { APP_CONFIG, isDemoMode } from '@/config/app'
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '@/config/demoAccounts'
 import { ClientLogo } from '@/components/ui/ClientLogo'
+import { Ticker } from '@/components/ui/Ticker'
 import { CLIENT, CLIENT_BRAND } from '@/config/client'
 import { Checkbox, Field, Input } from '@/components/ui/Form'
 import type { Role } from '@/types'
 import { cn } from '@/utils/cn'
+import { T } from '@/config/terms'
 
 const ROLE_ICONS: Record<Role, LucideIcon> = {
   super_admin: UserCog,
@@ -36,7 +38,7 @@ const PROGRAMME = CLIENT.snapshot
 
 /** What the platform does. True regardless of how much data exists yet. */
 const CAPABILITIES: { title: string; detail: string }[] = [
-  { title: 'Weighted scoring', detail: 'Category weights roll up to outlet, brand and portfolio' },
+  { title: 'Weighted scoring', detail: `Category weights roll up to ${T.outlet}, brand and portfolio` },
   { title: 'Critical-finding escalation', detail: 'Failures raise an alert with an escalation clock' },
   { title: 'Corrective actions', detail: 'Owners, target dates and verification on every finding' },
   { title: '24–48h reporting', detail: 'Reports due within 48 hours, targeted at 24' },
@@ -208,7 +210,7 @@ export default function LoginPage() {
                 <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-teal-300">{APP_CONFIG.tagline}</span>
               </div>
 
-              <h1 className="mt-6 text-[26px] font-semibold leading-[1.15] tracking-tight !text-white sm:text-[32px] lg:mt-12 lg:text-[38px]">
+              <h1 className="display-heading mt-6 text-[26px] leading-[1.15] !text-white sm:text-[32px] lg:mt-12 lg:text-[38px]">
                 Turn every customer
                 <br className="hidden sm:block" /> interaction into{' '}
                 <span className="bg-gradient-to-r from-teal-300 to-teal-100 bg-clip-text text-transparent">actionable intelligence.</span>
@@ -230,9 +232,9 @@ export default function LoginPage() {
                 <CompletionRing value={PROGRAMME.completedVisits} max={PROGRAMME.plannedVisits} />
                 <dl className="grid flex-1 grid-cols-2 gap-x-4 gap-y-3">
                   {[
-                    { v: PROGRAMME.outlets, l: 'Outlets assessed' },
+                    { v: PROGRAMME.outlets, l: `${T.Outlets} assessed` },
                     { v: `${PROGRAMME.completedVisits} / ${PROGRAMME.plannedVisits}`, l: 'Visits completed' },
-                    { v: PROGRAMME.visitsPerOutlet, l: 'Visits per outlet' },
+                    { v: PROGRAMME.visitsPerOutlet, l: `Visits per ${T.outlet}` },
                     { v: '24–48h', l: 'Report turnaround' },
                   ].map((m) => (
                     <div key={m.l}>
@@ -258,6 +260,9 @@ export default function LoginPage() {
                 ? `${CLIENT_BRAND.name} · ${CLIENT.org.engagementName} · v${APP_CONFIG.version}`
                 : `${CLIENT_BRAND.name} · ${APP_CONFIG.tagline} · v${APP_CONFIG.version}`}
             </p>
+
+            {/* Full-bleed against the hero's padding; renders null for clients without one. */}
+            <Ticker className="-mx-7 -mb-7 sm:-mx-10 lg:-mb-10" />
           </section>
 
           {/* ── Sign in ── */}

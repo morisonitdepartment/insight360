@@ -29,6 +29,8 @@ import {
   GitCompare,
 } from 'lucide-react'
 import type { Permission } from './permissions'
+import { CLIENT } from './client'
+import { T } from './terms'
 
 export interface NavItem {
   label: string
@@ -44,7 +46,7 @@ export interface NavGroup {
   items: NavItem[]
 }
 
-export const NAVIGATION: NavGroup[] = [
+const BASE_NAVIGATION: NavGroup[] = [
   {
     title: 'Overview',
     items: [{ label: 'Overview', path: '/', icon: LayoutDashboard, permission: 'dashboard.overview' }],
@@ -62,8 +64,8 @@ export const NAVIGATION: NavGroup[] = [
     title: 'Performance',
     items: [
       { label: 'Executive Dashboard', path: '/performance/executive', icon: Gauge, permission: 'dashboard.executive' },
-      { label: 'Outlet Performance', path: '/performance/outlets', icon: Store, permission: 'outlets.view' },
-      { label: 'Outlet Comparison', path: '/performance/compare', icon: GitCompare, permission: 'outlets.compare' },
+      { label: `${T.Outlet} Performance`, path: '/performance/outlets', icon: Store, permission: 'outlets.view' },
+      { label: `${T.Outlet} Comparison`, path: '/performance/compare', icon: GitCompare, permission: 'outlets.compare' },
       { label: 'KPI Analytics', path: '/performance/kpi', icon: BarChart3, permission: 'analytics.view' },
       { label: 'Benchmarking', path: '/performance/benchmarking', icon: Scale, permission: 'analytics.view' },
       { label: 'Trend Analysis', path: '/performance/trends', icon: TrendingUp, permission: 'analytics.view' },
@@ -93,7 +95,7 @@ export const NAVIGATION: NavGroup[] = [
   {
     title: 'Administration',
     items: [
-      { label: 'Outlets', path: '/admin/outlets', icon: Building2, permission: 'admin.outlets' },
+      { label: T.Outlets, path: '/admin/outlets', icon: Building2, permission: 'admin.outlets' },
       { label: 'Users', path: '/admin/users', icon: UserCog, permission: 'admin.users', anyOf: ['admin.stakeholders'] },
       { label: 'Roles & Permissions', path: '/admin/roles', icon: ShieldCheck, permission: 'admin.roles' },
       { label: 'Audit Templates', path: '/admin/templates', icon: ListChecks, permission: 'admin.templates' },
@@ -105,6 +107,17 @@ export const NAVIGATION: NavGroup[] = [
   },
 ]
 
+/**
+ * The navigation the sidebar renders. Icons are resolved once here from the
+ * client's overrides, so Sidebar.tsx stays unaware that clients differ.
+ */
+export const NAVIGATION: NavGroup[] = CLIENT.navIcons
+  ? BASE_NAVIGATION.map((g) => ({
+      ...g,
+      items: g.items.map((it) => ({ ...it, icon: CLIENT.navIcons?.[it.path] ?? it.icon })),
+    }))
+  : BASE_NAVIGATION
+
 /** Human-readable labels for breadcrumb segments */
 export const ROUTE_LABELS: Record<string, string> = {
   '': 'Overview',
@@ -115,8 +128,8 @@ export const ROUTE_LABELS: Record<string, string> = {
   shoppers: 'Mystery Shoppers',
   performance: 'Performance',
   executive: 'Executive Dashboard',
-  outlets: 'Outlets',
-  compare: 'Outlet Comparison',
+  outlets: T.Outlets,
+  compare: `${T.Outlet} Comparison`,
   kpi: 'KPI Analytics',
   benchmarking: 'Benchmarking',
   trends: 'Trend Analysis',

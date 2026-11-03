@@ -5,8 +5,18 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        // Both read CSS variables set per client in src/main.tsx; the fallbacks
+        // after the variable are what every client without a theme block gets.
+        sans: ['var(--font-body)', 'Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        display: ['var(--font-display)', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+      },
+      keyframes: {
+        // Sign-in ticker: the track holds two copies, so -50% is one seamless loop.
+        ticker: { to: { transform: 'translateX(-50%)' } },
+      },
+      animation: {
+        ticker: 'ticker 32s linear infinite',
       },
       colors: {
         navy: {

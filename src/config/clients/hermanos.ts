@@ -1,3 +1,4 @@
+import { Hamburger, ReceiptText, UtensilsCrossed } from 'lucide-react'
 import type { ClientProfile } from './types'
 
 /**
@@ -56,6 +57,28 @@ export const hermanos: ClientProfile = {
     chart: '#e0574a',
     chartLight: '#f3a099',
   },
+
+  // The brand's own type is Cubao and Grosa, which are commercial. Anton echoes
+  // the heavy all-caps display face closely enough; Poppins is the body font the
+  // website actually uses, and is free. Anton ships a single weight, hence 400.
+  theme: {
+    googleFontsHref: 'https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@400;500;600;700&display=swap',
+    bodyFont: 'Poppins',
+    displayFont: { family: 'Anton', weight: 400, uppercase: true, letterSpacing: '0.03em' },
+  },
+
+  terms: { outlet: 'restaurant', outlets: 'restaurants' },
+
+  // Restrained on purpose: only the entries that are about the restaurants
+  // themselves. A burger icon on "Alerts" would be a joke, not a brand.
+  navIcons: {
+    '/performance/outlets': Hamburger,
+    '/admin/outlets': UtensilsCrossed,
+    '/operations/visits': ReceiptText, // a mystery shop ends with a receipt
+  },
+
+  // Must agree with `snapshot` above — both are on the sign-in screen.
+  ticker: ['Brand Standards Programme 2026/27', '18 restaurants', '72 visits a year', 'Malta & Gozo'],
 
   org: {
     engagementName: 'Brand Standards Programme 2026/27',

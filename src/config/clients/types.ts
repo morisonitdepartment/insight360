@@ -1,3 +1,4 @@
+import type { LucideIcon } from 'lucide-react'
 import type { Segment, Subcategory } from '@/types'
 
 /**
@@ -90,6 +91,43 @@ export interface ClientProfile {
     /** Lighter companion, used for fills and the dark-theme line. */
     chartLight: string
   }
+
+  /**
+   * Typography. Absent means the platform default — Inter everywhere — so a
+   * client that sets nothing here renders exactly as before.
+   *
+   * Applied at start-up as CSS variables (see src/main.tsx); only `.page-title`,
+   * the sign-in headline and the ticker take the display face. Card titles,
+   * table headers and KPI numerals deliberately stay in the body face: a
+   * dashboard with thirty uppercase card titles is shouting, not branding.
+   */
+  theme?: {
+    /** One Google Fonts css2 URL covering every family named below. */
+    googleFontsHref: string
+    /** Body family. Must be loaded by googleFontsHref. */
+    bodyFont?: string
+    /**
+     * Heading family. `weight` is mandatory because single-weight faces (Anton)
+     * must not be faux-bolded by the default `font-semibold`.
+     */
+    displayFont?: { family: string; weight: number; uppercase?: boolean; letterSpacing?: string }
+  }
+
+  /**
+   * What the client calls a site. Lower-case singular and plural; capitalised
+   * forms are derived in src/config/terms.ts. Only prose changes — identifiers,
+   * routes, permission keys and column names never do.
+   */
+  terms?: { outlet: string; outlets: string }
+
+  /** Sidebar icon overrides keyed by NavItem.path. Unlisted paths keep the default. */
+  navIcons?: Record<string, LucideIcon>
+
+  /**
+   * Sign-in marquee items. Absent or empty renders no band at all. Any figures
+   * quoted here must agree with `snapshot` — they appear on the same screen.
+   */
+  ticker?: string[]
 
   /** Seeds `DEFAULT_ORGANIZATION`; all of it is editable at runtime under Settings. */
   org: {

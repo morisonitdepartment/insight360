@@ -22,6 +22,7 @@ import { Avatar, DescriptionList, Divider } from '@/components/ui/Misc'
 import { exportCsv } from '@/utils/export'
 import { fmtDate, fmtDateTime, relativeTime } from '@/utils/format'
 import { cn } from '@/utils/cn'
+import { T, countOutlets } from '@/config/terms'
 
 const ALL_ROLES: Role[] = ['super_admin', 'client_admin', 'ops_manager', 'shopper', 'analyst', 'executive']
 /** Roles a client administrator may manage (stakeholder accounts only). */
@@ -68,11 +69,11 @@ function OutletPicker({ selected, onChange, disabled }: { selected: string[]; on
     <div className="rounded-lg border border-slate-200 dark:border-navy-700">
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-navy-700 px-3 py-2">
         <Search className="h-4 w-4 text-slate-400" aria-hidden />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter outlets…" className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400 text-slate-800 dark:text-slate-100" aria-label="Filter outlets" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Filter ${T.outlets}…`} className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400 text-slate-800 dark:text-slate-100" aria-label={`Filter ${T.outlets}`} />
         <span className="text-xs tabular-nums text-slate-500 whitespace-nowrap">{selected.length} selected</span>
       </div>
       <div className="max-h-64 overflow-y-auto p-2 space-y-2">
-        {groups.length === 0 && <p className="px-2 py-4 text-center text-xs text-slate-500">No outlets match.</p>}
+        {groups.length === 0 && <p className="px-2 py-4 text-center text-xs text-slate-500">No {T.outlets} match.</p>}
         {groups.map(([region, list]) => {
           const ids = list.map((o) => o.id)
           const all = ids.every((id) => set.has(id))
@@ -182,7 +183,7 @@ export default function UsersPage() {
     if (!EMAIL_RE.test(form.email.trim())) e.email = 'Enter a valid email address.'
     else if (data.users.some((u) => u.email.toLowerCase() === form.email.trim().toLowerCase() && (isCreate || u.id !== selected?.id))) e.email = 'This email is already registered.'
     if (!manageableRoles.includes(form.role)) e.role = 'You cannot assign this role.'
-    if (form.role === 'ops_manager' && form.outletIds.length === 0 && isCreate) e.outletIds = 'Assign at least one outlet to an operations manager.'
+    if (form.role === 'ops_manager' && form.outletIds.length === 0 && isCreate) e.outletIds = `Assign at least one ${T.outlet} to an operations manager.`
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -254,7 +255,7 @@ export default function UsersPage() {
 
   const saveScope = async () => {
     if (!selected) return
-    await run('Outlet authorisation saved', (d, ctx) => updateUser(d, ctx, selected.id, { outletIds: outletDraft, brandIds: brandDraft }))
+    await run(`${T.Outlet} authorisation saved`, (d, ctx) => updateUser(d, ctx, selected.id, { outletIds: outletDraft, brandIds: brandDraft }))
   }
 
   const runConfirm = async () => {
@@ -284,7 +285,7 @@ export default function UsersPage() {
       Title: u.title,
       Role: ROLE_LABELS[u.role],
       Status: u.status,
-      'Authorised Outlets': u.outletIds.length ? u.outletIds.map((id) => outletById.get(id)?.code ?? id).join('; ') : 'All',
+      [`Authorised ${T.Outlets}`]: u.outletIds.length ? u.outletIds.map((id) => outletById.get(id)?.code ?? id).join('; ') : 'All',
       'MFA Enabled': u.mfaEnabled ? 'Yes' : 'No',
       'Last Login': u.lastLogin ?? 'Never',
       'Created At': u.createdAt,
@@ -294,12 +295,12 @@ export default function UsersPage() {
   }
 
   const outletSummary = (u: User) => {
-    if (u.outletIds.length === 0) return u.role === 'ops_manager' ? <span className="text-amber-700 dark:text-amber-300 text-xs">No outlets assigned</span> : <span className="text-xs text-slate-500">All outlets</span>
+    if (u.outletIds.length === 0) return u.role === 'ops_manager' ? <span className="text-amber-700 dark:text-amber-300 text-xs">No {T.outlets} assigned</span> : <span className="text-xs text-slate-500">All {T.outlets}</span>
     const names = u.outletIds.map((id) => outletById.get(id)?.name ?? id)
     return (
       <span className="inline-flex items-center gap-1 text-xs" title={names.join('\n')}>
         <Building2 className="h-3.5 w-3.5 text-slate-400" aria-hidden />
-        {u.outletIds.length} outlet{u.outletIds.length === 1 ? '' : 's'}
+        {countOutlets(u.outletIds.length)}
       </span>
     )
   }
@@ -323,7 +324,7 @@ export default function UsersPage() {
     },
     { key: 'email', header: 'Email', render: (u) => <span className="text-xs text-slate-600 dark:text-slate-300">{u.email}</span> },
     { key: 'role', header: 'Role', render: (u) => <Badge tone={ROLE_TONE[u.role]}>{ROLE_LABELS[u.role]}</Badge>, sortValue: (u) => ROLE_LABELS[u.role] },
-    { key: 'outlets', header: 'Authorised outlets', render: outletSummary, sortValue: (u) => u.outletIds.length },
+    { key: 'outlets', header: `Authorised ${T.outlets}`, render: outletSummary, sortValue: (u) => u.outletIds.length },
     { key: 'lastLogin', header: 'Last login', render: (u) => <span className="text-xs tabular-nums whitespace-nowrap">{u.lastLogin ? fmtDateTime(u.lastLogin) : 'Never'}</span> },
     { key: 'mfa', header: 'MFA', render: (u) => (u.mfaEnabled ? <Badge tone="green" icon={ShieldCheck}>Enabled</Badge> : <Badge tone="slate" icon={ShieldOff}>Not enrolled</Badge>), sortValue: (u) => (u.mfaEnabled ? 1 : 0) },
     { key: 'status', header: 'Status', render: (u) => <StatusBadge status={u.status} /> },
@@ -338,7 +339,7 @@ export default function UsersPage() {
     <div className="space-y-5">
       <PageHeader
         title="Users"
-        subtitle="Accounts, roles, outlet authorisation and MFA"
+        subtitle={`Accounts, roles, ${T.outlet} authorisation and MFA`}
         actions={
           <>
             <button type="button" className="btn-secondary" onClick={doExport}>
@@ -460,7 +461,7 @@ export default function UsersPage() {
 
             <section>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h4 className="section-title">Authorised outlets</h4>
+                <h4 className="section-title">Authorised {T.outlets}</h4>
                 {selectedManageable && (
                   <button type="button" className="btn-primary btn-sm" onClick={() => void saveScope()} disabled={busy || !scopeDirty}>
                     Save authorisation
@@ -468,7 +469,7 @@ export default function UsersPage() {
                 )}
               </div>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                {selected.role === 'ops_manager' ? 'Operations managers only see the outlets ticked below.' : 'Leave empty to authorise all outlets for this role.'}
+                {selected.role === 'ops_manager' ? `Operations managers only see the ${T.outlets} ticked below.` : `Leave empty to authorise all ${T.outlets} for this role.`}
               </p>
               <div className="mt-3">
                 <OutletPicker selected={outletDraft} onChange={setOutletDraft} disabled={!selectedManageable || busy} />
@@ -518,7 +519,7 @@ export default function UsersPage() {
         description={
           createOpen
             ? isLiveMode()
-              ? 'Creates the login, the role and the outlet access in one step.'
+              ? `Creates the login, the role and the ${T.outlet} access in one step.`
               : 'The account is created in “Invited” status and receives an onboarding email (demo).'
             : 'Update profile details and role.'
         }
@@ -569,7 +570,7 @@ export default function UsersPage() {
             </Field>
           </div>
           {createOpen && form.role === 'ops_manager' && (
-            <Field label="Authorised outlets" required error={errors.outletIds} hint="Operations managers are restricted to their assigned outlets.">
+            <Field label={`Authorised ${T.outlets}`} required error={errors.outletIds} hint={`Operations managers are restricted to their assigned ${T.outlets}.`}>
               <OutletPicker selected={form.outletIds} onChange={(ids) => setForm((f) => ({ ...f, outletIds: ids }))} />
             </Field>
           )}
@@ -652,7 +653,7 @@ export default function UsersPage() {
             </>
           ) : confirm === 'reactivate' ? (
             <>
-              Restore access for <strong>{selected?.name}</strong>? Their previous role and outlet authorisation will apply.
+              Restore access for <strong>{selected?.name}</strong>? Their previous role and {T.outlet} authorisation will apply.
             </>
           ) : (
             <>

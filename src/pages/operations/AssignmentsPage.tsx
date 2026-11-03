@@ -18,6 +18,7 @@ import { Field, Select } from '@/components/ui/Form'
 import { Avatar } from '@/components/ui/Misc'
 import { fmtDate, fmtPct } from '@/utils/format'
 import { cn } from '@/utils/cn'
+import { T } from '@/config/terms'
 
 interface Workload {
   shopper: Shopper
@@ -111,7 +112,7 @@ export default function AssignmentsPage() {
         let score = 0
         if (w.shopper.availability === 'Available') { score += 40; reasons.push('Available') } else if (w.shopper.availability === 'Limited') { score += 15; reasons.push('Limited availability') }
         if (w.shopper.certificationStatus === 'Certified') { score += 30; reasons.push('Certified') }
-        if (!previousShopperIds.has(w.shopper.id)) { score += 15; reasons.push('New to this outlet') } else reasons.push('Visited before')
+        if (!previousShopperIds.has(w.shopper.id)) { score += 15; reasons.push(`New to this ${T.outlet}`) } else reasons.push('Visited before')
         score += Math.max(0, 10 - w.upcoming * 2)
         score += Math.round(w.shopper.avgReportQuality * 2)
         const profileFit = !scenario || scenario.suitableProfiles.includes(w.shopper.profileType)
@@ -138,7 +139,7 @@ export default function AssignmentsPage() {
     { key: 'code', header: 'Visit', render: (v) => <span className="font-mono text-xs font-semibold">{v.code}</span> },
     {
       key: 'outlet',
-      header: 'Outlet',
+      header: T.Outlet,
       sortValue: (v) => outletById.get(v.outletId)?.name,
       render: (v) => (
         <div className="min-w-[150px]">
@@ -178,7 +179,7 @@ export default function AssignmentsPage() {
       <div className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
         {/* Left: queue */}
         <div className="space-y-3 min-w-0">
-          <FilterBar search={search} onSearch={setSearch} searchPlaceholder="Search visit, outlet, shopper…" filters={filterDefs} values={filters} onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))} onReset={() => { setFilters({}); setSearch('') }} resultCount={rows.length} />
+          <FilterBar search={search} onSearch={setSearch} searchPlaceholder={`Search visit, ${T.outlet}, shopper…`} filters={filterDefs} values={filters} onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))} onReset={() => { setFilters({}); setSearch('') }} resultCount={rows.length} />
           <Card>
             <CardHeader title="Assignment queue" subtitle="Select a visit to see recommended shoppers" />
             <DataTable columns={columns} rows={rows} rowKey={(v) => v.id} onRowClick={(v) => setSelectedId(v.id)} selectedKey={selectedId} initialSort={{ key: 'scheduledDate', dir: 'asc' }} pageSize={12} dense caption="Visits needing assignment" emptyTitle="Queue is clear" emptyMessage="Every upcoming visit has been assigned." />
@@ -259,7 +260,7 @@ export default function AssignmentsPage() {
                           <div className="mt-1.5 flex flex-wrap gap-1">
                             <StatusBadge status={r.shopper.availability} size="xs" />
                             <StatusBadge status={r.shopper.certificationStatus} size="xs" />
-                            {r.reasons.includes('New to this outlet') ? <Badge tone="green" size="xs">Not previously at outlet</Badge> : <Badge tone="slate" size="xs">Visited before</Badge>}
+                            {r.reasons.includes(`New to this ${T.outlet}`) ? <Badge tone="green" size="xs">Not previously at {T.outlet}</Badge> : <Badge tone="slate" size="xs">Visited before</Badge>}
                           </div>
                         </div>
                         {canAssign && (

@@ -35,6 +35,7 @@ import { ROLE_LABELS } from '@/config/permissions'
 import { fmtDate, fmtDateTime, fmtPct, relativeTime } from '@/utils/format'
 import { isDemoMode } from '@/config/app'
 import { cn } from '@/utils/cn'
+import { T } from '@/config/terms'
 
 export default function OverviewPage() {
   useDocumentTitle('Overview')
@@ -67,7 +68,7 @@ export default function OverviewPage() {
   const upcoming = scopedVisits.filter((v) => !isCompleted(v) && v.scheduledDate >= fmtDate(now, 'yyyy-MM-dd')).sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate)).slice(0, 6)
   const recent = scopedVisits.filter(isCompleted).sort((a, b) => (b.reviewedAt ?? b.visitDate ?? '').localeCompare(a.reviewedAt ?? a.visitDate ?? '')).slice(0, 5)
 
-  const scopeLabel = role === 'ops_manager' ? `${scopedOutlets.length} assigned outlets` : `${scopedOutlets.length} outlets`
+  const scopeLabel = role === 'ops_manager' ? `${scopedOutlets.length} assigned ${T.outlets}` : `${scopedOutlets.length} ${T.outlets}`
 
   return (
     <div className="space-y-5">
@@ -142,7 +143,7 @@ export default function OverviewPage() {
               <thead>
                 <tr>
                   <th>Scheduled</th>
-                  <th>Outlet</th>
+                  <th>{T.Outlet}</th>
                   <th>Type</th>
                   <th>Shopper</th>
                   <th>Status</th>
@@ -189,7 +190,7 @@ export default function OverviewPage() {
 
         {/* Bottom outlets */}
         <Card>
-          <CardHeader title="Lowest scoring outlets" subtitle="Prioritised for intervention" actions={can('outlets.view') ? <Link to="/performance/outlets?risk=Critical" className="text-xs link">All outlets</Link> : undefined} />
+          <CardHeader title={`Lowest scoring ${T.outlets}`} subtitle="Prioritised for intervention" actions={can('outlets.view') ? <Link to="/performance/outlets?risk=Critical" className="text-xs link">All {T.outlets}</Link> : undefined} />
           <ul className="divide-y divide-slate-100 dark:divide-navy-800">
             {[...ranked].reverse().slice(0, 5).map((o) => (
               <li key={o.id}>
@@ -288,7 +289,7 @@ function ShopperOverview() {
         <Card>
           <CardHeader title="Continue your assessments" subtitle="Drafts and in-progress visits, earliest deadline first" />
           <ul className="divide-y divide-slate-100 dark:divide-navy-800">
-            {active.length === 0 && <li className="px-5 py-8"><EmptyState title="Nothing in progress" message="Start an assigned visit when you arrive at the outlet." /></li>}
+            {active.length === 0 && <li className="px-5 py-8"><EmptyState title="Nothing in progress" message={`Start an assigned visit when you arrive at the ${T.outlet}.`} /></li>}
             {active.map((v) => (
               <li key={v.id} className="px-5 py-3">
                 <div className="flex items-start justify-between gap-3">

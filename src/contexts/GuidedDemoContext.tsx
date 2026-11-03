@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import { STORYLINE } from '@/data/seed'
+import { CLIENT } from '@/config/client'
+import { T } from '@/config/terms'
 
 export interface DemoStep {
   title: string
@@ -26,18 +28,18 @@ export function buildDemoSteps(): DemoStep[] {
   return [
     {
       title: 'Executive Dashboard',
-      description: 'Organisation health at a glance: overall experience score around 87%, KPI cards with period variance, and seven critical findings that need attention.',
+      description: 'Organisation health at a glance: the overall experience score, KPI cards with period variance, and the critical findings that need attention.',
       path: '/performance/executive',
       target: 'kpi-overall',
     },
     {
       title: 'Portfolio Performance',
-      description: 'All 50 outlets ranked with risk ratings. Filter by segment or risk to isolate the outlets that require intervention.',
+      description: `All ${CLIENT.snapshot.outlets} ${T.outlets} ranked with risk ratings. Filter by segment or risk to isolate the ${T.outlets} that require intervention.`,
       path: '/performance/outlets?risk=Critical',
       target: 'outlet-table',
     },
     {
-      title: 'Outlet Drill-Down',
+      title: `${T.Outlet} Drill-Down`,
       description: 'Urban Fork – Al Wakrah scored 68.1% at its latest main audit: service delays, cleanliness gaps, no upselling and one critical hygiene observation.',
       path: `/performance/outlets/${STORYLINE.outletId}`,
       target: 'outlet-score',

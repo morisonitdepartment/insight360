@@ -41,6 +41,7 @@ import { SCENARIOS } from './scenarios'
 import { STORYLINE_ANCHOR, shiftDemoDates } from './demoClock'
 import { CLIENT } from '@/config/client'
 import { deriveOutlets } from '@/services/derive'
+import { T } from '@/config/terms'
 
 const iso = (d: Date) => format(d, "yyyy-MM-dd'T'HH:mm:ss")
 const dayIso = (d: Date) => format(d, 'yyyy-MM-dd')
@@ -807,7 +808,7 @@ export function generateDataset(): Dataset {
     const created = new Date(latest.reviewedAt ?? latest.submittedAt ?? latest.visitEnd!)
     mkAlert({
       severity: 'High',
-      type: 'Outlet Score Below 70%',
+      type: `${T.Outlet} Score Below 70%`,
       outletId: o.id,
       visitId: latest.id,
       findingId: null,

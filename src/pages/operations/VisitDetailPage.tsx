@@ -19,6 +19,7 @@ import { Avatar, DescriptionList, ProgressBar, Timeline } from '@/components/ui/
 import { EvidenceCard, EvidencePreviewModal } from '@/components/ui/EvidenceThumb'
 import { printPage } from '@/utils/export'
 import { fmtCurrency, fmtDate, fmtDateTime, hoursBetween, relativeTime } from '@/utils/format'
+import { T } from '@/config/terms'
 
 export default function VisitDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -63,7 +64,7 @@ export default function VisitDetailPage() {
     return (
       <EmptyState
         title="Visit not found"
-        message="The visit you are looking for does not exist or is outside your outlet scope."
+        message={`The visit you are looking for does not exist or is outside your ${T.outlet} scope.`}
         icon={ClipboardList}
         action={
           <Link to="/operations/visits" className="btn-secondary">
@@ -185,7 +186,7 @@ export default function VisitDetailPage() {
               <DescriptionList
                 columns={3}
                 items={[
-                  { label: 'Outlet', value: <Link to={`/performance/outlets/${outlet.id}`} className="link">{outlet.name}</Link> },
+                  { label: T.Outlet, value: <Link to={`/performance/outlets/${outlet.id}`} className="link">{outlet.name}</Link> },
                   { label: 'Brand', value: outlet.brand },
                   { label: 'Category', value: `${outlet.segment} · ${outlet.subcategory}` },
                   { label: 'Journey', value: visit.journey },

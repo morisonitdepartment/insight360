@@ -31,6 +31,7 @@ import { EmptyState } from '@/components/ui/States'
 import { ProgressBar, Stat } from '@/components/ui/Misc'
 import { fmtDateTime, round } from '@/utils/format'
 import { cn } from '@/utils/cn'
+import { T } from '@/config/terms'
 
 type ApplicableChoice = 'all' | 'F&B' | 'Entertainment'
 
@@ -48,9 +49,9 @@ const HIERARCHY: { label: string; icon: typeof Gauge; detail: string }[] = [
   { label: 'Section', icon: Layers, detail: 'Weighted average of its answered questions; unanswered and N/A items are excluded.' },
   { label: 'Category', icon: ClipboardCheck, detail: 'Sections mapped to the same KPI category are averaged by their answered weight.' },
   { label: 'Visit', icon: Gauge, detail: 'Category scores combined using the KPI weightings below — this is the visit score.' },
-  { label: 'Outlet', icon: Store, detail: 'The latest approved visit sets the outlet score, risk rating and rank.' },
-  { label: 'Brand', icon: Building2, detail: 'Mean of the outlet scores belonging to the brand, weighted equally per outlet.' },
-  { label: 'Organisation', icon: TrendingUp, detail: 'Programme-wide score across all assessed outlets, reported monthly to the board.' },
+  { label: T.Outlet, icon: Store, detail: `The latest approved visit sets the ${T.outlet} score, risk rating and rank.` },
+  { label: 'Brand', icon: Building2, detail: `Mean of the ${T.outlet} scores belonging to the brand, weighted equally per ${T.outlet}.` },
+  { label: 'Organisation', icon: TrendingUp, detail: `Programme-wide score across all assessed ${T.outlets}, reported monthly to the board.` },
 ]
 
 export default function KpiConfigPage() {
@@ -115,7 +116,7 @@ export default function KpiConfigPage() {
     <div className="space-y-5">
       <PageHeader
         title="KPI Configuration"
-        subtitle="Weighted scoring model: question → section → category → visit → outlet → organisation"
+        subtitle={`Weighted scoring model: question → section → category → visit → ${T.outlet} → organisation`}
         badge={balanced ? <Badge tone="green" icon={CheckCircle2}>Balanced</Badge> : <Badge tone="red" icon={AlertOctagon}>{total > 100 ? 'Over-weighted' : 'Under-weighted'}</Badge>}
         actions={
           canEdit ? (
@@ -228,7 +229,7 @@ export default function KpiConfigPage() {
         </ChartCard>
 
         <Card>
-          <CardHeader title="Risk thresholds" subtitle="Score bands applied to every visit and outlet" />
+          <CardHeader title="Risk thresholds" subtitle={`Score bands applied to every visit and ${T.outlet}`} />
           <div className="table-wrap">
             <table className="table">
               <caption className="sr-only">Risk rating thresholds</caption>

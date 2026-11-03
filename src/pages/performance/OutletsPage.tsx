@@ -21,6 +21,7 @@ import { ProgressBar } from '@/components/ui/Misc'
 import { EmptyState } from '@/components/ui/States'
 import { FilterBar, applyFilters, matchesSearch, type FilterDef } from '@/components/ui/FilterBar'
 import { CHART_COLORS, scoreColor } from '@/components/charts'
+import { T } from '@/config/terms'
 
 type ViewMode = 'table' | 'cards' | 'map'
 
@@ -62,7 +63,7 @@ function ScoreRing({ score, size = 64 }: { score: number | null; size?: number }
 }
 
 export default function OutletsPage() {
-  useDocumentTitle('Outlet Performance')
+  useDocumentTitle(`${T.Outlet} Performance`)
   const navigate = useNavigate()
   const { can } = useAuth()
   const { scopedOutlets, dispatch } = useData()
@@ -135,7 +136,7 @@ export default function OutletsPage() {
     const csvRows = rows.map((o) => ({
       Rank: o.rank ?? '',
       Code: o.code,
-      Outlet: o.name,
+      [T.Outlet]: o.name,
       Brand: o.brand,
       Segment: o.segment,
       Subcategory: o.subcategory,
@@ -156,9 +157,9 @@ export default function OutletsPage() {
       Status: o.status,
     }))
     try {
-      exportCsv(csvRows, 'outlet-performance')
-      await dispatch((d, ctx) => logExport(d, ctx, 'Outlet performance', 'CSV'))
-      toast.success(`Exported ${csvRows.length} outlets to CSV`)
+      exportCsv(csvRows, `${T.outlet}-performance`)
+      await dispatch((d, ctx) => logExport(d, ctx, `${T.Outlet} performance`, 'CSV'))
+      toast.success(`Exported ${csvRows.length} ${T.outlets} to CSV`)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Export failed')
     }
@@ -168,7 +169,7 @@ export default function OutletsPage() {
     { key: 'rank', header: '#', width: '52px', align: 'center', sortValue: (o) => o.rank ?? 999, render: (o) => <span className="tabular-nums font-semibold text-slate-700 dark:text-slate-200">{o.rank ?? '—'}</span> },
     {
       key: 'name',
-      header: 'Outlet',
+      header: T.Outlet,
       sortValue: (o) => o.name,
       render: (o) => (
         <div className="min-w-[180px]">
@@ -256,8 +257,8 @@ export default function OutletsPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Outlet Performance"
-        subtitle={`${scopedOutlets.length}-outlet portfolio ranked by latest approved score`}
+        title={`${T.Outlet} Performance`}
+        subtitle={`${scopedOutlets.length}-${T.outlet} portfolio ranked by latest approved score`}
         actions={
           <>
             <SegmentedControl<ViewMode>
@@ -281,7 +282,7 @@ export default function OutletsPage() {
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
-        <KpiCard compact label="Outlets assessed" value={`${kpis.assessed}/${kpis.total}`} sub="Latest approved visit" icon={Building2} />
+        <KpiCard compact label={`${T.Outlets} assessed`} value={`${kpis.assessed}/${kpis.total}`} sub="Latest approved visit" icon={Building2} />
         <KpiCard compact label="Portfolio average" value={fmtPct(kpis.average)} sub={`Mean target ${fmtPct(kpis.targetAvg, 0)}`} icon={ThumbsUp} tone="accent" />
         <KpiCard compact label="Excellent" value={kpis.excellent} sub="≥ 90%" icon={CheckCircle2} tone="good" onClick={() => setFilter('risk', 'Excellent')} />
         <KpiCard compact label="Good" value={kpis.good} sub="80 – 89.9%" icon={ThumbsUp} tone="default" onClick={() => setFilter('risk', 'Good')} />
@@ -294,8 +295,8 @@ export default function OutletsPage() {
 
       {view === 'table' && (
         <Card tour="outlet-table">
-          <CardHeader title="Ranked outlets" subtitle="Click a row to open the outlet profile. Sort any column." />
-          <DataTable columns={columns} rows={rows} rowKey={(o) => o.id} onRowClick={openDetail} pageSize={0} initialSort={{ key: 'rank', dir: 'asc' }} caption="Outlet performance ranking" maxHeight="70vh" emptyTitle="No outlets match" emptyMessage="Try clearing a filter or the search term." />
+          <CardHeader title={`Ranked ${T.outlets}`} subtitle={`Click a row to open the ${T.outlet} profile. Sort any column.`} />
+          <DataTable columns={columns} rows={rows} rowKey={(o) => o.id} onRowClick={openDetail} pageSize={0} initialSort={{ key: 'rank', dir: 'asc' }} caption={`${T.Outlet} performance ranking`} maxHeight="70vh" emptyTitle={`No ${T.outlets} match`} emptyMessage="Try clearing a filter or the search term." />
         </Card>
       )}
 
@@ -303,7 +304,7 @@ export default function OutletsPage() {
         <div data-tour="outlet-table">
           {rows.length === 0 ? (
             <Card>
-              <EmptyState title="No outlets match" message="Try clearing a filter or the search term." />
+              <EmptyState title={`No ${T.outlets} match`} message="Try clearing a filter or the search term." />
             </Card>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -415,17 +416,17 @@ function MapView({ outlets, onOpen }: { outlets: Outlet[]; onOpen: (o: Outlet) =
   if (!outlets.length)
     return (
       <Card>
-        <EmptyState title="No outlets match" message="Try clearing a filter or the search term." />
+        <EmptyState title={`No ${T.outlets} match`} message="Try clearing a filter or the search term." />
       </Card>
     )
 
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_320px]" data-tour="outlet-table">
       <Card>
-        <CardHeader title="Portfolio map" subtitle="Stylised city grid — outlet markers coloured by latest score. Hover or focus a marker for details; click to open the profile." />
+        <CardHeader title="Portfolio map" subtitle={`Stylised city grid — ${T.outlet} markers coloured by latest score. Hover or focus a marker for details; click to open the profile.`} />
         <CardBody>
           <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-navy-800 dark:bg-navy-950">
-            <svg viewBox="0 0 100 100" className="block h-auto w-full" role="group" aria-label="Map of outlet locations" preserveAspectRatio="xMidYMid meet">
+            <svg viewBox="0 0 100 100" className="block h-auto w-full" role="group" aria-label={`Map of ${T.outlet} locations`} preserveAspectRatio="xMidYMid meet">
               <defs>
                 <pattern id="city-grid" width="4" height="4" patternUnits="userSpaceOnUse">
                   <path d="M4 0H0V4" fill="none" strokeWidth="0.12" className="stroke-slate-300 dark:stroke-navy-700" />
@@ -508,7 +509,7 @@ function MapView({ outlets, onOpen }: { outlets: Outlet[]; onOpen: (o: Outlet) =
       </Card>
 
       <Card className="flex flex-col">
-        <CardHeader title="Outlets by region" subtitle={`${outlets.length} outlets · ${byRegion.length} regions`} />
+        <CardHeader title={`${T.Outlets} by region`} subtitle={`${outlets.length} ${T.outlets} · ${byRegion.length} regions`} />
         <div className="max-h-[560px] overflow-y-auto px-2 pb-3">
           {byRegion.map(([region, list]) => (
             <section key={region} className="mb-2">

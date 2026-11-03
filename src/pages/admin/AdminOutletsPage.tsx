@@ -17,6 +17,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Field, Input, Select } from '@/components/ui/Form'
 import { exportCsv } from '@/utils/export'
 import { fmtDate } from '@/utils/format'
+import { T } from '@/config/terms'
 
 const FNB_SUBCATEGORIES: FnbSubcategory[] = ['Fine Dining', 'Casual Dining', 'Café', 'Fast Casual', 'Food Court']
 const ENT_SUBCATEGORIES: EntSubcategory[] = ['Indoor Entertainment', 'Family Entertainment', 'Attraction', 'Cinema', 'Recreation']
@@ -55,7 +56,7 @@ function formFrom(o: Outlet): OutletForm {
 }
 
 export default function AdminOutletsPage() {
-  useDocumentTitle('Outlets')
+  useDocumentTitle(T.Outlets)
   const navigate = useNavigate()
   const now = useNow()
   const { can } = useAuth()
@@ -171,7 +172,7 @@ export default function AdminOutletsPage() {
 
   const validate = (): boolean => {
     const e: Partial<Record<keyof OutletForm, string>> = {}
-    if (!form.name.trim()) e.name = 'Outlet name is required.'
+    if (!form.name.trim()) e.name = `${T.Outlet} name is required.`
     if (!form.code.trim()) e.code = 'Code is required.'
     else if (data.outlets.some((o) => o.code.toLowerCase() === form.code.trim().toLowerCase() && o.id !== editing?.outlet?.id)) e.code = 'This code is already in use.'
     if (!form.brandId) e.brandId = 'Select a brand.'
@@ -226,7 +227,7 @@ export default function AdminOutletsPage() {
       toast.success(base ? `${outlet.name} updated` : `${outlet.name} created as ${outlet.code}`)
       closeForm()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not save outlet')
+      toast.error(e instanceof Error ? e.message : `Could not save ${T.outlet}`)
     } finally {
       setBusy(false)
     }
@@ -239,7 +240,7 @@ export default function AdminOutletsPage() {
     }
     const out = rows.map((o) => ({
       Code: o.code,
-      Outlet: o.name,
+      [T.Outlet]: o.name,
       Brand: o.brand,
       Segment: o.segment,
       Subcategory: o.subcategory,
@@ -257,15 +258,15 @@ export default function AdminOutletsPage() {
       'Last Audit': o.lastAudit ?? '',
       'Next Audit': o.nextAudit ?? '',
     }))
-    exportCsv(out, `insight360-outlets-${fmtDate(now, 'yyyyMMdd')}`)
-    void dispatch((d, ctx) => logExport(d, ctx, `Outlets (${out.length} rows)`, 'CSV')).then(() => toast.success(`Exported ${out.length} outlets to CSV`))
+    exportCsv(out, `insight360-${T.outlets}-${fmtDate(now, 'yyyyMMdd')}`)
+    void dispatch((d, ctx) => logExport(d, ctx, `${T.Outlets} (${out.length} rows)`, 'CSV')).then(() => toast.success(`Exported ${out.length} ${T.outlets} to CSV`))
   }
 
   // ── Columns ──
   const columns: Column<Outlet>[] = useMemo(
     () => [
       { key: 'code', header: 'Code', render: (o) => <span className="font-mono text-xs text-slate-600 dark:text-slate-300">{o.code}</span>, width: '84px' },
-      { key: 'name', header: 'Outlet', render: (o) => <span className="font-medium text-slate-900 dark:text-white">{o.name}</span> },
+      { key: 'name', header: T.Outlet, render: (o) => <span className="font-medium text-slate-900 dark:text-white">{o.name}</span> },
       { key: 'brand', header: 'Brand' },
       { key: 'segment', header: 'Segment', render: (o) => <SegmentBadge segment={o.segment} /> },
       { key: 'subcategory', header: 'Subcategory' },
@@ -304,13 +305,13 @@ export default function AdminOutletsPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Outlets"
+        title={T.Outlets}
         subtitle={
           // Was hardcoded to the demo's 50. A real portfolio grows from nothing,
           // and a heading that contradicts the count beside it reads as a bug.
           scopedOutlets.length === 0
-            ? 'Master data — no outlets yet'
-            : `Master data for the ${scopedOutlets.length}-outlet portfolio`
+            ? `Master data — no ${T.outlets} yet`
+            : `Master data for the ${scopedOutlets.length}-${T.outlet} portfolio`
         }
         actions={
           <>
@@ -319,7 +320,7 @@ export default function AdminOutletsPage() {
             </button>
             {canManage && (
               <button type="button" className="btn-primary" onClick={openCreate}>
-                <Plus className="h-4 w-4" aria-hidden /> New outlet
+                <Plus className="h-4 w-4" aria-hidden /> New {T.outlet}
               </button>
             )}
           </>
@@ -327,7 +328,7 @@ export default function AdminOutletsPage() {
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-        <KpiCard compact label="Total outlets" value={kpi.total} icon={Building2} tone="accent" sub="In portfolio" />
+        <KpiCard compact label={`Total ${T.outlets}`} value={kpi.total} icon={Building2} tone="accent" sub="In portfolio" />
         <KpiCard compact label="F&B" value={kpi.fnb} icon={Store} sub={`${kpi.total ? Math.round((kpi.fnb / kpi.total) * 100) : 0}% of portfolio`} />
         <KpiCard compact label="Entertainment" value={kpi.ent} icon={Ticket} sub={`${kpi.total ? Math.round((kpi.ent / kpi.total) * 100) : 0}% of portfolio`} />
         <KpiCard compact label="Active" value={kpi.active} icon={Activity} tone="good" sub="Trading normally" />
@@ -338,14 +339,14 @@ export default function AdminOutletsPage() {
       <FilterBar search={search} onSearch={setSearch} searchPlaceholder="Search code, name, brand, location, manager…" filters={filterDefs} values={filters} onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))} onReset={() => { setFilters({}); setSearch('') }} resultCount={rows.length} />
 
       <Card>
-        <DataTable columns={columns} rows={rows} rowKey={(o) => o.id} onRowClick={(o) => navigate(`/performance/outlets/${o.id}`)} pageSize={15} initialSort={{ key: 'code', dir: 'asc' }} caption="Outlet master data" emptyTitle="No outlets match" emptyMessage="Adjust the filters or create a new outlet." />
+        <DataTable columns={columns} rows={rows} rowKey={(o) => o.id} onRowClick={(o) => navigate(`/performance/outlets/${o.id}`)} pageSize={15} initialSort={{ key: 'code', dir: 'asc' }} caption={`${T.Outlet} master data`} emptyTitle={`No ${T.outlets} match`} emptyMessage={`Adjust the filters or create a new ${T.outlet}.`} />
       </Card>
 
       <Modal
         open={editing !== null}
         onClose={closeForm}
-        title={editing?.outlet ? `Edit ${editing.outlet.code}` : 'New outlet'}
-        description={editing?.outlet ? 'Changes apply immediately to master data. Derived performance fields are preserved.' : 'Brand determines the segment and the suggested outlet code.'}
+        title={editing?.outlet ? `Edit ${editing.outlet.code}` : `New ${T.outlet}`}
+        description={editing?.outlet ? 'Changes apply immediately to master data. Derived performance fields are preserved.' : `Brand determines the segment and the suggested ${T.outlet} code.`}
         size="lg"
         footer={
           <>
@@ -353,7 +354,7 @@ export default function AdminOutletsPage() {
               Cancel
             </button>
             <button type="submit" form="outlet-form" className="btn-primary" disabled={busy || !canManage}>
-              {busy ? 'Saving…' : editing?.outlet ? 'Save changes' : 'Create outlet'}
+              {busy ? 'Saving…' : editing?.outlet ? 'Save changes' : `Create ${T.outlet}`}
             </button>
           </>
         }
@@ -384,7 +385,7 @@ export default function AdminOutletsPage() {
           <Field label="Segment" hint="Derived from the selected brand.">
             <div className="flex h-[38px] items-center">{segment ? <SegmentBadge segment={segment} size="md" /> : <span className="text-xs text-slate-400">—</span>}</div>
           </Field>
-          <Field label="Outlet name" required error={errors.name} htmlFor="outlet-name" className="sm:col-span-2">
+          <Field label={`${T.Outlet} name`} required error={errors.name} htmlFor="outlet-name" className="sm:col-span-2">
             <Input id="outlet-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder={selectedBrand ? `${selectedBrand.name} – Location` : 'Brand – Location'} invalid={!!errors.name} />
           </Field>
           <Field label="Code" required error={errors.code} hint={segment && !editing?.outlet ? `Suggested: ${suggestCode(data.outlets, segment)}` : undefined} htmlFor="outlet-code">
@@ -430,7 +431,7 @@ export default function AdminOutletsPage() {
               ))}
             </datalist>
           </Field>
-          <Field label="Outlet manager" htmlFor="outlet-manager">
+          <Field label={`${T.Outlet} manager`} htmlFor="outlet-manager">
             <Input id="outlet-manager" value={form.manager} onChange={(e) => setForm((f) => ({ ...f, manager: e.target.value }))} placeholder="Full name" />
           </Field>
           <Field label="Status" htmlFor="outlet-status">
@@ -445,7 +446,7 @@ export default function AdminOutletsPage() {
           <Field label="Opening hours" htmlFor="outlet-hours">
             <Input id="outlet-hours" value={form.openingHours} onChange={(e) => setForm((f) => ({ ...f, openingHours: e.target.value }))} placeholder="11:00 – 00:00" />
           </Field>
-          <Field label="Target score (%)" error={errors.targetScore} htmlFor="outlet-target" hint="Brand standard the outlet is benchmarked against.">
+          <Field label="Target score (%)" error={errors.targetScore} htmlFor="outlet-target" hint={`Brand standard the ${T.outlet} is benchmarked against.`}>
             <Input id="outlet-target" type="number" min={50} max={100} step={1} value={form.targetScore} onChange={(e) => setForm((f) => ({ ...f, targetScore: e.target.value }))} invalid={!!errors.targetScore} />
           </Field>
         </form>
@@ -459,7 +460,7 @@ export default function AdminOutletsPage() {
         open={brandModal}
         onClose={() => { setBrandModal(false); setBrandError('') }}
         title="Add a brand"
-        description="Every outlet belongs to a brand, and the brand sets its segment."
+        description={`Every ${T.outlet} belongs to a brand, and the brand sets its segment.`}
         size="sm"
         footer={
           <>
@@ -483,7 +484,7 @@ export default function AdminOutletsPage() {
               autoComplete="off"
             />
           </Field>
-          <Field label="Segment" required htmlFor="brand-segment" hint="Determines which subcategories its outlets may use.">
+          <Field label="Segment" required htmlFor="brand-segment" hint={`Determines which subcategories its ${T.outlets} may use.`}>
             <Select id="brand-segment" value={brandForm.segment} onChange={(e) => setBrandForm((f) => ({ ...f, segment: e.target.value as Segment }))}>
               <option value="F&B">F&amp;B</option>
               <option value="Entertainment">Entertainment</option>

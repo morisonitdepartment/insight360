@@ -18,6 +18,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { Tabs } from '@/components/ui/Misc'
 import { EmptyState } from '@/components/ui/States'
 import { CHART_COLORS, ChartCard, GroupedBarChart } from '@/components/charts'
+import { T } from '@/config/terms'
 
 type TabKey = 'brand' | 'category' | 'org' | 'previous' | 'mafu' | 'segment'
 
@@ -170,7 +171,7 @@ export default function BenchmarkingPage() {
 
   const compareColumns: Column<CategoryCompareRow>[] = [
     { key: 'label', header: 'Category', render: (r) => <span className="font-medium text-slate-800 dark:text-slate-100">{r.label}</span> },
-    { key: 'outlet', header: 'Outlet', align: 'right', sortValue: (r) => r.outlet, render: (r) => <ScoreBadge score={r.outlet} /> },
+    { key: 'outlet', header: T.Outlet, align: 'right', sortValue: (r) => r.outlet, render: (r) => <ScoreBadge score={r.outlet} /> },
     { key: 'benchmark', header: 'Benchmark', align: 'right', sortValue: (r) => r.benchmark, render: (r) => <span className="tabular-nums">{fmtPct(r.benchmark)}</span> },
     { key: 'gap', header: 'Gap', align: 'right', sortValue: (r) => r.gap, render: (r) => <Gap value={r.gap} /> },
   ]
@@ -178,7 +179,7 @@ export default function BenchmarkingPage() {
   const cycleColumns: Column<CycleRow>[] = [
     {
       key: 'name',
-      header: 'Outlet',
+      header: T.Outlet,
       sortValue: (r) => r.name,
       render: (r) => (
         <div className="min-w-[160px]">
@@ -202,7 +203,7 @@ export default function BenchmarkingPage() {
     { key: 'rank', header: '#', width: '52px', align: 'center', sortValue: (b) => b.rank, render: (b) => <span className={cn('inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold tabular-nums', b.rank === 1 ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200' : 'bg-slate-100 text-slate-700 dark:bg-navy-800 dark:text-slate-200')}>{b.rank}</span> },
     { key: 'brand', header: 'Brand', sortValue: (b) => b.brand, render: (b) => <span className="font-medium text-slate-900 dark:text-white">{b.brand}</span> },
     { key: 'segment', header: 'Segment', sortValue: (b) => b.segment, render: (b) => <SegmentBadge segment={b.segment} size="xs" /> },
-    { key: 'outlets', header: 'Outlets', align: 'right', sortValue: (b) => b.outlets, render: (b) => <span className="tabular-nums">{b.outlets}</span> },
+    { key: 'outlets', header: T.Outlets, align: 'right', sortValue: (b) => b.outlets, render: (b) => <span className="tabular-nums">{b.outlets}</span> },
     { key: 'score', header: 'Score', align: 'right', sortValue: (b) => b.score, render: (b) => <ScoreBadge score={b.score} showLabel /> },
     { key: 'openIssues', header: 'Open issues', align: 'right', sortValue: (b) => b.openIssues, render: (b) => <span className="tabular-nums">{b.openIssues}</span> },
   ]
@@ -215,9 +216,9 @@ export default function BenchmarkingPage() {
   )
 
   const tabs: { key: TabKey; label: string }[] = [
-    { key: 'brand', label: 'Outlet vs Brand' },
-    { key: 'category', label: 'Outlet vs Category' },
-    { key: 'org', label: 'Outlet vs Organisation' },
+    { key: 'brand', label: `${T.Outlet} vs Brand` },
+    { key: 'category', label: `${T.Outlet} vs Category` },
+    { key: 'org', label: `${T.Outlet} vs Organisation` },
     { key: 'previous', label: 'Current vs Previous Audit' },
     { key: 'mafu', label: 'Main Audit vs Follow-Up' },
     ...(hasBothSegments ? [{ key: 'segment' as TabKey, label: 'F&B vs Entertainment' }] : []),
@@ -227,7 +228,7 @@ export default function BenchmarkingPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Benchmarking" subtitle="Position any outlet against its brand, category, the organisation and its own audit history" />
+      <PageHeader title="Benchmarking" subtitle={`Position any ${T.outlet} against its brand, category, the organisation and its own audit history`} />
 
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
 
@@ -236,7 +237,7 @@ export default function BenchmarkingPage() {
           <Card>
             <CardBody className="pt-5">
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(260px,360px)_1fr] lg:items-end">
-                <Field label="Outlet" htmlFor="bench-outlet" hint="Defaults to the lowest-scoring outlet in your scope">
+                <Field label={T.Outlet} htmlFor="bench-outlet" hint={`Defaults to the lowest-scoring ${T.outlet} in your scope`}>
                   <Select id="bench-outlet" value={outletId} onChange={(e) => setOutletId(e.target.value)}>
                     {[...scopedOutlets].sort((a, b) => a.name.localeCompare(b.name)).map((o) => (
                       <option key={o.id} value={o.id}>
@@ -253,7 +254,7 @@ export default function BenchmarkingPage() {
                     <RiskBadge risk={outlet.riskRating} size="xs" />
                     <span>{outlet.location} · {outlet.region}</span>
                     <button type="button" className="link ml-auto text-xs" onClick={() => navigate(`/performance/outlets/${outlet.id}`)}>
-                      Open outlet profile →
+                      Open {T.outlet} profile →
                     </button>
                   </div>
                 )}
@@ -263,13 +264,13 @@ export default function BenchmarkingPage() {
 
           {!outlet || outlet.overallScore === null ? (
             <Card>
-              <EmptyState title="Outlet not yet assessed" message="Benchmarks are available once the outlet has an approved visit." />
+              <EmptyState title={`${T.Outlet} not yet assessed`} message={`Benchmarks are available once the ${T.outlet} has an approved visit.`} />
             </Card>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
                 <KpiCard compact label="Rank" value={`#${outlet.rank ?? '—'} / ${scored.length}`} sub={`Score ${fmtPct(outlet.overallScore)}`} icon={Trophy} tone="accent" />
-                <KpiCard compact label="Percentile" value={pct === null ? '—' : `${pct}th`} sub={pct === null ? undefined : `Outperforms ${pct}% of outlets`} icon={Percent} tone={pct !== null && pct >= 50 ? 'good' : 'warn'} />
+                <KpiCard compact label="Percentile" value={pct === null ? '—' : `${pct}th`} sub={pct === null ? undefined : `Outperforms ${pct}% of ${T.outlets}`} icon={Percent} tone={pct !== null && pct >= 50 ? 'good' : 'warn'} />
                 <KpiCard compact label={`Gap vs ${benchmarkMeta?.label ?? 'benchmark'}`} value={<Gap value={benchmarkMeta?.gap ?? null} />} sub={benchmarkMeta?.value !== null && benchmarkMeta?.value !== undefined ? `Benchmark ${fmtPct(benchmarkMeta.value)}` : 'No benchmark available'} icon={Target} tone={(benchmarkMeta?.gap ?? 0) >= 0 ? 'good' : 'warn'} />
                 <KpiCard
                   compact
@@ -282,11 +283,11 @@ export default function BenchmarkingPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_1fr]">
-                <ChartCard title={`${outlet.name} vs ${benchmarkMeta?.label ?? 'benchmark'}`} subtitle={tab === 'previous' ? 'Category scores from the latest and the preceding approved visit' : `Benchmark built from ${benchmarkMeta?.peers ?? 0} peer outlet${benchmarkMeta?.peers === 1 ? '' : 's'}`} height={320}>
+                <ChartCard title={`${outlet.name} vs ${benchmarkMeta?.label ?? 'benchmark'}`} subtitle={tab === 'previous' ? 'Category scores from the latest and the preceding approved visit' : `Benchmark built from ${benchmarkMeta?.peers ?? 0} peer ${T.outlet}${benchmarkMeta?.peers === 1 ? '' : 's'}`} height={320}>
                   <GroupedBarChart data={compareChart} series={[{ key: 'Outlet', label: outlet.name }, { key: 'Benchmark', label: benchmarkMeta?.label ?? 'Benchmark', color: CHART_COLORS.slate }]} />
                 </ChartCard>
                 <Card>
-                  <CardHeader title="Category gap analysis" subtitle="Positive gap = outlet ahead of benchmark" />
+                  <CardHeader title="Category gap analysis" subtitle={`Positive gap = ${T.outlet} ahead of benchmark`} />
                   <DataTable columns={compareColumns} rows={compareRows} rowKey={(r) => r.key} pageSize={0} dense caption="Category gap analysis" />
                 </Card>
               </div>
@@ -313,8 +314,8 @@ export default function BenchmarkingPage() {
             </div>
           </div>
           <Card>
-            <CardHeader title="Outlet cycle deltas" subtitle="Scored main audits and follow-ups per outlet · improvement uses the most recent complete cycle · click to open the outlet" />
-            <DataTable columns={cycleColumns} rows={cycleRows} rowKey={(r) => r.id} onRowClick={(r) => navigate(`/performance/outlets/${r.id}`)} pageSize={0} dense initialSort={{ key: 'improvementPct', dir: 'desc' }} maxHeight="60vh" caption="Main audit versus follow-up per outlet" />
+            <CardHeader title={`${T.Outlet} cycle deltas`} subtitle={`Scored main audits and follow-ups per ${T.outlet} · improvement uses the most recent complete cycle · click to open the ${T.outlet}`} />
+            <DataTable columns={cycleColumns} rows={cycleRows} rowKey={(r) => r.id} onRowClick={(r) => navigate(`/performance/outlets/${r.id}`)} pageSize={0} dense initialSort={{ key: 'improvementPct', dir: 'desc' }} maxHeight="60vh" caption={`Main audit versus follow-up per ${T.outlet}`} />
           </Card>
         </>
       )}
@@ -322,13 +323,13 @@ export default function BenchmarkingPage() {
       {tab === 'segment' && (
         <>
           <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <KpiCard compact label="F&B outlets" value={segmentIssues['F&B'].outlets} sub={`${segments[0].count} assessed · ${fmtPct(segments[0].overall)}`} tone="accent" />
+            <KpiCard compact label={`F&B ${T.outlets}`} value={segmentIssues['F&B'].outlets} sub={`${segments[0].count} assessed · ${fmtPct(segments[0].overall)}`} tone="accent" />
             <KpiCard compact label="F&B open issues" value={segmentIssues['F&B'].open} sub={`${segmentIssues['F&B'].critical} critical`} tone={segmentIssues['F&B'].critical > 0 ? 'critical' : 'default'} />
-            <KpiCard compact label="Entertainment outlets" value={segmentIssues.Entertainment.outlets} sub={`${segments[1].count} assessed · ${fmtPct(segments[1].overall)}`} tone="accent" />
+            <KpiCard compact label={`Entertainment ${T.outlets}`} value={segmentIssues.Entertainment.outlets} sub={`${segments[1].count} assessed · ${fmtPct(segments[1].overall)}`} tone="accent" />
             <KpiCard compact label="Entertainment open issues" value={segmentIssues.Entertainment.open} sub={`${segmentIssues.Entertainment.critical} critical`} tone={segmentIssues.Entertainment.critical > 0 ? 'critical' : 'default'} />
           </div>
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_1fr]">
-            <ChartCard title="F&B vs Entertainment" subtitle="Average category scores from the latest approved visit per outlet" height={320}>
+            <ChartCard title="F&B vs Entertainment" subtitle={`Average category scores from the latest approved visit per ${T.outlet}`} height={320}>
               <GroupedBarChart data={segmentChart} series={[{ key: 'F&B', label: 'F&B', color: CHART_COLORS.teal }, { key: 'Entertainment', label: 'Entertainment', color: CHART_COLORS.violet }]} />
             </ChartCard>
             <Card>
@@ -378,7 +379,7 @@ export default function BenchmarkingPage() {
       )}
 
       <Card>
-        <CardHeader title="Brand league table" subtitle={`${brands.length} brands ranked by the mean latest score of their assessed outlets`} />
+        <CardHeader title="Brand league table" subtitle={`${brands.length} brands ranked by the mean latest score of their assessed ${T.outlets}`} />
         <DataTable columns={brandColumns} rows={brands} rowKey={(b) => b.brand} pageSize={0} dense initialSort={{ key: 'rank', dir: 'asc' }} caption="Brand league table" />
       </Card>
     </div>

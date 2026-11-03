@@ -19,6 +19,7 @@ import { exportCsv } from '@/utils/export'
 import { fmtDate, fmtDelta, fmtPct, round } from '@/utils/format'
 import type { Evidence } from '@/types'
 import { cn } from '@/utils/cn'
+import { T } from '@/config/terms'
 
 export default function OutletDetailPage() {
   const { id } = useParams()
@@ -30,7 +31,7 @@ export default function OutletDetailPage() {
 
   const outlet = useMemo(() => data.outlets.find((o) => o.id === id), [data.outlets, id])
   const allowed = useMemo(() => authorizedOutlets.some((o) => o.id === id), [authorizedOutlets, id])
-  useDocumentTitle(outlet ? outlet.name : 'Outlet')
+  useDocumentTitle(outlet ? outlet.name : T.Outlet)
 
   const history = useMemo(() => (outlet ? outletVisitHistory(data.visits, outlet.id) : []), [data.visits, outlet])
   const findings = useMemo(() => data.findings.filter((f) => f.outletId === id), [data.findings, id])
@@ -58,7 +59,7 @@ export default function OutletDetailPage() {
     }
   }, [id])
 
-  if (!outlet || !allowed) return <EmptyState title="Outlet not available" message="This outlet does not exist or is outside your authorised scope." action={<Link to="/performance/outlets" className="btn-secondary">Back to outlets</Link>} />
+  if (!outlet || !allowed) return <EmptyState title={`${T.Outlet} not available`} message={`This ${T.outlet} does not exist or is outside your authorised scope.`} action={<Link to="/performance/outlets" className="btn-secondary">Back to {T.outlets}</Link>} />
 
   const latestMain = [...history].filter((v) => isMainAudit(v) && isScored(v)).pop()
   const latestFollow = [...history].filter((v) => isFollowUp(v) && isScored(v)).pop()
@@ -127,7 +128,7 @@ export default function OutletDetailPage() {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
             <Stat label="Previous score" value={fmtPct(outlet.previousScore)} sub={delta !== null ? <span className={cn('inline-flex items-center gap-0.5', delta >= 0 ? 'text-emerald-600' : 'text-red-600')}>{delta >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}{fmtDelta(delta, 1, ' pts')}</span> : undefined} />
             <Stat label="Target score" value={`${outlet.targetScore}%`} sub={outlet.overallScore !== null ? `${fmtDelta(outlet.overallScore - outlet.targetScore, 1, ' pts')} vs target` : undefined} />
-            <Stat label="Rank" value={outlet.rank ? `#${outlet.rank}` : '—'} sub={`of ${authorizedOutlets.filter((o) => o.overallScore !== null).length} outlets · P${pct ?? '—'}`} />
+            <Stat label="Rank" value={outlet.rank ? `#${outlet.rank}` : '—'} sub={`of ${authorizedOutlets.filter((o) => o.overallScore !== null).length} ${T.outlets} · P${pct ?? '—'}`} />
             <Stat label="Visit completion" value={`${completed} / ${outlet.annualVisits}`} sub={<ProgressBar value={completed} max={outlet.annualVisits} tone="accent" size="sm" className="mt-1" />} />
             <Stat label="Main audit score" value={fmtPct(latestMain?.score)} sub={latestMain ? `${latestMain.type} · ${fmtDate(latestMain.visitDate)}` : 'Not yet assessed'} />
             <Stat label="Follow-up score" value={fmtPct(latestFollow?.score)} sub={latestFollow ? `${latestFollow.type} · ${fmtDate(latestFollow.visitDate)}${latestFollow.status === 'Submitted' || latestFollow.status === 'Under Review' ? ' · pending approval' : ''}` : 'Not yet assessed'} />
@@ -193,8 +194,8 @@ export default function OutletDetailPage() {
 
       {/* Trends */}
       <div className="grid gap-4 xl:grid-cols-2">
-        <ChartCard title="12-month score trend" subtitle="Outlet visit scores versus organisation average" height={280}>
-          <TrendChart data={trendData} series={[{ key: 'Outlet', label: outlet.name.length > 24 ? 'Outlet' : outlet.name }, { key: 'Organisation', label: 'Organisation average', color: CHART_COLORS.slate, dashed: true }]} target={outlet.targetScore} yDomain={[50, 100]} />
+        <ChartCard title="12-month score trend" subtitle={`${T.Outlet} visit scores versus organisation average`} height={280}>
+          <TrendChart data={trendData} series={[{ key: 'Outlet', label: outlet.name.length > 24 ? T.Outlet : outlet.name }, { key: 'Organisation', label: 'Organisation average', color: CHART_COLORS.slate, dashed: true }]} target={outlet.targetScore} yDomain={[50, 100]} />
         </ChartCard>
         <ChartCard title="Issue trend" subtitle="Findings raised per month by severity" height={280}>
           <GroupedBarChart data={issueTrend} series={[{ key: 'Critical', label: 'Critical', color: CHART_COLORS.red }, { key: 'High', label: 'High', color: CHART_COLORS.amber }, { key: 'Medium', label: 'Medium', color: CHART_COLORS.blue }]} stacked unit="" domain={[0, Math.max(3, ...issueTrend.map((r) => r.Critical + r.High + r.Medium)) + 1]} />
@@ -372,7 +373,7 @@ function DeltaPill({ value, small = false }: { value: number | null; small?: boo
 function MiniMap({ x, y, score }: { x: number; y: number; score: number | null }) {
   const color = score === null ? '#94a3b8' : score >= 90 ? '#059669' : score >= 80 ? '#3b82f6' : score >= 70 ? '#d97706' : '#dc2626'
   return (
-    <svg viewBox="0 0 100 60" className="w-full rounded-lg bg-slate-100 dark:bg-navy-800" role="img" aria-label="Approximate outlet location">
+    <svg viewBox="0 0 100 60" className="w-full rounded-lg bg-slate-100 dark:bg-navy-800" role="img" aria-label={`Approximate ${T.outlet} location`}>
       <defs>
         <pattern id="mm-grid" width="10" height="10" patternUnits="userSpaceOnUse">
           <path d="M10 0H0V10" fill="none" stroke="currentColor" strokeWidth="0.3" className="text-slate-300 dark:text-navy-700" />

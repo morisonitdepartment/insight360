@@ -21,6 +21,7 @@ import { Field, Input, Select, Textarea } from '@/components/ui/Form'
 import { exportCsv } from '@/utils/export'
 import { fmtDate, fmtDateTime, fmtPct } from '@/utils/format'
 import { cn } from '@/utils/cn'
+import { T } from '@/config/terms'
 
 const VISIT_STATUSES: Visit['status'][] = ['Planned', 'Assigned', 'In Progress', 'Draft', 'Submitted', 'Under Review', 'Approved', 'Rejected', 'Closed']
 const VISIT_TYPES: VisitType[] = ['Main Audit 1', 'Follow-up 1', 'Main Audit 2', 'Follow-up 2']
@@ -186,7 +187,7 @@ export default function VisitsPage() {
 
   const filterDefs: FilterDef[] = useMemo(() => {
     const defs: FilterDef[] = [
-      { key: 'outlet', label: 'Outlet', options: scopedOutlets.map((o) => ({ value: o.id, label: o.name })) },
+      { key: 'outlet', label: T.Outlet, options: scopedOutlets.map((o) => ({ value: o.id, label: o.name })) },
       { key: 'segment', label: 'Category', options: [{ value: 'F&B', label: 'F&B' }, { value: 'Entertainment', label: 'Entertainment' }] },
       { key: 'type', label: 'Visit type', options: VISIT_TYPES.map((t) => ({ value: t, label: t })) },
     ]
@@ -279,8 +280,8 @@ export default function VisitsPage() {
       const o = outletById.get(v.outletId)
       return {
         'Visit ID': v.code,
-        Outlet: o?.name ?? '',
-        'Outlet Code': o?.code ?? '',
+        [T.Outlet]: o?.name ?? '',
+        [`${T.Outlet} Code`]: o?.code ?? '',
         Category: o?.segment ?? '',
         'Visit Type': v.type,
         Journey: v.journey,
@@ -350,7 +351,7 @@ export default function VisitsPage() {
       { key: 'code', header: 'Visit ID', render: (v) => <span className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100">{v.code}</span> },
       {
         key: 'outlet',
-        header: 'Outlet',
+        header: T.Outlet,
         sortValue: (v) => outletById.get(v.outletId)?.name,
         render: (v) => {
           const o = outletById.get(v.outletId)
@@ -447,7 +448,7 @@ export default function VisitsPage() {
       <FilterBar
         search={search}
         onSearch={setSearch}
-        searchPlaceholder="Search visit code, outlet…"
+        searchPlaceholder={`Search visit code, ${T.outlet}…`}
         filters={filterDefs}
         values={filters}
         onChange={setFilter}
@@ -516,7 +517,7 @@ export default function VisitsPage() {
           <div className="space-y-3">
             <p>
               {decision?.kind === 'approve'
-                ? `Approving publishes the report (score ${decision.visit.score?.toFixed(1) ?? '—'}%) and updates the outlet rating.`
+                ? `Approving publishes the report (score ${decision.visit.score?.toFixed(1) ?? '—'}%) and updates the ${T.outlet} rating.`
                 : 'The report will be returned to the shopper for revision. A reason is required.'}
             </p>
             <Field label={decision?.kind === 'approve' ? 'Reviewer comment (optional)' : 'Reason for rejection'} htmlFor="decision-comment" required={decision?.kind === 'reject'}>
@@ -571,14 +572,14 @@ function NewVisitModal({ open, onClose }: { open: boolean; onClose: () => void }
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (!outletId || !templateId || !scheduled) {
-      setError('Outlet, template and scheduled date are required.')
+      setError(`${T.Outlet}, template and scheduled date are required.`)
       return
     }
     const input: NewVisitInput = { outletId, type, journey, templateId, scheduledDate: scheduled, shopperId: shopperId || null }
     setBusy(true)
     try {
       await dispatch((d, ctx) => createVisit(d, ctx, input))
-      toast.success(`${type} scheduled for ${outlet?.name ?? 'outlet'} on ${fmtDate(scheduled)}`)
+      toast.success(`${type} scheduled for ${outlet?.name ?? '${T.outlet}'} on ${fmtDate(scheduled)}`)
       reset()
       onClose()
     } catch (err) {
@@ -606,9 +607,9 @@ function NewVisitModal({ open, onClose }: { open: boolean; onClose: () => void }
       }
     >
       <form id="new-visit-form" onSubmit={submit} className="grid gap-4 sm:grid-cols-2" noValidate>
-        <Field label="Outlet" htmlFor="nv-outlet" required className="sm:col-span-2">
+        <Field label={T.Outlet} htmlFor="nv-outlet" required className="sm:col-span-2">
           <Select id="nv-outlet" value={outletId} onChange={(e) => setOutletId(e.target.value)} invalid={!!error && !outletId}>
-            <option value="">Select an outlet…</option>
+            <option value="">Select an {T.outlet}…</option>
             {scopedOutlets.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.name} · {o.segment} · {o.code}
@@ -634,7 +635,7 @@ function NewVisitModal({ open, onClose }: { open: boolean; onClose: () => void }
             ))}
           </Select>
         </Field>
-        <Field label="Audit template" htmlFor="nv-template" required hint={outlet ? `Suggested from ${outlet.segment} · ${outlet.subcategory}` : 'Select an outlet to auto-suggest'} className="sm:col-span-2">
+        <Field label="Audit template" htmlFor="nv-template" required hint={outlet ? `Suggested from ${outlet.segment} · ${outlet.subcategory}` : `Select an ${T.outlet} to auto-suggest`} className="sm:col-span-2">
           <Select id="nv-template" value={templateId} onChange={(e) => setTemplateId(e.target.value)} invalid={!!error && !templateId}>
             <option value="">Select a template…</option>
             {templates.map((t) => (

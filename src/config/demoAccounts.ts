@@ -1,4 +1,5 @@
 import type { Role } from '@/types'
+import { T } from './terms'
 
 /**
  * Demo-mode credentials. These exist ONLY for the seeded demonstration dataset and are
@@ -38,7 +39,7 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
     role: 'ops_manager',
     userId: 'usr-003',
     label: 'Operations Manager',
-    description: 'Assigned outlets only',
+    description: `Assigned ${T.outlets} only`,
   },
   {
     email: 'shopper@insight360.demo',

@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/Badge'
 import { cn } from '@/utils/cn'
 import { relativeTime } from '@/utils/format'
 import { useNow } from '@/hooks'
+import { T } from '@/config/terms'
 
 function useClickOutside(ref: React.RefObject<HTMLElement | null>, onClose: () => void, active: boolean) {
   useEffect(() => {
@@ -114,7 +115,7 @@ function GlobalSearch() {
             setCursor((c) => Math.max(0, c - 1))
           } else if (e.key === 'Enter' && results[cursor]) go(results[cursor])
         }}
-        placeholder="Search outlets, visits, findings, alerts, actions, users…"
+        placeholder={`Search ${T.outlets}, visits, findings, alerts, actions, users…`}
         className="input h-9 pl-9 pr-16 !rounded-full bg-slate-100 dark:bg-navy-800 border-transparent focus:bg-white"
         aria-label="Global search"
         role="combobox"
@@ -270,9 +271,9 @@ function OutletSelector() {
   return (
     <label className="hidden xl:flex items-center gap-1.5">
       <Building2 className="h-4 w-4 text-slate-400" aria-hidden />
-      <span className="sr-only">Outlet scope</span>
-      <select value={outletScope} onChange={(e) => setOutletScope(e.target.value)} className="select !w-48 !py-1.5 text-xs !rounded-full" aria-label="Outlet scope">
-        <option value="all">All outlets ({authorizedOutlets.length})</option>
+      <span className="sr-only">{T.Outlet} scope</span>
+      <select value={outletScope} onChange={(e) => setOutletScope(e.target.value)} className="select !w-48 !py-1.5 text-xs !rounded-full" aria-label={`${T.Outlet} scope`}>
+        <option value="all">All {T.outlets} ({authorizedOutlets.length})</option>
         {[...authorizedOutlets]
           .sort((a, b) => a.name.localeCompare(b.name))
           .map((o) => (

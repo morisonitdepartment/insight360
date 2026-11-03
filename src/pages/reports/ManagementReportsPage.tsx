@@ -21,6 +21,7 @@ import { TrendChart, CHART_COLORS, SERIES_COLORS } from '@/components/charts'
 import { exportCsv, exportElementToPdf, printPage } from '@/utils/export'
 import { avg, fmtDate, fmtDateTime, fmtDelta, fmtPct, round, toDate } from '@/utils/format'
 import { cn } from '@/utils/cn'
+import { T, countOutlets, displayTerm } from '@/config/terms'
 
 // ───────────────────────────── Constants ─────────────────────────────
 
@@ -339,7 +340,7 @@ function ReportPreview({ model, data, now, compact }: { model: ReportModel; data
         <header className="rounded-lg bg-navy-900 px-6 py-7 text-white">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-teal-300">{report.type}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-teal-300">{displayTerm(report.type)}</p>
               <h2 className="mt-1.5 text-2xl font-semibold tracking-tight">{report.title}</h2>
               <p className="mt-1 text-sm text-slate-300">{data.organization.name}</p>
               <p className="text-xs text-slate-400">{data.organization.engagementName}</p>
@@ -366,7 +367,7 @@ function ReportPreview({ model, data, now, compact }: { model: ReportModel; data
           <div className="mt-5 flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
             <span className="rounded border border-white/20 px-1.5 py-0.5">{report.code}</span>
             <span className="rounded border border-white/20 px-1.5 py-0.5">{report.status}</span>
-            <span className="rounded border border-white/20 px-1.5 py-0.5">{model.outlets.length} outlet{model.outlets.length === 1 ? '' : 's'}</span>
+            <span className="rounded border border-white/20 px-1.5 py-0.5">{countOutlets(model.outlets.length)}</span>
             <span className="rounded border border-white/20 px-1.5 py-0.5">Rendered {fmtDateTime(now)}</span>
           </div>
         </header>
@@ -377,7 +378,7 @@ function ReportPreview({ model, data, now, compact }: { model: ReportModel; data
         <DocSection title="Executive Summary" icon={BookOpenCheck}>
           <p className="text-sm leading-relaxed text-slate-700">{report.summary}</p>
           <p className="mt-2 text-sm leading-relaxed text-slate-700">
-            Across {model.outlets.length} outlet{model.outlets.length === 1 ? '' : 's'} in scope the current portfolio score is <strong>{fmtPct(model.portfolioScore)}</strong>
+            Across {countOutlets(model.outlets.length)} in scope the current portfolio score is <strong>{fmtPct(model.portfolioScore)}</strong>
             {kpi.overallDelta !== null && <> ({fmtDelta(kpi.overallDelta)} pts versus the previous assessment)</>}
             {model.cycleScore !== null && scoredVisits.length > 0 && (
               <>
@@ -419,7 +420,7 @@ function ReportPreview({ model, data, now, compact }: { model: ReportModel; data
                   rows={model.improvers.slice(0, rankN)}
                   rowKey={(r) => r.outlet.id}
                   columns={[
-                    { header: 'Outlet', render: (r) => r.outlet.name },
+                    { header: T.Outlet, render: (r) => r.outlet.name },
                     { header: 'Main', render: (r) => <ScoreCell score={r.main} />, align: 'right' },
                     { header: 'Follow-up', render: (r) => <ScoreCell score={r.follow} />, align: 'right' },
                     { header: 'Δ', render: (r) => <span className="font-semibold text-emerald-700">{fmtDelta(r.delta)}</span>, align: 'right' },
@@ -431,9 +432,9 @@ function ReportPreview({ model, data, now, compact }: { model: ReportModel; data
                 <DocTable
                   rows={[...model.improvers].reverse().filter((r) => r.delta < 0).slice(0, rankN)}
                   rowKey={(r) => r.outlet.id}
-                  empty="No outlet declined between the main audit and follow-up."
+                  empty={`No ${T.outlet} declined between the main audit and follow-up.`}
                   columns={[
-                    { header: 'Outlet', render: (r) => r.outlet.name },
+                    { header: T.Outlet, render: (r) => r.outlet.name },
                     { header: 'Main', render: (r) => <ScoreCell score={r.main} />, align: 'right' },
                     { header: 'Follow-up', render: (r) => <ScoreCell score={r.follow} />, align: 'right' },
                     { header: 'Δ', render: (r) => <span className="font-semibold text-red-700">{fmtDelta(r.delta)}</span>, align: 'right' },
@@ -491,7 +492,7 @@ function ReportPreview({ model, data, now, compact }: { model: ReportModel; data
 
       {/* Rankings */}
       {has('rankings') && (
-        <DocSection title={model.report.type === 'Risk & Compliance' ? 'Highest-risk outlets' : 'Outlet Rankings'} icon={Table2}>
+        <DocSection title={model.report.type === 'Risk & Compliance' ? `Highest-risk ${T.outlets}` : `${T.Outlet} Rankings`} icon={Table2}>
           <div className="grid gap-5 lg:grid-cols-2">
             <div>
               <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-emerald-700">{model.report.type === 'Risk & Compliance' ? 'Most open critical findings' : `Top ${rankN} performers`}</p>
@@ -500,7 +501,7 @@ function ReportPreview({ model, data, now, compact }: { model: ReportModel; data
                 rowKey={(o) => o.id}
                 columns={[
                   { header: '#', render: (o) => o.rank ?? '—', width: '32px' },
-                  { header: 'Outlet', render: (o) => <span className="font-medium">{o.name}</span> },
+                  { header: T.Outlet, render: (o) => <span className="font-medium">{o.name}</span> },
                   { header: 'Segment', render: (o) => o.segment },
                   { header: 'Score', render: (o) => <ScoreCell score={o.overallScore} />, align: 'right' },
                   { header: 'Issues', render: (o) => (o.criticalFindings ? <span className="font-semibold text-red-700">{o.openIssues} ({o.criticalFindings} crit.)</span> : o.openIssues), align: 'right' },
@@ -514,7 +515,7 @@ function ReportPreview({ model, data, now, compact }: { model: ReportModel; data
                 rowKey={(o) => o.id}
                 columns={[
                   { header: '#', render: (o) => o.rank ?? '—', width: '32px' },
-                  { header: 'Outlet', render: (o) => <span className="font-medium">{o.name}</span> },
+                  { header: T.Outlet, render: (o) => <span className="font-medium">{o.name}</span> },
                   { header: 'Segment', render: (o) => o.segment },
                   { header: 'Score', render: (o) => <ScoreCell score={o.overallScore} />, align: 'right' },
                   { header: 'Issues', render: (o) => (o.criticalFindings ? <span className="font-semibold text-red-700">{o.openIssues} ({o.criticalFindings} crit.)</span> : o.openIssues), align: 'right' },
@@ -531,7 +532,7 @@ function ReportPreview({ model, data, now, compact }: { model: ReportModel; data
           const bench = benchmarksFor(o, data.outlets)
           const history = outletVisitHistory(model.visits, o.id)
           return (
-            <DocSection key={o.id} title={`Outlet profile — ${o.name}`} icon={ClipboardList} subtitle={`${o.code} · ${o.brand} · ${o.subcategory} · ${o.location} · Manager ${o.manager}`}>
+            <DocSection key={o.id} title={`${T.Outlet} profile — ${o.name}`} icon={ClipboardList} subtitle={`${o.code} · ${o.brand} · ${o.subcategory} · ${o.location} · Manager ${o.manager}`}>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <DocStat label="Current score" value={fmtPct(o.overallScore)} sub={o.riskRating} tone={o.riskRating === 'Critical' ? 'critical' : o.riskRating === 'Needs Improvement' ? 'warn' : o.riskRating === 'Excellent' ? 'good' : undefined} />
                 <DocStat label="Previous" value={fmtPct(o.previousScore)} sub={o.previousScore !== null && o.overallScore !== null ? fmtDelta(o.overallScore - o.previousScore, 1, ' pts') : undefined} />
@@ -588,7 +589,7 @@ function ReportPreview({ model, data, now, compact }: { model: ReportModel; data
             empty="No open critical or high findings in scope."
             columns={[
               { header: 'Code', render: (f) => <span className="font-medium">{f.code}</span>, width: '90px' },
-              { header: 'Outlet', render: (f) => outletName(f.outletId) },
+              { header: T.Outlet, render: (f) => outletName(f.outletId) },
               { header: 'Finding', render: (f) => f.title },
               { header: 'Category', render: (f) => CATEGORY_SHORT[f.category] },
               { header: 'Severity', render: (f) => <SeverityCell severity={f.severity} /> },
@@ -613,7 +614,7 @@ function ReportPreview({ model, data, now, compact }: { model: ReportModel; data
             empty="No open alerts."
             columns={[
               { header: 'Code', render: (a) => <span className="font-medium">{a.code}</span>, width: '90px' },
-              { header: 'Outlet', render: (a) => outletName(a.outletId) },
+              { header: T.Outlet, render: (a) => outletName(a.outletId) },
               { header: 'Alert', render: (a) => a.title },
               { header: 'Severity', render: (a) => <SeverityCell severity={a.severity} /> },
               { header: 'Status', render: (a) => a.status },
@@ -646,7 +647,7 @@ function ReportPreview({ model, data, now, compact }: { model: ReportModel; data
             empty="No open corrective actions."
             columns={[
               { header: 'Code', render: (a) => <span className="font-medium">{a.code}</span>, width: '90px' },
-              { header: 'Outlet', render: (a) => outletName(a.outletId) },
+              { header: T.Outlet, render: (a) => outletName(a.outletId) },
               { header: 'Action', render: (a) => a.title },
               { header: 'Owner', render: (a) => a.ownerName },
               { header: 'Priority', render: (a) => <SeverityCell severity={a.priority} /> },
@@ -677,7 +678,7 @@ function ReportPreview({ model, data, now, compact }: { model: ReportModel; data
 
       {/* Best practice */}
       {has('best') && (
-        <DocSection title="Best Practice Insights" icon={Sparkles} subtitle="Strongest KPI category of the top-ranked outlets — candidates for peer-learning visits">
+        <DocSection title="Best Practice Insights" icon={Sparkles} subtitle={`Strongest KPI category of the top-ranked ${T.outlets} — candidates for peer-learning visits`}>
           <div className="grid gap-3 sm:grid-cols-3">
             {model.bestPractice.map((b) => (
               <div key={b.outlet.id} className="rounded-lg border border-emerald-200 bg-emerald-50/50 px-3 py-2.5">
@@ -690,7 +691,7 @@ function ReportPreview({ model, data, now, compact }: { model: ReportModel; data
                 </p>
               </div>
             ))}
-            {!model.bestPractice.length && <p className="text-xs text-slate-500">No assessed outlets in scope.</p>}
+            {!model.bestPractice.length && <p className="text-xs text-slate-500">No assessed {T.outlets} in scope.</p>}
           </div>
         </DocSection>
       )}
@@ -798,7 +799,7 @@ export default function ManagementReportsPage() {
     exportCsv(
       model.ranked.map((o) => ({
         Rank: o.rank ?? '',
-        Outlet: o.name,
+        [T.Outlet]: o.name,
         Code: o.code,
         Brand: o.brand,
         Segment: o.segment,
@@ -813,7 +814,7 @@ export default function ManagementReportsPage() {
       })),
       `${selected.code}-rankings`,
     )
-    await dispatch((d, ctx) => logExport(d, ctx, `${selected.code} rankings (${model.ranked.length} outlets)`, 'CSV'))
+    await dispatch((d, ctx) => logExport(d, ctx, `${selected.code} rankings (${model.ranked.length} ${T.outlets})`, 'CSV'))
     toast.success('Rankings exported to CSV')
   }
 
@@ -845,7 +846,7 @@ export default function ManagementReportsPage() {
         </div>
       ),
     },
-    { key: 'type', header: 'Type', render: (r) => <Badge tone={TYPE_TONE[r.type]}>{r.type}</Badge> },
+    { key: 'type', header: 'Type', render: (r) => <Badge tone={TYPE_TONE[r.type]}>{displayTerm(r.type)}</Badge> },
     { key: 'period', header: 'Period', render: (r) => <span className="whitespace-nowrap">{r.period}</span> },
     { key: 'scope', header: 'Scope', render: (r) => <span className="text-slate-600 dark:text-slate-300">{r.scope}</span> },
     {
@@ -1006,7 +1007,7 @@ export default function ManagementReportsPage() {
                 onClick={() => setTypeFilter((cur) => (cur === t ? 'all' : t))}
                 className={cn('rounded-full border px-2.5 py-1 text-xs font-medium transition-colors', typeFilter === t ? 'border-navy-800 bg-navy-800 text-white dark:border-teal-600 dark:bg-teal-600' : 'border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-navy-700 dark:text-slate-300 dark:hover:bg-navy-800')}
               >
-                {t}
+                {displayTerm(t)}
                 <span className="ml-1 opacity-60 tabular-nums">{typeCounts.get(t) ?? 0}</span>
               </button>
             ))}

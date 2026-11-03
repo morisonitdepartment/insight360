@@ -25,6 +25,7 @@ import { CHART_COLORS, DonutChart } from '@/components/charts'
 import { exportCsv } from '@/utils/export'
 import { SEVERITY_ORDER, fmtDate, fmtDateTime, fmtPct, truncate } from '@/utils/format'
 import { cn } from '@/utils/cn'
+import { T } from '@/config/terms'
 
 // ───────────────────────────── Local helpers ─────────────────────────────
 
@@ -288,7 +289,7 @@ export default function CorrectiveActionsPage() {
           const dueBucket: CapaRow['dueBucket'] = a.status === 'Closed' || days === null ? '' : days < 0 || a.status === 'Overdue' ? 'overdue' : days <= 7 ? 'due7' : 'later'
           return {
             ...a,
-            outletName: outlet?.name ?? 'Unknown outlet',
+            outletName: outlet?.name ?? `Unknown ${T.outlet}`,
             outletCode: outlet?.code ?? '',
             findingCode: finding?.code ?? '—',
             findingTitle: finding?.title ?? a.title,
@@ -312,7 +313,7 @@ export default function CorrectiveActionsPage() {
     return [
       { key: 'status', label: 'Status', options: STATUSES.map((s) => ({ value: s, label: s })), allLabel: 'All statuses' },
       { key: 'priority', label: 'Priority', options: PRIORITIES.map((p) => ({ value: p, label: p })), allLabel: 'All priorities' },
-      { key: 'outlet', label: 'Outlet', options: outlets.map(([id, name]) => ({ value: id, label: name })), allLabel: 'All outlets' },
+      { key: 'outlet', label: T.Outlet, options: outlets.map(([id, name]) => ({ value: id, label: name })), allLabel: `All ${T.outlets}` },
       { key: 'owner', label: 'Owner', options: ownerList.map(([id, name]) => ({ value: id, label: name })), allLabel: 'All owners' },
       { key: 'category', label: 'Category', options: CATEGORY_KEYS.map((k) => ({ value: k, label: CATEGORY_LABELS[k] })), allLabel: 'All categories' },
       { key: 'due', label: 'Due', options: [{ value: 'overdue', label: 'Overdue' }, { value: 'due7', label: 'Due in 7 days' }, { value: 'later', label: 'Later' }], allLabel: 'Any due date' },
@@ -455,7 +456,7 @@ export default function CorrectiveActionsPage() {
         Title: a.title,
         Finding: a.findingCode,
         'Finding title': a.findingTitle,
-        Outlet: a.outletName,
+        [T.Outlet]: a.outletName,
         Category: CATEGORY_LABELS[a.category],
         Owner: a.ownerName,
         Priority: a.priority,
@@ -494,7 +495,7 @@ export default function CorrectiveActionsPage() {
       },
       {
         key: 'outletName',
-        header: 'Outlet',
+        header: T.Outlet,
         render: (a) => (
           <div className="min-w-[130px]">
             <p className="text-slate-800 dark:text-slate-100">{a.outletName}</p>
@@ -632,7 +633,7 @@ export default function CorrectiveActionsPage() {
         </Card>
       </div>
 
-      <FilterBar search={search} onSearch={setSearch} searchPlaceholder="Search action, finding, outlet or owner…" filters={filterDefs} values={filters} onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))} onReset={() => { setFilters({}); setSearch('') }} resultCount={rows.length} />
+      <FilterBar search={search} onSearch={setSearch} searchPlaceholder={`Search action, finding, ${T.outlet} or owner…`} filters={filterDefs} values={filters} onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))} onReset={() => { setFilters({}); setSearch('') }} resultCount={rows.length} />
 
       <Card>
         <DataTable columns={columns} rows={rows} rowKey={(a) => a.id} onRowClick={(a) => openAction(a.id)} selectedKey={selectedId} initialSort={{ key: 'targetDate', dir: 'asc' }} pageSize={15} caption="Corrective actions" emptyTitle="No corrective actions match" emptyMessage="Adjust the filters or raise a new action from an open finding." />
@@ -658,7 +659,7 @@ export default function CorrectiveActionsPage() {
               columns={2}
               items={[
                 {
-                  label: 'Outlet',
+                  label: T.Outlet,
                   value: (
                     <Link to={`/performance/outlets/${selected.outletId}`} className="link inline-flex items-center gap-1">
                       {selected.outletName} <ExternalLink className="h-3 w-3" aria-hidden />

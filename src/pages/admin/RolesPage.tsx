@@ -15,6 +15,7 @@ import { Field, Select, Textarea } from '@/components/ui/Form'
 import { exportCsv } from '@/utils/export'
 import { fmtDate } from '@/utils/format'
 import { cn } from '@/utils/cn'
+import { T } from '@/config/terms'
 
 const ROLES: Role[] = ['super_admin', 'client_admin', 'ops_manager', 'shopper', 'analyst', 'executive']
 const ALL_PERMISSIONS = Object.keys(PERMISSIONS) as Permission[]
@@ -55,9 +56,9 @@ function groupOf(p: Permission): Group {
 }
 
 const SCOPE_RULES: { role: Role; rule: string }[] = [
-  { role: 'super_admin', rule: 'Sees all outlets, visits and administrative data across the whole programme.' },
-  { role: 'client_admin', rule: 'Sees all authorised outlets; manages stakeholder accounts for the client organisation.' },
-  { role: 'ops_manager', rule: 'Restricted to assigned outlets only — visits, findings and corrective actions are filtered accordingly.' },
+  { role: 'super_admin', rule: `Sees all ${T.outlets}, visits and administrative data across the whole programme.` },
+  { role: 'client_admin', rule: `Sees all authorised ${T.outlets}; manages stakeholder accounts for the client organisation.` },
+  { role: 'ops_manager', rule: `Restricted to assigned ${T.outlets} only — visits, findings and corrective actions are filtered accordingly.` },
   { role: 'shopper', rule: 'Sees only assigned visits and cannot access management analytics or other shoppers’ work.' },
   { role: 'analyst', rule: 'Read access to all performance data and exports, but cannot create users or change configuration.' },
   { role: 'executive', rule: 'Read-only: dashboards, rankings, risks, trends, alerts and management reports.' },
@@ -221,7 +222,7 @@ export default function RolesPage() {
             <div className="flex items-start gap-3 rounded-lg border border-teal-200 bg-teal-50/60 p-3 dark:border-teal-500/30 dark:bg-teal-500/10">
               <Database className="mt-0.5 h-4 w-4 shrink-0 text-teal-700 dark:text-teal-300" aria-hidden />
               <p className="text-sm text-slate-700 dark:text-slate-200">
-                In live mode the same matrix is enforced server-side by <strong>Supabase Row Level Security</strong> policies — every table read or write is checked against the signed-in user’s role and outlet authorisation. See <code className="kbd">supabase/migrations</code> for the policy definitions.
+                In live mode the same matrix is enforced server-side by <strong>Supabase Row Level Security</strong> policies — every table read or write is checked against the signed-in user’s role and {T.outlet} authorisation. See <code className="kbd">supabase/migrations</code> for the policy definitions.
               </p>
             </div>
             <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-navy-700 dark:bg-navy-800/60">
@@ -237,7 +238,7 @@ export default function RolesPage() {
               </div>
               <div>
                 <dt className="font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Policy source</dt>
-                <dd className="mt-1 text-slate-800 dark:text-slate-100">Role claim + outlet authorisation table</dd>
+                <dd className="mt-1 text-slate-800 dark:text-slate-100">Role claim + {T.outlet} authorisation table</dd>
               </div>
             </dl>
           </CardBody>

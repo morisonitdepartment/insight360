@@ -4,6 +4,7 @@ import { cn } from '@/utils/cn'
 import { fmtDateTime } from '@/utils/format'
 import { Modal } from './Modal'
 import { Badge } from './Badge'
+import { T } from '@/config/terms'
 
 /**
  * Neutral, internally generated SVG placeholders for demo evidence. No external images are
@@ -128,7 +129,7 @@ export function EvidencePreviewModal({ evidence, onClose, context }: { evidence:
             <div className="space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
               {context?.outlet && (
                 <p>
-                  <span className="text-slate-500">Outlet:</span> {context.outlet}
+                  <span className="text-slate-500">{T.Outlet}:</span> {context.outlet}
                 </p>
               )}
               {context?.visit && (

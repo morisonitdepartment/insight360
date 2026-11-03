@@ -34,6 +34,7 @@ import { exportCsv, exportExcel, exportJson, printPage, type ExportRow } from '@
 import { CATEGORY_KEYS, CATEGORY_LABELS } from '@/utils/scoring'
 import { fmtDate, fmtDateTime, fmtNumber } from '@/utils/format'
 import type { CategoryScores } from '@/types'
+import { T, countOutlets } from '@/config/terms'
 
 type Format = 'CSV' | 'Excel' | 'JSON'
 
@@ -78,10 +79,10 @@ export default function ExportsPage() {
     const list: ExportDataset[] = [
       {
         key: 'outlets',
-        title: 'Outlets',
-        description: 'Outlet master data with derived performance: latest score, trend, risk rating, rank, open issues and category breakdown.',
+        title: T.Outlets,
+        description: `${T.Outlet} master data with derived performance: latest score, trend, risk rating, rank, open issues and category breakdown.`,
         icon: Building2,
-        sheet: 'Outlets',
+        sheet: T.Outlets,
         rows: scopedOutlets.map((o) => ({
           Code: o.code,
           Name: o.name,
@@ -112,13 +113,13 @@ export default function ExportsPage() {
       {
         key: 'visits',
         title: 'Visits',
-        description: 'Every assessment in scope with outlet and shopper names, workflow status, SLA outcome and category scores.',
+        description: `Every assessment in scope with ${T.outlet} and shopper names, workflow status, SLA outcome and category scores.`,
         icon: ClipboardList,
         sheet: 'Visits',
         rows: scopedVisits.map((v) => ({
           Code: v.code,
-          Outlet: outletById.get(v.outletId)?.name ?? v.outletId,
-          'Outlet Code': outletById.get(v.outletId)?.code ?? '',
+          [T.Outlet]: outletById.get(v.outletId)?.name ?? v.outletId,
+          [`${T.Outlet} Code`]: outletById.get(v.outletId)?.code ?? '',
           Type: v.type,
           Journey: v.journey,
           Shopper: v.shopperId ? (shopperById.get(v.shopperId)?.name ?? v.shopperId) : 'Unassigned',
@@ -154,7 +155,7 @@ export default function ExportsPage() {
             const v = scopedVisits.find((x) => x.id === a.visitId)
             return {
               Visit: v?.code ?? a.visitId,
-              Outlet: v ? (outletById.get(v.outletId)?.name ?? v.outletId) : '',
+              [T.Outlet]: v ? (outletById.get(v.outletId)?.name ?? v.outletId) : '',
               Section: sec?.title ?? '',
               Category: sec ? CATEGORY_LABELS[sec.category] : '',
               'Question Code': q?.code ?? a.questionId,
@@ -180,7 +181,7 @@ export default function ExportsPage() {
           .filter((f) => inScope(f.outletId))
           .map((f) => ({
             Code: f.code,
-            Outlet: outletById.get(f.outletId)?.name ?? f.outletId,
+            [T.Outlet]: outletById.get(f.outletId)?.name ?? f.outletId,
             Visit: data.visits.find((v) => v.id === f.visitId)?.code ?? f.visitId,
             Category: CATEGORY_LABELS[f.category],
             Title: f.title,
@@ -205,7 +206,7 @@ export default function ExportsPage() {
             Code: a.code,
             Type: a.type,
             Severity: a.severity,
-            Outlet: outletById.get(a.outletId)?.name ?? a.outletId,
+            [T.Outlet]: outletById.get(a.outletId)?.name ?? a.outletId,
             Title: a.title,
             Description: a.description,
             Status: a.status,
@@ -227,7 +228,7 @@ export default function ExportsPage() {
           .filter((c) => inScope(c.outletId))
           .map((c) => ({
             Code: c.code,
-            Outlet: outletById.get(c.outletId)?.name ?? c.outletId,
+            [T.Outlet]: outletById.get(c.outletId)?.name ?? c.outletId,
             Finding: findingById.get(c.findingId)?.code ?? c.findingId,
             Category: CATEGORY_LABELS[c.category],
             Title: c.title,
@@ -258,7 +259,7 @@ export default function ExportsPage() {
           .map((e) => ({
             'Evidence ID': e.id,
             Visit: data.visits.find((v) => v.id === e.visitId)?.code ?? e.visitId,
-            Outlet: outletById.get(e.outletId)?.name ?? e.outletId,
+            [T.Outlet]: outletById.get(e.outletId)?.name ?? e.outletId,
             Category: CATEGORY_LABELS[e.category],
             Type: e.type,
             Title: e.title,
@@ -307,7 +308,7 @@ export default function ExportsPage() {
       list.push({
         key: 'users',
         title: 'Users',
-        description: 'Platform accounts with role, outlet authorisation, MFA enrolment and last sign-in.',
+        description: `Platform accounts with role, ${T.outlet} authorisation, MFA enrolment and last sign-in.`,
         icon: Shield,
         sheet: 'Users',
         rows: data.users.map((u) => ({
@@ -316,7 +317,7 @@ export default function ExportsPage() {
           Title: u.title,
           Role: ROLE_LABELS[u.role],
           Status: u.status,
-          'Authorised Outlets': u.outletIds.length ? u.outletIds.map((id) => outletById.get(id)?.code ?? id).join('; ') : 'All',
+          [`Authorised ${T.Outlets}`]: u.outletIds.length ? u.outletIds.map((id) => outletById.get(id)?.code ?? id).join('; ') : 'All',
           Brands: u.brandIds.length ? u.brandIds.map((id) => data.brands.find((b) => b.id === id)?.name ?? id).join('; ') : 'All',
           'MFA Enabled': u.mfaEnabled,
           'Last Login': u.lastLogin ?? 'Never',
@@ -451,7 +452,7 @@ export default function ExportsPage() {
         />
 
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Exports respect your outlet authorisation — {fmtNumber(scopedOutlets.length)} outlet{scopedOutlets.length === 1 ? '' : 's'} and {fmtNumber(scopedVisits.length)} visit
+          Exports respect your {T.outlet} authorisation —{countOutlets(scopedOutlets.length)} and {fmtNumber(scopedVisits.length)} visit
           {scopedVisits.length === 1 ? '' : 's'} are included. CSV is UTF-8 with a byte-order mark so Excel opens it cleanly; Excel files contain one sheet per dataset.
         </p>
 
@@ -544,7 +545,7 @@ export default function ExportsPage() {
               <td className="py-1.5 pr-3 font-semibold text-slate-900">Total</td>
               <td className="py-1.5 pr-3 text-right font-semibold tabular-nums text-slate-900">{fmtNumber(totalRecords)}</td>
               <td className="py-1.5 text-xs text-slate-600">
-                {fmtNumber(scopedOutlets.length)} outlets · {fmtNumber(scopedVisits.length)} visits within your authorisation
+                {fmtNumber(scopedOutlets.length)} {T.outlets} · {fmtNumber(scopedVisits.length)} visits within your authorisation
               </td>
             </tr>
           </tbody>

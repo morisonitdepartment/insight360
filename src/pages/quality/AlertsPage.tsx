@@ -20,6 +20,7 @@ import { FilterBar, applyFilters, matchesSearch, type FilterDef } from '@/compon
 import { exportCsv } from '@/utils/export'
 import { SEVERITY_ORDER, fmtDateTime, fmtPct, toDate, truncate } from '@/utils/format'
 import { cn } from '@/utils/cn'
+import { T } from '@/config/terms'
 
 // ───────────────────────────── Local helpers ─────────────────────────────
 
@@ -178,7 +179,7 @@ export default function AlertsPage() {
           const due = toDate(a.escalationDue)
           return {
             ...a,
-            outletName: outlet?.name ?? 'Unknown outlet',
+            outletName: outlet?.name ?? `Unknown ${T.outlet}`,
             outletCode: outlet?.code ?? '',
             visitCode: visit?.code ?? null,
             findingTitle: finding?.title ?? null,
@@ -217,7 +218,7 @@ export default function AlertsPage() {
       { key: 'severity', label: 'Severity', options: SEVERITIES.map((s) => ({ value: s, label: s })), allLabel: 'All severities' },
       { key: 'type', label: 'Type', options: types.map((t) => ({ value: t, label: t })), allLabel: 'All types' },
       { key: 'status', label: 'Status', options: STATUSES.map((s) => ({ value: s, label: s })), allLabel: 'All statuses' },
-      { key: 'outlet', label: 'Outlet', options: outlets.map(([id, name]) => ({ value: id, label: name })), allLabel: 'All outlets' },
+      { key: 'outlet', label: T.Outlet, options: outlets.map(([id, name]) => ({ value: id, label: name })), allLabel: `All ${T.outlets}` },
       { key: 'owner', label: 'Owner', options: [{ value: '__none', label: 'Unassigned' }, ...owners.map(([id, name]) => ({ value: id, label: name }))], allLabel: 'All owners' },
     ]
   }, [scopedAlerts])
@@ -288,7 +289,7 @@ export default function AlertsPage() {
         Severity: a.severity,
         Type: a.type,
         Title: a.title,
-        Outlet: a.outletName,
+        [T.Outlet]: a.outletName,
         Visit: a.visitCode ?? '',
         Finding: a.findingCode ?? '',
         Created: a.createdAt,
@@ -315,7 +316,7 @@ export default function AlertsPage() {
       { key: 'type', header: 'Type', render: (a) => <Badge tone="navy">{a.type}</Badge> },
       {
         key: 'outletName',
-        header: 'Outlet',
+        header: T.Outlet,
         render: (a) => (
           <div className="min-w-[130px]">
             <p className="text-slate-800 dark:text-slate-100">{a.outletName}</p>
@@ -451,7 +452,7 @@ export default function AlertsPage() {
           />
         </div>
         <div className="p-3">
-          <FilterBar search={search} onSearch={setSearch} searchPlaceholder="Search alert, outlet, visit or finding…" filters={filterDefs} values={filters} onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))} onReset={() => { setFilters({}); setSearch('') }} resultCount={rows.length} className="!shadow-none !border-0 !p-0" />
+          <FilterBar search={search} onSearch={setSearch} searchPlaceholder={`Search alert, ${T.outlet}, visit or finding…`} filters={filterDefs} values={filters} onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))} onReset={() => { setFilters({}); setSearch('') }} resultCount={rows.length} className="!shadow-none !border-0 !p-0" />
         </div>
         <DataTable columns={columns} rows={rows} rowKey={(a) => a.id} onRowClick={(a) => openAlert(a.id)} selectedKey={selectedId} initialSort={{ key: 'createdAt', dir: 'desc' }} pageSize={15} caption="Alerts and escalations" emptyTitle="No alerts match" emptyMessage="Adjust the filters or switch tabs." />
       </Card>
@@ -540,7 +541,7 @@ export default function AlertsPage() {
               columns={2}
               items={[
                 {
-                  label: 'Outlet',
+                  label: T.Outlet,
                   value: (
                     <Link to={`/performance/outlets/${selected.outletId}`} className="link inline-flex items-center gap-1">
                       {selected.outletName} <ExternalLink className="h-3 w-3" aria-hidden />

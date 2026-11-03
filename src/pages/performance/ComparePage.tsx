@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/Form'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { EmptyState } from '@/components/ui/States'
 import { ChartCard, GroupedBarChart, RadarCompareChart, SERIES_COLORS } from '@/components/charts'
+import { T } from '@/config/terms'
 
 const MAX_SELECT = 5
 const MIN_SELECT = 2
@@ -37,7 +38,7 @@ interface MetricRow {
 const RISK_ORDER = ['Excellent', 'Good', 'Needs Improvement', 'Critical', 'Not Assessed']
 
 export default function ComparePage() {
-  useDocumentTitle('Compare Outlets')
+  useDocumentTitle(`Compare ${T.Outlets}`)
   const navigate = useNavigate()
   const { can } = useAuth()
   const { data, authorizedOutlets: scopedOutlets, authorizedVisits: scopedVisits, dispatch } = useData()
@@ -72,7 +73,7 @@ export default function ComparePage() {
     setSelected((s) => {
       if (s.includes(id)) return s.filter((x) => x !== id)
       if (s.length >= MAX_SELECT) {
-        toast.error(`You can compare up to ${MAX_SELECT} outlets`)
+        toast.error(`You can compare up to ${MAX_SELECT} ${T.outlets}`)
         return s
       }
       return [...s, id]
@@ -131,8 +132,8 @@ export default function ComparePage() {
   const handleExport = async () => {
     const rows: ExportRow[] = metrics.map((m) => ({ Metric: m.label, ...Object.fromEntries(chosen.map((o) => [`${o.name} (${o.code})`, m.csv(o, m.value(o))])) }))
     try {
-      exportCsv(rows, 'outlet-comparison')
-      await dispatch((d, ctx) => logExport(d, ctx, `Outlet comparison (${chosen.map((o) => o.code).join(', ')})`, 'CSV'))
+      exportCsv(rows, `${T.outlet}-comparison`)
+      await dispatch((d, ctx) => logExport(d, ctx, `${T.Outlet} comparison (${chosen.map((o) => o.code).join(', ')})`, 'CSV'))
       toast.success('Comparison exported to CSV')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Export failed')
@@ -144,8 +145,8 @@ export default function ComparePage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Compare Outlets"
-        subtitle={`Side-by-side comparison of ${MIN_SELECT}–${MAX_SELECT} outlets across all KPI categories, issues and SLA`}
+        title={`Compare ${T.Outlets}`}
+        subtitle={`Side-by-side comparison of ${MIN_SELECT}–${MAX_SELECT} ${T.outlets} across all KPI categories, issues and SLA`}
         actions={
           ready && can('reports.export') ? (
             <button type="button" className="btn-secondary btn-sm" onClick={() => void handleExport()}>
@@ -158,7 +159,7 @@ export default function ComparePage() {
       {/* Selector */}
       <Card>
         <CardHeader
-          title="Select outlets"
+          title={`Select ${T.outlets}`}
           subtitle={`${chosen.length} of ${MAX_SELECT} selected${chosen.length < MIN_SELECT ? ` · choose at least ${MIN_SELECT}` : ''}`}
           actions={
             chosen.length > 0 && (
@@ -170,7 +171,7 @@ export default function ComparePage() {
         />
         <CardBody className="space-y-3">
           {chosen.length > 0 && (
-            <ul className="flex flex-wrap gap-2" aria-label="Selected outlets">
+            <ul className="flex flex-wrap gap-2" aria-label={`Selected ${T.outlets}`}>
               {chosen.map((o, i) => (
                 <li key={o.id} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 py-1 pl-2 pr-1 text-xs font-medium text-slate-700 dark:border-navy-700 dark:bg-navy-800 dark:text-slate-200">
                   <span className="h-2 w-2 rounded-full" style={{ background: SERIES_COLORS[i % SERIES_COLORS.length] }} aria-hidden />
@@ -184,11 +185,11 @@ export default function ComparePage() {
           )}
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search outlets by name, code, brand or location…" className="pl-8" aria-label="Search outlets" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={`Search ${T.outlets} by name, code, brand or location…`} className="pl-8" aria-label={`Search ${T.outlets}`} />
           </div>
-          <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-200 dark:border-navy-800" role="group" aria-label="Outlet checklist">
+          <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-200 dark:border-navy-800" role="group" aria-label={`${T.Outlet} checklist`}>
             {listed.length === 0 ? (
-              <p className="px-3 py-6 text-center text-xs text-slate-500">No outlets match “{search}”.</p>
+              <p className="px-3 py-6 text-center text-xs text-slate-500">No {T.outlets} match “{search}”.</p>
             ) : (
               <ul className="divide-y divide-slate-100 dark:divide-navy-800">
                 {listed.map((o) => {
@@ -218,12 +219,12 @@ export default function ComparePage() {
 
       {!ready ? (
         <Card>
-          <EmptyState icon={GitCompareArrows} title="Select at least two outlets to compare" message="Use the checklist above or open an outlet profile and choose “Compare”. Up to five outlets can be compared at once." />
+          <EmptyState icon={GitCompareArrows} title={`Select at least two ${T.outlets} to compare`} message={`Use the checklist above or open an ${T.outlet} profile and choose “Compare”. Up to five ${T.outlets} can be compared at once.`} />
         </Card>
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <ChartCard title="KPI radar" subtitle="Category scores from each outlet's latest approved visit" height={340}>
+            <ChartCard title="KPI radar" subtitle={`Category scores from each ${T.outlet}'s latest approved visit`} height={340}>
               <RadarCompareChart data={radarData} series={series} />
             </ChartCard>
             <ChartCard title="Category comparison" subtitle="Grouped by KPI category" height={340}>
@@ -235,7 +236,7 @@ export default function ComparePage() {
             <CardHeader title="Performance table" subtitle="Best value per row is highlighted in teal; the weakest is shown in amber." />
             <div className="table-wrap">
               <table className="table">
-                <caption className="sr-only">Outlet comparison metrics</caption>
+                <caption className="sr-only">{T.Outlet} comparison metrics</caption>
                 <thead>
                   <tr>
                     <th scope="col" className="min-w-[180px]">Metric</th>

@@ -15,6 +15,7 @@ import { SegmentedControl } from '@/components/ui/Form'
 import { ProgressBar } from '@/components/ui/Misc'
 import { fmtDate } from '@/utils/format'
 import { cn } from '@/utils/cn'
+import { T } from '@/config/terms'
 
 type View = 'month' | 'year' | 'list'
 const VISIT_TYPES: VisitType[] = ['Main Audit 1', 'Follow-up 1', 'Main Audit 2', 'Follow-up 2']
@@ -104,7 +105,7 @@ export default function CalendarPage() {
     { key: 'code', header: 'Visit', render: (v) => <span className="font-mono text-xs font-semibold">{v.code}</span> },
     {
       key: 'outlet',
-      header: 'Outlet',
+      header: T.Outlet,
       sortValue: (v) => outletById.get(v.outletId)?.name,
       render: (v) => (
         <div>
@@ -144,9 +145,9 @@ export default function CalendarPage() {
           <div>
             <p className="section-title">Annual plan</p>
             <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
-              {plan.outlets} outlets × {plan.perOutlet} visits = <span className="text-teal-700 dark:text-teal-300">{plan.planned} planned visits</span>
+              {plan.outlets} {T.outlets} × {plan.perOutlet} visits = <span className="text-teal-700 dark:text-teal-300">{plan.planned} planned visits</span>
             </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Two main audits and two follow-up assessments per outlet across the engagement year.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Two main audits and two follow-up assessments per {T.outlet} across the engagement year.</p>
             <div className="mt-3 flex items-center gap-3">
               <ProgressBar value={plan.completed} max={plan.planned || 1} tone="accent" label="Annual plan completion" className="flex-1" />
               <span className="text-sm font-semibold tabular-nums text-slate-800 dark:text-slate-100">

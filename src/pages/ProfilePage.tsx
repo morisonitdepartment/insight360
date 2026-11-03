@@ -27,6 +27,7 @@ import { EmptyState, LoadingState } from '@/components/ui/States'
 import { Toggle } from '@/components/ui/Form'
 import { Avatar, DescriptionList, Divider, ProgressBar, Stat, Timeline } from '@/components/ui/Misc'
 import { fmtDate, fmtDateTime, fmtPct, relativeTime } from '@/utils/format'
+import { T } from '@/config/terms'
 
 const ROLE_TONE: Record<string, Tone> = {
   super_admin: 'navy',
@@ -41,7 +42,7 @@ const ROLE_TONE: Record<string, Tone> = {
 const GROUPS: { prefix: string; label: string }[] = [
   { prefix: 'dashboard', label: 'Dashboards' },
   { prefix: 'analytics', label: 'Analytics' },
-  { prefix: 'outlets', label: 'Outlet performance' },
+  { prefix: 'outlets', label: `${T.Outlet} performance` },
   { prefix: 'visits', label: 'Visits & assessments' },
   { prefix: 'calendar', label: 'Calendar' },
   { prefix: 'shoppers', label: 'Mystery shoppers' },
@@ -180,7 +181,7 @@ export default function ProfilePage() {
             </div>
             <p className="flex items-start gap-2 rounded-lg border border-slate-200 px-3 py-2.5 text-xs text-slate-500 dark:border-navy-800 dark:text-slate-400">
               <Globe2 className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-              The outlet and reporting-period selectors live in the top bar — they apply across every page for the rest of your session.
+              The {T.outlet} and reporting-period selectors live in the top bar — they apply across every page for the rest of your session.
             </p>
             <DescriptionList
               columns={1}
@@ -286,17 +287,17 @@ export default function ProfilePage() {
             <Divider />
 
             <section>
-              <h3 className="section-title">Authorised outlets</h3>
+              <h3 className="section-title">Authorised {T.outlets}</h3>
               {outlets.length === 0 ? (
                 <p className="mt-2 inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
                   <Building2 className="h-4 w-4 text-slate-400" aria-hidden />
-                  All outlets
+                  All {T.outlets}
                   <span className="text-xs text-slate-500 dark:text-slate-400">({data.outlets.length} in the programme)</span>
                 </p>
               ) : (
                 <>
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    You see data for {outlets.length} of {data.outlets.length} outlets.
+                    You see data for {outlets.length} of {data.outlets.length} {T.outlets}.
                   </p>
                   <ul className="mt-2 flex flex-wrap gap-1.5">
                     {outlets.map((o) => (

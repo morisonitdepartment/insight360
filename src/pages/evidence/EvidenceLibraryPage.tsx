@@ -21,6 +21,7 @@ import { FilterBar, applyFilters, matchesSearch, type FilterDef } from '@/compon
 import { exportCsv, type ExportRow } from '@/utils/export'
 import { fmtDate, fmtDateTime, truncate } from '@/utils/format'
 import { cn } from '@/utils/cn'
+import { T } from '@/config/terms'
 
 // ───────────────────────────── Local helpers ─────────────────────────────
 
@@ -126,7 +127,7 @@ export default function EvidenceLibraryPage() {
           const question = e.questionId ? questionById.get(e.questionId) : undefined
           return {
             ...e,
-            outletName: outlet?.name ?? 'Unknown outlet',
+            outletName: outlet?.name ?? `Unknown ${T.outlet}`,
             outletCode: outlet?.code ?? '',
             visitCode: visit?.code ?? '—',
             visitType: visit?.type ?? '',
@@ -152,7 +153,7 @@ export default function EvidenceLibraryPage() {
     const uploaders = [...new Set(scopedEvidence.map((e) => e.uploadedBy))].sort((a, b) => a.localeCompare(b))
     return [
       { key: 'type', label: 'Type', options: EVIDENCE_TYPES.map((t) => ({ value: t, label: t })), allLabel: 'All types' },
-      { key: 'outlet', label: 'Outlet', options: outlets.map(([id, name]) => ({ value: id, label: name })), allLabel: 'All outlets' },
+      { key: 'outlet', label: T.Outlet, options: outlets.map(([id, name]) => ({ value: id, label: name })), allLabel: `All ${T.outlets}` },
       { key: 'category', label: 'Category', options: CATEGORY_KEYS.map((k) => ({ value: k, label: CATEGORY_LABELS[k] })), allLabel: 'All categories' },
       { key: 'visitType', label: 'Visit type', options: VISIT_TYPES.map((t) => ({ value: t, label: t })), allLabel: 'All visit types' },
       { key: 'uploadedBy', label: 'Uploaded by', options: uploaders.map((u) => ({ value: u, label: u })), allLabel: 'All uploaders' },
@@ -213,8 +214,8 @@ export default function EvidenceLibraryPage() {
     const csvRows: ExportRow[] = rows.map((e) => ({
       'Evidence ID': e.id,
       Visit: e.visitCode,
-      Outlet: e.outletName,
-      'Outlet Code': e.outletCode,
+      [T.Outlet]: e.outletName,
+      [`${T.Outlet} Code`]: e.outletCode,
       Category: CATEGORY_LABELS[e.category],
       Question: e.questionText,
       Type: e.type,
@@ -280,7 +281,7 @@ export default function EvidenceLibraryPage() {
       },
       {
         key: 'outletName',
-        header: 'Outlet',
+        header: T.Outlet,
         render: (e) => (
           <div className="min-w-0">
             <p className="truncate font-medium text-slate-800 dark:text-slate-100">{e.outletName}</p>
@@ -470,7 +471,7 @@ export default function EvidenceLibraryPage() {
           onClose={() => !busy && setUploadOpen(false)}
           busy={busy}
           visits={scopedVisits}
-          outletName={(id) => outletById.get(id)?.name ?? 'Unknown outlet'}
+          outletName={(id) => outletById.get(id)?.name ?? `Unknown ${T.outlet}`}
           questionsFor={(visit) => getVisitQuestions(data, visit)}
           categoryFor={(q) => sectionById.get(q.sectionId)?.category ?? 'customer_experience'}
           initialVisitId={pinnedVisit && !UPLOAD_CLOSED_STATUSES.includes(pinnedVisit.status) ? pinnedVisit.id : ''}

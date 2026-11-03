@@ -24,6 +24,7 @@ import { cn } from '@/utils/cn'
 import { useTheme } from '@/contexts/ThemeContext'
 import { riskFromScore } from '@/utils/format'
 import { CLIENT } from '@/config/client'
+import { T } from '@/config/terms'
 
 /** Restrained enterprise palette — navy base, brand-orange accent, amber warnings, red only for critical. */
 export const CHART_COLORS = {
@@ -255,7 +256,7 @@ export function Heatmap({ rows, columns, onRowClick, maxHeight = 420 }: { rows: 
       <table className="w-full text-xs border-separate border-spacing-0.5">
         <thead className="sticky top-0 z-10 bg-white dark:bg-navy-900">
           <tr>
-            <th className="text-left font-semibold text-slate-500 dark:text-slate-400 px-2 py-1.5 min-w-[160px]">Outlet</th>
+            <th className="text-left font-semibold text-slate-500 dark:text-slate-400 px-2 py-1.5 min-w-[160px]">{T.Outlet}</th>
             {columns.map((c) => (
               <th key={c} className="font-semibold text-slate-500 dark:text-slate-400 px-1 py-1.5 text-center min-w-[64px]">
                 {c}

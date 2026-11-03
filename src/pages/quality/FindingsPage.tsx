@@ -23,6 +23,7 @@ import { FilterBar, applyFilters, matchesSearch, type FilterDef } from '@/compon
 import { exportCsv } from '@/utils/export'
 import { SEVERITY_ORDER, fmtDate, fmtDateTime, truncate } from '@/utils/format'
 import { cn } from '@/utils/cn'
+import { T } from '@/config/terms'
 
 // ───────────────────────────── Local helpers ─────────────────────────────
 
@@ -230,7 +231,7 @@ export default function FindingsPage() {
           const visit = visitById.get(f.visitId)
           return {
             ...f,
-            outletName: outlet?.name ?? 'Unknown outlet',
+            outletName: outlet?.name ?? `Unknown ${T.outlet}`,
             outletCode: outlet?.code ?? '',
             segment: outlet?.segment ?? '',
             visitCode: visit?.code ?? '—',
@@ -265,7 +266,7 @@ export default function FindingsPage() {
       { key: 'severity', label: 'Severity', options: SEVERITIES.map((s) => ({ value: s, label: s })), allLabel: 'All severities' },
       { key: 'status', label: 'Status', options: STATUSES.map((s) => ({ value: s, label: s })), allLabel: 'All statuses' },
       { key: 'category', label: 'Category', options: CATEGORY_KEYS.map((k) => ({ value: k, label: CATEGORY_LABELS[k] })), allLabel: 'All categories' },
-      { key: 'outlet', label: 'Outlet', options: outlets.map(([id, name]) => ({ value: id, label: name })), allLabel: 'All outlets' },
+      { key: 'outlet', label: T.Outlet, options: outlets.map(([id, name]) => ({ value: id, label: name })), allLabel: `All ${T.outlets}` },
       { key: 'segment', label: 'Segment', options: [{ value: 'F&B', label: 'F&B' }, { value: 'Entertainment', label: 'Entertainment' }], allLabel: 'All segments' },
       { key: 'repeated', label: 'Repeated', options: [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }], allLabel: 'Repeated: any' },
       { key: 'visitType', label: 'Visit type', options: VISIT_TYPES.map((t) => ({ value: t, label: t })), allLabel: 'All visit types' },
@@ -370,8 +371,8 @@ export default function FindingsPage() {
       Code: f.code,
       Title: f.title,
       Description: f.description,
-      Outlet: f.outletName,
-      'Outlet code': f.outletCode,
+      [T.Outlet]: f.outletName,
+      [`${T.Outlet} code`]: f.outletCode,
       Segment: f.segment,
       Category: CATEGORY_LABELS[f.category],
       Severity: f.severity,
@@ -408,7 +409,7 @@ export default function FindingsPage() {
       },
       {
         key: 'outletName',
-        header: 'Outlet',
+        header: T.Outlet,
         render: (f) => (
           <div className="min-w-[140px]">
             <p className="text-slate-800 dark:text-slate-100">{f.outletName}</p>
@@ -519,7 +520,7 @@ export default function FindingsPage() {
         <KpiCard compact label="Resolved / closed" value={kpis.resolved} icon={CheckCircle2} tone="good" sub={`${kpis.cycleLabel} to date`} />
       </div>
 
-      <FilterBar search={search} onSearch={setSearch} searchPlaceholder="Search title, code or outlet…" filters={filterDefs} values={filters} onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))} onReset={resetFilters} resultCount={rows.length} />
+      <FilterBar search={search} onSearch={setSearch} searchPlaceholder={`Search title, code or ${T.outlet}…`} filters={filterDefs} values={filters} onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))} onReset={resetFilters} resultCount={rows.length} />
 
       <Card>
         <DataTable columns={columns} rows={rows} rowKey={(f) => f.id} onRowClick={(f) => openFinding(f.id)} selectedKey={selectedId} initialSort={{ key: 'createdAt', dir: 'desc' }} pageSize={15} caption="Findings and issues" emptyTitle="No findings match" emptyMessage="Adjust the filters or clear the search to see more findings." />
@@ -550,7 +551,7 @@ export default function FindingsPage() {
               columns={2}
               items={[
                 {
-                  label: 'Outlet',
+                  label: T.Outlet,
                   value: (
                     <Link to={`/performance/outlets/${selected.outletId}`} className="link inline-flex items-center gap-1">
                       {selected.outletName} <ExternalLink className="h-3 w-3" aria-hidden />

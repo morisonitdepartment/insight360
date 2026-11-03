@@ -19,6 +19,7 @@ import { Input, Textarea } from '@/components/ui/Form'
 import { exportCsv } from '@/utils/export'
 import { fmtDate, fmtDateTime, fmtPct, round } from '@/utils/format'
 import { cn } from '@/utils/cn'
+import { T } from '@/config/terms'
 
 const VISIT_TYPES: VisitType[] = ['Main Audit 1', 'Follow-up 1', 'Main Audit 2', 'Follow-up 2']
 const REPORT_STATUSES: ReportStatus[] = ['Draft', 'Pending Review', 'Approved', 'Rejected', 'Published']
@@ -61,7 +62,7 @@ export default function VisitReportsPage() {
 
   const filterDefs: FilterDef[] = useMemo(
     () => [
-      { key: 'outlet', label: 'Outlet', options: [...scopedOutlets].sort((a, b) => a.name.localeCompare(b.name)).map((o) => ({ value: o.id, label: o.name })) },
+      { key: 'outlet', label: T.Outlet, options: [...scopedOutlets].sort((a, b) => a.name.localeCompare(b.name)).map((o) => ({ value: o.id, label: o.name })) },
       { key: 'type', label: 'Visit type', options: VISIT_TYPES.map((t) => ({ value: t, label: t })) },
       { key: 'reportStatus', label: 'Report status', options: REPORT_STATUSES.map((s) => ({ value: s, label: s })) },
       { key: 'sla', label: 'SLA', options: SLA_STATUSES.map((s) => ({ value: s, label: s })), allLabel: 'All SLA states' },
@@ -143,8 +144,8 @@ export default function VisitReportsPage() {
     exportCsv(
       rows.map((v) => ({
         'Visit ID': v.code,
-        Outlet: outletName(v.outletId),
-        'Outlet code': outletById.get(v.outletId)?.code ?? '',
+        [T.Outlet]: outletName(v.outletId),
+        [`${T.Outlet} code`]: outletById.get(v.outletId)?.code ?? '',
         'Visit type': v.type,
         Journey: v.journey,
         'Visit date': v.visitDate ?? '',
@@ -169,7 +170,7 @@ export default function VisitReportsPage() {
     { key: 'code', header: 'Visit ID', render: (v) => <span className="font-medium text-slate-900 dark:text-white">{v.code}</span>, width: '110px' },
     {
       key: 'outlet',
-      header: 'Outlet',
+      header: T.Outlet,
       sortValue: (v) => outletName(v.outletId),
       render: (v) => (
         <div className="min-w-0">
@@ -262,7 +263,7 @@ export default function VisitReportsPage() {
         </div>
       </section>
 
-      <FilterBar search={search} onSearch={setSearch} searchPlaceholder="Search visit ID or outlet…" filters={filterDefs} values={filters} onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))} onReset={resetFilters} resultCount={rows.length}>
+      <FilterBar search={search} onSearch={setSearch} searchPlaceholder={`Search visit ID or ${T.outlet}…`} filters={filterDefs} values={filters} onChange={(k, v) => setFilters((f) => ({ ...f, [k]: v }))} onReset={resetFilters} resultCount={rows.length}>
         <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
           <span className="sr-only sm:not-sr-only whitespace-nowrap">Visit date</span>
           <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="!w-auto !py-1.5 text-xs" aria-label="Visit date from" />
@@ -314,7 +315,7 @@ export default function VisitReportsPage() {
               {review.kind === 'approve' && review.visit.criticalCount > 0 && (
                 <p className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                  This visit recorded {review.visit.criticalCount} critical failure{review.visit.criticalCount === 1 ? '' : 's'}. Approval will keep the outlet at Critical risk until findings are closed.
+                  This visit recorded {review.visit.criticalCount} critical failure{review.visit.criticalCount === 1 ? '' : 's'}. Approval will keep the {T.outlet} at Critical risk until findings are closed.
                 </p>
               )}
               {review.kind === 'approve' && review.visit.criticalCount === 0 && (

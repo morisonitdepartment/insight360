@@ -30,6 +30,7 @@ import { Drawer } from '@/components/ui/Modal'
 import { Checkbox, Field, Input, Select, Toggle } from '@/components/ui/Form'
 import { Divider } from '@/components/ui/Misc'
 import { cn } from '@/utils/cn'
+import { T } from '@/config/terms'
 
 type Channel = NotificationRule['channel'][number]
 type RuleSeverity = Severity | 'Info'
@@ -307,7 +308,7 @@ export default function NotificationRulesPage() {
             </li>
             <li className="flex items-start gap-2">
               <UsersIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal-600 dark:text-teal-400" aria-hidden />
-              <span>Escalation targets are the recipient roles of the rule plus the outlet’s operations manager and the client administrator.</span>
+              <span>Escalation targets are the recipient roles of the rule plus the {T.outlet}’s operations manager and the client administrator.</span>
             </li>
             <li className="flex items-start gap-2">
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-600 dark:text-blue-400" aria-hidden />

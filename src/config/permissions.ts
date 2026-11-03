@@ -1,4 +1,5 @@
 import type { Role } from '@/types'
+import { T } from './terms'
 
 /**
  * Permission keys. Each navigation item, route and action maps to one of these.
@@ -10,8 +11,8 @@ export const PERMISSIONS = {
   'dashboard.executive': 'View executive dashboard',
   'dashboard.overview': 'View overview',
   'analytics.view': 'View KPI analytics, benchmarking and trends',
-  'outlets.view': 'View outlet performance',
-  'outlets.compare': 'Compare outlets',
+  'outlets.view': `View ${T.outlet} performance`,
+  'outlets.compare': `Compare ${T.outlets}`,
   // Operations
   'visits.view': 'View visits',
   'visits.create': 'Create visits',
@@ -37,7 +38,7 @@ export const PERMISSIONS = {
   'evidence.view': 'View evidence library',
   'evidence.upload': 'Upload evidence',
   // Administration
-  'admin.outlets': 'Manage outlets',
+  'admin.outlets': `Manage ${T.outlets}`,
   'admin.users': 'Manage users',
   'admin.stakeholders': 'Manage client stakeholder accounts',
   'admin.roles': 'View roles & permissions',
@@ -144,8 +145,8 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   super_admin: 'Full platform administration: users, templates, scoring, alerts, approvals and system settings.',
-  client_admin: 'Client-side administrator with full visibility across authorised outlets and stakeholder management.',
-  ops_manager: 'Regional / operations manager restricted to assigned outlets; manages corrective actions.',
+  client_admin: `Client-side administrator with full visibility across authorised ${T.outlets} and stakeholder management.`,
+  ops_manager: `Regional / operations manager restricted to assigned ${T.outlets}; manages corrective actions.`,
   shopper: 'Auditor conducting assigned mystery-shopping visits and submitting evidence-based assessments.',
   analyst: 'Analytics and reporting specialist with read access to all performance data and exports.',
   executive: 'Read-only executive visibility: dashboard, rankings, risks, trends, alerts and reports.',

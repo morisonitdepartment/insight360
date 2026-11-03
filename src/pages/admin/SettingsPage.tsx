@@ -32,6 +32,7 @@ import { Field, Input, Select, Toggle } from '@/components/ui/Form'
 import { DescriptionList, Divider, Stat, Tabs, type TabItem } from '@/components/ui/Misc'
 import { isCompleted } from '@/services/derive'
 import { fmtDate, fmtDateTime } from '@/utils/format'
+import { T } from '@/config/terms'
 
 type TabKey = 'organisation' | 'engagement' | 'appearance' | 'security'
 
@@ -266,7 +267,7 @@ export default function SettingsPage() {
                   { label: 'Timezone', value: <span className="inline-flex items-center gap-1.5"><Globe2 className="h-3.5 w-3.5 text-slate-400" aria-hidden />{org.timezone}</span> },
                   { label: 'Currency', value: org.currency },
                   { label: 'Locale', value: org.locale },
-                  { label: 'Brands', value: `${data.brands.length} brands · ${data.outlets.length} outlets` },
+                  { label: 'Brands', value: `${data.brands.length} brands · ${data.outlets.length} ${T.outlets}` },
                 ]}
               />
             </CardBody>
@@ -322,7 +323,7 @@ export default function SettingsPage() {
             <CardHeader title="Programme status" subtitle={`${fmtDate(org.engagementStart)} → ${fmtDate(org.engagementEnd)}`} />
             <CardBody className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <Stat label="Outlets" value={programme.outlets} sub="In scope" />
+                <Stat label={T.Outlets} value={programme.outlets} sub="In scope" />
                 <Stat label="Planned visits" value={programme.planned} sub="Full programme" />
                 <Stat label="Completed" value={programme.completed} sub={`${programme.pct}% of plan`} />
                 <Stat label="In flight" value={programme.inFlight} sub="Not yet closed" />

@@ -30,6 +30,7 @@ import type {
 } from '@/types'
 import type { DatasetPatch } from '@/repositories/types'
 import { CATEGORY_KEYS, computeVisitScores } from '@/utils/scoring'
+import { T } from '@/config/terms'
 
 /**
  * Pure action reducers. Each returns a DatasetPatch (only the collections that changed) so the
@@ -246,11 +247,11 @@ export function approveVisit(data: Dataset, ctx: ActionContext, visitId: string,
       id: aid,
       code: `AL-${aid.slice(-4).toUpperCase()}`,
       severity: 'High',
-      type: 'Outlet Score Below 70%',
+      type: `${T.Outlet} Score Below 70%`,
       outletId: v.outletId,
       visitId: v.id,
       findingId: null,
-      title: `Outlet score ${updated.score.toFixed(1)}% below intervention threshold — ${outlet?.name ?? ''}`,
+      title: `${T.Outlet} score ${updated.score.toFixed(1)}% below intervention threshold — ${outlet?.name ?? ''}`,
       description: `${v.type} approved with a score of ${updated.score.toFixed(1)}%, below the 70% critical threshold.`,
       createdAt: iso(ctx.now),
       escalationDue: iso(addHours(ctx.now, 24)),
@@ -258,7 +259,7 @@ export function approveVisit(data: Dataset, ctx: ActionContext, visitId: string,
       status: 'New',
       acknowledgedAt: null,
       resolvedAt: null,
-      history: [{ at: iso(ctx.now), by: 'Alert Engine', action: 'Created', note: 'Rule: Outlet score below 70%' }],
+      history: [{ at: iso(ctx.now), by: 'Alert Engine', action: 'Created', note: `Rule: ${T.Outlet} score below 70%` }],
     })
   }
   notifications.unshift({
@@ -540,13 +541,13 @@ export function upsertBrand(data: Dataset, ctx: ActionContext, brand: Brand): Da
   const exists = data.brands.some((b) => b.id === brand.id)
   return {
     brands: exists ? replace(data.brands, brand) : [...data.brands, brand],
-    activityLogs: withLog(data, ctx, exists ? 'Brand updated' : 'Brand created', 'Outlets', brand.id, `${brand.name} · ${brand.segment}`),
+    activityLogs: withLog(data, ctx, exists ? 'Brand updated' : 'Brand created', T.Outlets, brand.id, `${brand.name} · ${brand.segment}`),
   }
 }
 
 export function upsertOutlet(data: Dataset, ctx: ActionContext, outlet: Outlet): DatasetPatch {
   const exists = data.outlets.some((o) => o.id === outlet.id)
-  return { outlets: exists ? replace(data.outlets, outlet) : [...data.outlets, outlet], activityLogs: withLog(data, ctx, exists ? 'Outlet updated' : 'Outlet created', 'Outlets', outlet.code, outlet.name) }
+  return { outlets: exists ? replace(data.outlets, outlet) : [...data.outlets, outlet], activityLogs: withLog(data, ctx, exists ? `${T.Outlet} updated` : `${T.Outlet} created`, T.Outlets, outlet.code, outlet.name) }
 }
 
 export function updateShopperTraining(data: Dataset, ctx: ActionContext, shopperId: string, moduleId: string, status: TrainingStatus): DatasetPatch {

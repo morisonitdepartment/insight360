@@ -17,6 +17,7 @@ import { EmptyState } from '@/components/ui/States'
 import { Select } from '@/components/ui/Form'
 import { Avatar, DescriptionList, ProgressBar, Stat } from '@/components/ui/Misc'
 import { fmtDate, fmtPct } from '@/utils/format'
+import { T } from '@/config/terms'
 
 const TRAINING_STATUSES: TrainingStatus[] = ['Not Started', 'In Progress', 'Completed', 'Expired']
 const AVAILABILITY: Shopper['availability'][] = ['Available', 'Limited', 'Unavailable']
@@ -81,7 +82,7 @@ export default function ShopperDetailPage() {
     { key: 'code', header: 'Visit', render: (v) => <span className="font-mono text-xs font-semibold">{v.code}</span> },
     {
       key: 'outlet',
-      header: 'Outlet',
+      header: T.Outlet,
       sortValue: (v) => outletById.get(v.outletId)?.name,
       render: (v) => (
         <div className="min-w-[150px]">
@@ -220,10 +221,10 @@ export default function ShopperDetailPage() {
               {perf.avgScore !== null && (
                 <div className="mt-4">
                   <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="text-slate-600 dark:text-slate-300">Average outlet score across approved visits</span>
+                    <span className="text-slate-600 dark:text-slate-300">Average {T.outlet} score across approved visits</span>
                     <span className="font-semibold tabular-nums">{perf.avgScore.toFixed(1)}%</span>
                   </div>
-                  <ProgressBar value={perf.avgScore} label="Average outlet score" />
+                  <ProgressBar value={perf.avgScore} label={`Average ${T.outlet} score`} />
                 </div>
               )}
             </CardBody>

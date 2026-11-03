@@ -22,6 +22,7 @@ import { TrendChart, CHART_COLORS, SERIES_COLORS } from '@/components/charts'
 import { exportCsv, exportElementToPdf, printPage } from '@/utils/export'
 import { avg, fmtDate, fmtDateTime, fmtDelta, fmtPct, SEVERITY_ORDER } from '@/utils/format'
 import { cn } from '@/utils/cn'
+import { T, displayTerm } from '@/config/terms'
 
 // ───────────────────────────── Constants ─────────────────────────────
 
@@ -41,7 +42,7 @@ const SECTION_DEFS: SectionDef[] = [
   { key: 'summary', label: 'Executive Summary', description: 'Narrative overview of scope and headline results' },
   { key: 'kpis', label: 'KPI Cards', description: 'Overall score and each selected KPI with change' },
   { key: 'trends', label: 'Trend Charts', description: 'Monthly score trend for the last 12 months' },
-  { key: 'rankings', label: 'Rankings', description: 'Top and bottom performing outlets' },
+  { key: 'rankings', label: 'Rankings', description: `Top and bottom performing ${T.outlets}` },
   { key: 'issues', label: 'Issues', description: 'Open findings by severity' },
   { key: 'recommendations', label: 'Recommendations', description: 'Rule-based improvement actions' },
   { key: 'evidence', label: 'Evidence', description: 'Sample of captured visit evidence' },
@@ -260,7 +261,7 @@ export default function ReportBuilderPage() {
   // ── Report metadata ──
   const periodLabel = `${fmtDate(from)} – ${fmtDate(to)}`
   const segmentLabel = segments.size === SEGMENTS.length ? 'All segments' : [...segments].join(' + ') || 'No segment'
-  const scopeLabel = `${filteredOutlets.length} outlet${filteredOutlets.length === 1 ? '' : 's'} · ${segmentLabel}`
+  const scopeLabel = `${filteredOutlets.length} ${T.outlet}${filteredOutlets.length === 1 ? '' : 's'} · ${segmentLabel}`
   const enabledSections = SECTION_DEFS.filter((s) => sections[s.key])
   const estimatedPages = useMemo(() => {
     let pages = 1
@@ -274,14 +275,14 @@ export default function ReportBuilderPage() {
   }, [enabledSections, openIssues.length, capaRows.length, sections.summary])
 
   const summaryText = useMemo(() => {
-    const parts = [`${type} covering ${filteredOutlets.length} outlet${filteredOutlets.length === 1 ? '' : 's'} (${segmentLabel.toLowerCase()}) for ${periodLabel}.`]
+    const parts = [`${displayTerm(type)} covering ${filteredOutlets.length} ${T.outlet}${filteredOutlets.length === 1 ? '' : 's'} (${segmentLabel.toLowerCase()}) for ${periodLabel}.`]
     if (kpi.overall !== null) parts.push(`Portfolio score ${fmtPct(kpi.overall)}${kpi.overallDelta !== null ? ` (${fmtDelta(kpi.overallDelta)} pts vs previous assessment)` : ''}.`)
     if (scoredVisits.length) parts.push(`${scoredVisits.length} scored visit${scoredVisits.length === 1 ? '' : 's'} averaged ${fmtPct(cycleScore)}.`)
     parts.push(kpi.criticalIssues ? `${kpi.criticalIssues} critical issue${kpi.criticalIssues === 1 ? '' : 's'} open; ${kpi.capaOverdue} corrective action${kpi.capaOverdue === 1 ? '' : 's'} overdue.` : `No critical issues open; ${kpi.capaOpen} corrective action${kpi.capaOpen === 1 ? '' : 's'} in progress.`)
     return parts.join(' ')
   }, [type, filteredOutlets.length, segmentLabel, periodLabel, kpi, scoredVisits.length, cycleScore])
 
-  const validation = !title.trim() ? 'Enter a report title before saving.' : !filteredOutlets.length ? 'Select at least one outlet (check the brand and segment filters) to generate a report.' : from > to ? 'The start date must be on or before the end date.' : null
+  const validation = !title.trim() ? 'Enter a report title before saving.' : !filteredOutlets.length ? `Select at least one ${T.outlet} (check the brand and segment filters) to generate a report.` : from > to ? 'The start date must be on or before the end date.' : null
 
   // ── Actions ──
   const saveReport = async () => {
@@ -318,14 +319,14 @@ export default function ReportBuilderPage() {
 
   const exportRankings = async () => {
     if (!ranked.length) {
-      toast.error('No assessed outlets in scope to export')
+      toast.error(`No assessed ${T.outlets} in scope to export`)
       return
     }
     exportCsv(
       ranked.map((o, i) => ({
         Rank: i + 1,
         'Portfolio rank': o.rank ?? '',
-        Outlet: o.name,
+        [T.Outlet]: o.name,
         Code: o.code,
         Brand: o.brand,
         Segment: o.segment,
@@ -340,7 +341,7 @@ export default function ReportBuilderPage() {
       })),
       `${slug(title) || 'custom-report'}-rankings`,
     )
-    await dispatch((d, ctx) => logExport(d, ctx, `Report builder rankings (${ranked.length} outlets)`, 'CSV'))
+    await dispatch((d, ctx) => logExport(d, ctx, `Report builder rankings (${ranked.length} ${T.outlets})`, 'CSV'))
     toast.success('Rankings exported to CSV')
   }
 
@@ -404,7 +405,7 @@ export default function ReportBuilderPage() {
                 <Select id="rb-type" value={type} onChange={(e) => setType(e.target.value as ReportType)}>
                   {REPORT_TYPES.map((t) => (
                     <option key={t} value={t}>
-                      {t}
+                      {displayTerm(t)}
                     </option>
                   ))}
                 </Select>
@@ -418,7 +419,7 @@ export default function ReportBuilderPage() {
             </div>
 
             <ConfigGroup
-              title="Outlets"
+              title={T.Outlets}
               actions={
                 <>
                   <button type="button" className="link" onClick={() => setOutletIds((s) => new Set([...s, ...visibleOutlets.map((o) => o.id)]))}>
@@ -435,7 +436,7 @@ export default function ReportBuilderPage() {
             >
               <div className="relative mb-2">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" aria-hidden />
-                <Input value={outletSearch} onChange={(e) => setOutletSearch(e.target.value)} placeholder="Search outlets…" aria-label="Search outlets" className="pl-8 pr-8" />
+                <Input value={outletSearch} onChange={(e) => setOutletSearch(e.target.value)} placeholder={`Search ${T.outlets}…`} aria-label={`Search ${T.outlets}`} className="pl-8 pr-8" />
                 {outletSearch && (
                   <button type="button" onClick={() => setOutletSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200" aria-label="Clear search">
                     <X className="h-3.5 w-3.5" aria-hidden />
@@ -518,7 +519,7 @@ export default function ReportBuilderPage() {
           <CardHeader
             className="no-print"
             title="Preview"
-            subtitle={`${filteredOutlets.length} outlet${filteredOutlets.length === 1 ? '' : 's'} · ${filteredVisits.length} visit${filteredVisits.length === 1 ? '' : 's'} · ${openIssues.length} open issue${openIssues.length === 1 ? '' : 's'} · live from the current dataset`}
+            subtitle={`${filteredOutlets.length} ${T.outlet}${filteredOutlets.length === 1 ? '' : 's'} · ${filteredVisits.length} visit${filteredVisits.length === 1 ? '' : 's'} · ${openIssues.length} open issue${openIssues.length === 1 ? '' : 's'} · live from the current dataset`}
             actions={
               canExport ? (
                 <button type="button" className="btn-secondary btn-sm" onClick={() => void downloadPdf()} disabled={exporting}>
@@ -534,7 +535,7 @@ export default function ReportBuilderPage() {
                 <header className="rounded-lg bg-navy-900 px-6 py-7 text-white dark:bg-navy-950 dark:ring-1 dark:ring-navy-700">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-teal-300">{type}</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-teal-300">{displayTerm(type)}</p>
                       <h2 className="mt-1.5 break-words text-2xl font-semibold tracking-tight">{title.trim() || 'Untitled report'}</h2>
                       <p className="mt-1 text-sm text-slate-300">{data.organization.name}</p>
                       <p className="text-xs text-slate-400">{data.organization.engagementName}</p>
@@ -567,7 +568,7 @@ export default function ReportBuilderPage() {
                 </header>
 
                 {!filteredOutlets.length && (
-                  <p className="rounded-lg border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500 dark:border-navy-700 dark:text-slate-400">No outlets in scope. Select outlets, brands and segments in the configuration panel to populate the report.</p>
+                  <p className="rounded-lg border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500 dark:border-navy-700 dark:text-slate-400">No {T.outlets} in scope. Select {T.outlets}, brands and segments in the configuration panel to populate the report.</p>
                 )}
 
                 {/* Executive summary */}
@@ -614,17 +615,17 @@ export default function ReportBuilderPage() {
 
                 {/* Rankings */}
                 {sections.rankings && (
-                  <DocSection title="Outlet Rankings" icon={Table2} subtitle={`${ranked.length} assessed outlet${ranked.length === 1 ? '' : 's'} in scope`}>
+                  <DocSection title={`${T.Outlet} Rankings`} icon={Table2} subtitle={`${ranked.length} assessed ${T.outlet}${ranked.length === 1 ? '' : 's'} in scope`}>
                     <div className="grid gap-5 lg:grid-cols-2">
                       <div>
                         <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">Top 5 performers</p>
                         <DocTable<Outlet>
                           rows={top}
                           rowKey={(o) => o.id}
-                          empty="No assessed outlets."
+                          empty={`No assessed ${T.outlets}.`}
                           columns={[
                             { header: '#', render: (o) => o.rank ?? '—', width: '32px' },
-                            { header: 'Outlet', render: (o) => <span className="font-medium">{o.name}</span> },
+                            { header: T.Outlet, render: (o) => <span className="font-medium">{o.name}</span> },
                             { header: 'Segment', render: (o) => o.segment },
                             { header: 'Score', render: (o) => <ScoreCell score={o.overallScore} />, align: 'right' },
                             { header: 'Issues', render: (o) => o.openIssues, align: 'right' },
@@ -636,10 +637,10 @@ export default function ReportBuilderPage() {
                         <DocTable<Outlet>
                           rows={bottom}
                           rowKey={(o) => o.id}
-                          empty="No assessed outlets."
+                          empty={`No assessed ${T.outlets}.`}
                           columns={[
                             { header: '#', render: (o) => o.rank ?? '—', width: '32px' },
-                            { header: 'Outlet', render: (o) => <span className="font-medium">{o.name}</span> },
+                            { header: T.Outlet, render: (o) => <span className="font-medium">{o.name}</span> },
                             { header: 'Segment', render: (o) => o.segment },
                             { header: 'Score', render: (o) => <ScoreCell score={o.overallScore} />, align: 'right' },
                             { header: 'Issues', render: (o) => (o.criticalFindings ? <span className="font-semibold text-red-700 dark:text-red-300">{o.openIssues} ({o.criticalFindings} crit.)</span> : o.openIssues), align: 'right' },
@@ -659,7 +660,7 @@ export default function ReportBuilderPage() {
                       empty="No open findings in scope."
                       columns={[
                         { header: 'Code', render: (f) => <span className="font-medium">{f.code}</span>, width: '90px' },
-                        { header: 'Outlet', render: (f) => outletName(f.outletId) },
+                        { header: T.Outlet, render: (f) => outletName(f.outletId) },
                         { header: 'Finding', render: (f) => f.title },
                         { header: 'Category', render: (f) => CATEGORY_SHORT[f.category] },
                         { header: 'Severity', render: (f) => <SeverityBadge severity={f.severity} size="xs" /> },
@@ -711,7 +712,7 @@ export default function ReportBuilderPage() {
                       empty="No corrective actions in scope."
                       columns={[
                         { header: 'Code', render: (a) => <span className="font-medium">{a.code}</span>, width: '90px' },
-                        { header: 'Outlet', render: (a) => outletName(a.outletId) },
+                        { header: T.Outlet, render: (a) => outletName(a.outletId) },
                         { header: 'Action', render: (a) => a.title },
                         { header: 'Owner', render: (a) => a.ownerName },
                         { header: 'Status', render: (a) => <StatusBadge status={a.status} size="xs" /> },
@@ -723,7 +724,7 @@ export default function ReportBuilderPage() {
                 )}
 
                 <footer className="border-t border-slate-200 pt-3 text-[10px] text-slate-500 dark:border-navy-800 dark:text-slate-400">
-                  {title.trim() || 'Untitled report'} · {type} · Draft generated from live programme data on {fmtDateTime(now)} by {user?.name ?? '—'} · Confidential — prepared for {data.organization.name}
+                  {title.trim() || 'Untitled report'} · {displayTerm(type)} · Draft generated from live programme data on {fmtDateTime(now)} by {user?.name ?? '—'} · Confidential — prepared for {data.organization.name}
                 </footer>
               </div>
             </div>

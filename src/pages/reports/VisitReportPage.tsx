@@ -20,6 +20,7 @@ import { exportCsv, exportElementToPdf, printPage } from '@/utils/export'
 import { fmtDate, fmtDateTime, fmtPct, hoursBetween } from '@/utils/format'
 import type { AnswerValue, Evidence, Question } from '@/types'
 import { cn } from '@/utils/cn'
+import { T } from '@/config/terms'
 
 function answerText(q: Question, v: AnswerValue, na: boolean): string {
   if (na) return 'N/A'
@@ -359,7 +360,7 @@ export default function VisitReportPage() {
               {(weakCats.length ? weakCats : CATEGORY_KEYS.slice(0, 1)).slice(0, 4).map((k) => (
                 <li key={k}><span className="font-medium">{CATEGORY_LABELS[k]}:</span> {RECOMMENDATIONS[k]}</li>
               ))}
-              {weakCats.length === 0 && criticals.length === 0 && <li>Maintain standards; share this outlet's practices as a benchmark for the brand.</li>}
+              {weakCats.length === 0 && criticals.length === 0 && <li>Maintain standards; share this {T.outlet}'s practices as a benchmark for the brand.</li>}
             </ol>
           </section>
 
@@ -420,7 +421,7 @@ export default function VisitReportPage() {
         open={decision !== null}
         onClose={() => setDecision(null)}
         title={decision === 'approve' ? 'Approve report' : 'Reject report'}
-        description={decision === 'approve' ? `Approving publishes the score (${fmtPct(visit.score)}) to the outlet record and dashboards.` : 'The report will be returned to the shopper for revision.'}
+        description={decision === 'approve' ? `Approving publishes the score (${fmtPct(visit.score)}) to the ${T.outlet} record and dashboards.` : 'The report will be returned to the shopper for revision.'}
         size="sm"
         footer={
           <>

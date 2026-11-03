@@ -16,6 +16,7 @@ import { DataTable, type Column } from '@/components/ui/DataTable'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ProgressBar } from '@/components/ui/Misc'
 import { CHART_COLORS, ChartCard, DonutChart, GroupedBarChart, HeatLegend, Heatmap, SERIES_COLORS, TrendChart } from '@/components/charts'
+import { T } from '@/config/terms'
 
 const KPI_ICONS: Record<CategoryKey, LucideIcon> = {
   customer_experience: Sparkles,
@@ -138,7 +139,7 @@ export default function KpiAnalyticsPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="KPI Analytics" subtitle={`Six weighted KPI categories across ${scopedOutlets.length} outlets · portfolio score ${fmtPct(portfolio)} · trend over ${periodMonths} month${periodMonths === 1 ? '' : 's'}`} />
+      <PageHeader title="KPI Analytics" subtitle={`Six weighted KPI categories across ${scopedOutlets.length} ${T.outlets} · portfolio score ${fmtPct(portfolio)} · trend over ${periodMonths} month${periodMonths === 1 ? '' : 's'}`} />
 
       {/* KPI cards */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -170,14 +171,14 @@ export default function KpiAnalyticsPage() {
       </div>
 
       <Card>
-        <CardHeader title="KPI performance heatmap" subtitle="Outlets ranked by overall score · click a row to open the outlet profile" actions={<HeatLegend />} />
+        <CardHeader title="KPI performance heatmap" subtitle={`${T.Outlets} ranked by overall score · click a row to open the ${T.outlet} profile`} actions={<HeatLegend />} />
         <CardBody>
           <Heatmap rows={heat} columns={CATEGORY_KEYS.map((k) => CATEGORY_SHORT[k])} onRowClick={(id) => navigate(`/performance/outlets/${id}`)} maxHeight={480} />
         </CardBody>
       </Card>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_1fr]">
-        <ChartCard title="Segment comparison" subtitle={`F&B (${segments[0].count} outlets, ${fmtPct(segments[0].overall)}) vs Entertainment (${segments[1].count} outlets, ${fmtPct(segments[1].overall)})`} height={320}>
+        <ChartCard title="Segment comparison" subtitle={`F&B (${segments[0].count} ${T.outlets}, ${fmtPct(segments[0].overall)}) vs Entertainment (${segments[1].count} ${T.outlets}, ${fmtPct(segments[1].overall)})`} height={320}>
           <GroupedBarChart data={segmentChart} series={[{ key: 'F&B', label: 'F&B', color: CHART_COLORS.teal }, { key: 'Entertainment', label: 'Entertainment', color: CHART_COLORS.violet }]} horizontal />
         </ChartCard>
         <ChartCard title="KPI weighting" subtitle={`Weights sum to ${totalWeight}% and drive the overall visit score`} height={320}>

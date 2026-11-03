@@ -20,6 +20,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { AutomatedLabel } from '@/components/ui/Misc'
 import { EmptyState } from '@/components/ui/States'
 import { CHART_COLORS, ChartCard, GroupedBarChart, SERIES_COLORS, TrendChart } from '@/components/charts'
+import { T } from '@/config/terms'
 
 type PeriodKey = '1' | '3' | '6' | '12' | 'custom'
 const MAX_MONTHS = 12
@@ -142,7 +143,7 @@ export default function TrendsPage() {
     <div className="space-y-5">
       <PageHeader
         title="Trend Analysis"
-        subtitle={`Monthly performance across ${scopedOutlets.length} outlets · ${periodLabel}`}
+        subtitle={`Monthly performance across ${scopedOutlets.length} ${T.outlets} · ${periodLabel}`}
         actions={
           <>
             <SegmentedControl<PeriodKey>
@@ -229,7 +230,7 @@ export default function TrendsPage() {
             </ChartCard>
           </div>
 
-          <ChartCard title="Segment trend" subtitle="Monthly overall score for F&B versus Entertainment outlets" height={280}>
+          <ChartCard title="Segment trend" subtitle={`Monthly overall score for F&B versus Entertainment ${T.outlets}`} height={280}>
             <TrendChart data={segmentPoints} series={[{ key: 'fnb', label: 'F&B', color: CHART_COLORS.teal }, { key: 'ent', label: 'Entertainment', color: CHART_COLORS.violet }]} />
           </ChartCard>
 

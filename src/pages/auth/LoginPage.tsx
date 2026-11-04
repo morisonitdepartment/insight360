@@ -203,7 +203,7 @@ export default function LoginPage() {
       <div className="relative z-10 mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-6xl items-center">
         <div className="animate-rise-in grid w-full overflow-hidden rounded-2xl border border-white/10 bg-navy-900/70 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.65)] backdrop-blur-xl lg:grid-cols-[1.05fr_1fr]">
           {/* ── Brand / story ── */}
-          <section className="relative flex flex-col justify-between gap-6 border-b border-white/10 bg-gradient-to-br from-navy-900 to-navy-950 px-7 py-7 text-white sm:px-10 lg:gap-8 lg:border-b-0 lg:border-r lg:py-10">
+          <section className="relative flex min-w-0 flex-col justify-between gap-6 border-b border-white/10 bg-gradient-to-br from-navy-900 to-navy-950 px-7 py-7 text-white sm:px-10 lg:gap-8 lg:border-b-0 lg:border-r lg:py-10">
             <div>
               <div className="flex flex-wrap items-center gap-3">
                 <ClientLogo size="md" />
@@ -266,7 +266,7 @@ export default function LoginPage() {
           </section>
 
           {/* ── Sign in ── */}
-          <section className="flex flex-col justify-center bg-white px-7 py-9 dark:bg-navy-800 sm:px-10 sm:py-11">
+          <section className="flex min-w-0 flex-col justify-center bg-white px-7 py-9 dark:bg-navy-800 sm:px-10 sm:py-11">
             <div className="mx-auto w-full max-w-sm">
               <h2 className="text-[22px] font-semibold tracking-tight text-slate-900 dark:text-white">Sign in</h2>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Access your mystery shopping workspace.</p>

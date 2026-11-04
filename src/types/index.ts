@@ -50,6 +50,8 @@ export interface Brand {
   name: string
   segment: Segment
   outletCount: number
+  /** Service sequence template this brand is assessed against (AuditTemplate.code). */
+  templateCode?: string
 }
 
 /** KPI categories that drive weighted scoring */
@@ -160,6 +162,7 @@ export type JourneyType =
   | 'Guest Onboarding'
   | 'Safety Briefing'
   | 'Digital Interaction'
+  | 'Counter Order'
 
 export type ReportStatus = 'Not Started' | 'Draft' | 'Pending Review' | 'Approved' | 'Rejected' | 'Published'
 /**
@@ -213,6 +216,10 @@ export interface Visit {
   status: VisitStatus
   score: number | null
   categoryScores: CategoryScores | null
+  /** Service sequence templates: section id → stage score (0-100). */
+  stageScores?: Record<string, number | null>
+  /** Service sequence templates: SequenceKpi.key → value in the KPI's own unit. */
+  kpiScores?: Record<string, number | null>
   risk: RiskRating | null
   reportStatus: ReportStatus
   slaStatus: SlaStatus
@@ -258,6 +265,13 @@ export interface Question {
   /** For time/numeric: threshold above which the question fails (minutes) */
   threshold?: number
   order: number
+  // ── Service sequence engine (optional; absent on legacy templates) ──
+  /** Main KPIs this question feeds (SequenceKpi.key). */
+  kpiKeys?: string[]
+  /** Which leg of the timing chain this time question measures. */
+  timingRole?: TimingRole
+  /** Asked only when a sibling question has a given answer. */
+  condition?: QuestionCondition
 }
 
 export interface Section {
@@ -269,6 +283,14 @@ export interface Section {
   description: string
   order: number
   applicableTo: Segment[] | 'all'
+  /**
+   * Service sequence stage weight (percent of the visit score). Present on every
+   * section of a sequence template; the stage weights sum to 100. Zero marks an
+   * unweighted stage (Overall Experience) whose answers feed KPIs only.
+   */
+  stageWeight?: number
+  /** The KPI this stage reports as, e.g. "Order Taking & Product Knowledge". */
+  kpiName?: string
 }
 
 export type TemplateStatus = 'Active' | 'Inactive' | 'Draft'
@@ -287,6 +309,44 @@ export interface AuditTemplate {
   createdAt: string
   updatedAt: string
   isFollowUp: boolean
+  /** Present when the template is a service sequence (stage-weighted). */
+  sequence?: ServiceSequence
+}
+
+// ── Service sequence engine ──────────────────────────────────────────────────
+
+/** Legs of a counter-service timing chain; total service time is their sum. */
+export type TimingRole = 'queue' | 'order' | 'preparation'
+
+/**
+ * How a main KPI is read:
+ *  weighted     — mean of mapped question scores, 0-100
+ *  derived      — a ratio such as check-back compliance, 0-100
+ *  timing       — minutes
+ *  satisfaction — CSAT on a 1-10 scale, or an NPS score
+ */
+export type KpiKind = 'weighted' | 'derived' | 'timing' | 'satisfaction'
+
+export interface SequenceKpi {
+  key: string
+  label: string
+  kind: KpiKind
+}
+
+/** Ask a question only when the sibling with `questionCode` was answered `equals`. */
+export interface QuestionCondition {
+  questionCode: string
+  equals: AnswerValue
+}
+
+export interface ServiceSequence {
+  industry: string
+  serviceModel: string
+  visitMode: string
+  mainKpis: SequenceKpi[]
+  criticalFailures: string[]
+  /** Counter-service templates: the timing legs that add up to total service time. */
+  timingChain?: TimingRole[]
 }
 
 export type AnswerValue = string | number | boolean | null

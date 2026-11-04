@@ -1,5 +1,5 @@
 import { addMonths, differenceInCalendarDays, differenceInHours, format, startOfMonth, subMonths } from 'date-fns'
-import type { CategoryKey, CategoryScores, CorrectiveAction, Dataset, Finding, Outlet, Visit, VisitType } from '@/types'
+import type { AuditTemplate, CategoryKey, CategoryScores, CorrectiveAction, Dataset, Finding, KpiKind, Outlet, Visit, VisitType } from '@/types'
 import { CATEGORY_KEYS, CATEGORY_LABELS, averageCategoryScores } from '@/utils/scoring'
 import { avg, round } from '@/utils/format'
 import { isCompleted, isInProgress, isOpenFinding, isScored, isAwaitingApproval } from './derive'
@@ -435,6 +435,39 @@ export function outletVisitHistory(visits: Visit[], outletId: string): Visit[] {
 
 export function latestCompletedVisit(visits: Visit[], outletId: string): Visit | null {
   return visits.filter((v) => v.outletId === outletId && isCompleted(v)).sort((a, b) => (b.visitDate ?? '').localeCompare(a.visitDate ?? ''))[0] ?? null
+}
+
+// ───────────────────────────── Service sequence KPIs ─────────────────────────────
+
+export interface SequenceKpiValue {
+  key: string
+  label: string
+  kind: KpiKind
+  /** Mean per-visit value in the KPI's unit; NPS is promoters minus detractors. */
+  value: number | null
+  /** Scored visits that contributed. */
+  n: number
+}
+
+/**
+ * A sequence template's main KPIs across the given visits. Per-visit values are
+ * already in each KPI's unit (see computeVisitScores), so scores and timings
+ * average directly, a 100/0 compliance KPI averages to its compliance rate, and
+ * only NPS needs its own arithmetic.
+ */
+export function sequenceKpis(template: AuditTemplate, visits: Visit[]): SequenceKpiValue[] {
+  if (!template.sequence) return []
+  const scored = visits.filter((v) => v.templateId === template.id && v.score !== null && v.kpiScores)
+  return template.sequence.mainKpis.map((k) => {
+    const vals = scored.map((v) => v.kpiScores![k.key]).filter((x): x is number => typeof x === 'number' && Number.isFinite(x))
+    if (!vals.length) return { ...k, value: null, n: 0 }
+    if (k.key === 'nps') {
+      const promoters = vals.filter((v) => v >= 9).length
+      const detractors = vals.filter((v) => v <= 6).length
+      return { ...k, value: ((promoters - detractors) / vals.length) * 100, n: vals.length }
+    }
+    return { ...k, value: vals.reduce((a, b) => a + b, 0) / vals.length, n: vals.length }
+  })
 }
 
 export function categoryScoresToRadar(cs: CategoryScores | null, label = 'Score') {

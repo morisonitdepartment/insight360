@@ -22,6 +22,12 @@ export interface BrandDef {
   /** Default for this brand's locations; a location may override it. */
   subcategory: Subcategory
   locations: LocationDef[]
+  /**
+   * Service sequence template (AuditTemplate.code) every visit to this brand
+   * uses, main audits and follow-ups alike. When any brand sets one, the client's
+   * questionnaire library is exactly the sequence templates its brands name.
+   */
+  templateCode?: string
 }
 
 export interface ShopperDef {

@@ -7,6 +7,7 @@ import type {
   RiskRating,
   ScoreThreshold,
   Section,
+  TimingRole,
   VisitAnswer,
 } from '@/types'
 import { CLIENT } from '@/config/client'
@@ -20,6 +21,11 @@ import { CLIENT } from '@/config/client'
  *       → Category score (weighted by section question-weight totals)
  *         → Visit score (weighted by KPI category weights)
  *           → Outlet score (latest approved visit)  → Brand → Organisation
+ *
+ * Service sequence templates give each section a stage weight. There the visit
+ * score is the stage-weighted mean of the section scores instead, while the
+ * category scores are still computed as the cross-concept roll-up the dashboards
+ * read. Questions mapped to main KPIs also produce per-visit KPI values.
  *
  * Critical questions override the normal score: any failed critical question forces
  * the visit risk rating to "Critical" regardless of the numeric result.
@@ -142,6 +148,44 @@ export interface VisitScoreResult {
   answeredMandatory: number
   totalMandatory: number
   progress: number
+  /** True when the visit score came from stage weights rather than KPI category weights. */
+  stageWeighted: boolean
+  /** Section id → stage score, for sequence templates; null otherwise. */
+  stageScores: Record<string, number | null> | null
+  /** Main KPI key → value in the KPI's unit; null when no question maps to a KPI. */
+  kpiScores: Record<string, number | null> | null
+}
+
+/** KPI keys the timing-chain legs report under, and the derived total. */
+export const TIMING_KPI_KEY: Record<TimingRole, string> = {
+  queue: 'queue_time',
+  order: 'order_taking_time',
+  preparation: 'preparation_time',
+}
+export const TOTAL_TIME_KEY = 'total_service_time'
+/** KPI keys that store the raw 1-10 answer rather than a 0-100 score. */
+export const SATISFACTION_KEYS = new Set(['csat', 'nps'])
+
+/**
+ * The questions a visit actually asks, given the answers so far.
+ *
+ * A question with a `condition` is asked only when the sibling it names was
+ * answered with the given value; unanswered or N/A parents hide it. Scoring,
+ * progress, the assessment screen and the demo generator all go through this
+ * one filter so they can never disagree about what was asked.
+ */
+export function visibleQuestions(questions: Question[], answers: VisitAnswer[]): Question[] {
+  if (!questions.some((q) => q.condition)) return questions
+  const byCode = new Map(questions.map((q) => [q.code, q]))
+  const byQuestion = new Map(answers.map((a) => [a.questionId, a]))
+  return questions.filter((q) => {
+    if (!q.condition) return true
+    const parent = byCode.get(q.condition.questionCode)
+    if (!parent) return true
+    const a = byQuestion.get(parent.id)
+    if (!a || a.na) return false
+    return a.value === q.condition.equals
+  })
 }
 
 export function computeVisitScores(
@@ -151,12 +195,17 @@ export function computeVisitScores(
   kpiConfig: KpiConfig[],
   thresholds: ScoreThreshold[] = DEFAULT_THRESHOLDS,
 ): VisitScoreResult {
+  questions = visibleQuestions(questions, answers)
   const byQuestion = new Map(answers.map((a) => [a.questionId, a]))
   const sectionMap = new Map(sections.map((s) => [s.id, s]))
   const sectionScores: SectionScore[] = []
   const criticalFailures: string[] = []
   let answeredMandatory = 0
   let totalMandatory = 0
+  // Main KPI accumulators: scores average; satisfaction and timings keep the raw answer.
+  const kpiAcc = new Map<string, { sum: number; n: number }>()
+  const kpiRaw: Record<string, number | null> = {}
+  let anyKpi = false
 
   for (const section of sections) {
     const qs = questions.filter((q) => q.sectionId === section.id)
@@ -175,6 +224,23 @@ export function computeVisitScores(
       const s = scoreQuestion(q, a.value, a.na)
       if (s === null) continue
       if (q.critical && s < 0.5) criticalFailures.push(q.id)
+      if (q.timingRole) {
+        anyKpi = true
+        kpiRaw[TIMING_KPI_KEY[q.timingRole]] = Number(a.value)
+      }
+      for (const key of q.kpiKeys ?? []) {
+        anyKpi = true
+        // A time question reports its minutes; satisfaction reports the 1-10 answer.
+        if (q.type === 'time' || SATISFACTION_KEYS.has(key)) {
+          kpiRaw[key] = Number(a.value)
+          continue
+        }
+        const acc = kpiAcc.get(key) ?? { sum: 0, n: 0 }
+        acc.sum += s
+        acc.n++
+        kpiAcc.set(key, acc)
+      }
+      // Weight-0 questions are informational: they feed KPIs but not the stage score.
       weighted += s * q.weight
       weightSum += q.weight
     }
@@ -209,9 +275,24 @@ export function computeVisitScores(
     }
   }
 
-  // Visit = KPI-weighted average across categories present in this assessment
+  // Visit = stage-weighted mean of the section scores on a service sequence template,
+  // otherwise the KPI-weighted average across the categories present in this assessment.
+  const stageWeighted = sections.some((s) => s.stageWeight !== undefined)
   let overall: number | null = null
-  if (any) {
+  let stageScores: Record<string, number | null> | null = null
+  if (stageWeighted) {
+    stageScores = {}
+    let ws = 0
+    let acc = 0
+    for (const ss of sectionScores) {
+      stageScores[ss.sectionId] = ss.score
+      const w = sectionMap.get(ss.sectionId)?.stageWeight ?? 0
+      if (ss.score === null || w <= 0) continue
+      ws += w
+      acc += ss.score * w
+    }
+    overall = ws > 0 ? acc / ws : null
+  } else if (any) {
     let ws = 0
     let acc = 0
     for (const k of kpiConfig) {
@@ -221,6 +302,14 @@ export function computeVisitScores(
       acc += v * k.weight
     }
     overall = ws > 0 ? acc / ws : null
+  }
+
+  let kpiScores: Record<string, number | null> | null = null
+  if (anyKpi) {
+    kpiScores = { ...kpiRaw }
+    for (const [key, acc] of kpiAcc) kpiScores[key] = acc.n ? (acc.sum / acc.n) * 100 : null
+    const legs = Object.values(TIMING_KPI_KEY).map((k) => kpiScores![k])
+    if (legs.every((v): v is number => typeof v === 'number' && Number.isFinite(v))) kpiScores[TOTAL_TIME_KEY] = legs.reduce((a, b) => a + b, 0)
   }
 
   let risk = riskFromScore(overall, thresholds)
@@ -235,7 +324,16 @@ export function computeVisitScores(
     answeredMandatory,
     totalMandatory,
     progress: totalMandatory ? Math.round((answeredMandatory / totalMandatory) * 100) : 0,
+    stageWeighted,
+    stageScores,
+    kpiScores,
   }
+}
+
+/** Rounds every stored stage / KPI value to one decimal, keeping nulls; undefined when there is nothing to store. */
+export function roundScoreMap(map: Record<string, number | null> | null): Record<string, number | null> | undefined {
+  if (!map) return undefined
+  return Object.fromEntries(Object.entries(map).map(([k, v]) => [k, v === null ? null : Math.round(v * 10) / 10]))
 }
 
 /** Aggregates category scores across many visits (simple mean per category, ignoring NaN). */

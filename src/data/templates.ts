@@ -1,4 +1,4 @@
-import type { AuditTemplate, CategoryKey, JourneyType, Question, QuestionType, Section, Segment } from '@/types'
+import type { AnswerValue, AuditTemplate, CategoryKey, JourneyType, Question, QuestionType, Section, Segment, ServiceSequence, TimingRole } from '@/types'
 import { CLIENT } from '@/config/client'
 
 /**
@@ -19,6 +19,15 @@ interface QuestionBlueprint {
   threshold?: number
   /** Storyline tag used by the demo data generator */
   tag?: string
+  // ── Service sequence engine ──
+  /** Local handle another question in the same stage can gate on (`when`). */
+  key?: string
+  /** Main KPIs this question feeds (SequenceKpi.key). */
+  kpi?: string[]
+  /** Timing-chain leg this time question measures. */
+  timing?: TimingRole
+  /** Ask only when the sibling with `key` was answered `equals`. */
+  when?: { key: string; equals: AnswerValue }
 }
 
 interface SectionBlueprint {
@@ -28,6 +37,10 @@ interface SectionBlueprint {
   description: string
   applicableTo: Segment[] | 'all'
   questions: QuestionBlueprint[]
+  /** Stage weight (percent of the visit score) on a service sequence template. */
+  stageWeight?: number
+  /** The KPI the stage reports as. */
+  kpiName?: string
 }
 
 const GREETING: SectionBlueprint = {
@@ -234,6 +247,388 @@ const DELIVERY: SectionBlueprint = {
   ],
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Service sequence templates
+//
+// A service sequence is the chronological journey a guest takes through one
+// service model — full-service dine-in, casual dining, counter order — broken
+// into stages. Each stage is a section with a KPI name and a weight; the weights
+// sum to 100 and drive the visit score directly. Questions inside a stage are
+// the evaluation criteria, mapped onto the template's main KPIs.
+//
+// The three templates below are reusable: a brand names one by code in its
+// client profile and every visit to that brand, main audit or follow-up, uses
+// it. Brand-specific cues live in guidance text and a few questions, never in
+// the stage weights.
+//
+// Every template still maps each stage to one of the six KPI categories, so the
+// cross-concept dashboards (heatmap, radar, category trend) stay populated.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const stage = (
+  code: string,
+  title: string,
+  kpiName: string,
+  stageWeight: number,
+  category: CategoryKey,
+  description: string,
+  questions: QuestionBlueprint[],
+): SectionBlueprint => ({ code, title, kpiName, stageWeight, category, description, applicableTo: 'all', questions })
+
+const PROBLEM_SOLVING_OPTIONS = ['Resolved immediately with empathy', 'Resolved after escalation', 'Partially resolved', 'Not resolved / ignored']
+
+/** Closing stage on every sequence: unweighted, feeds CSAT and NPS only. */
+const OVERALL_EXPERIENCE: SectionBlueprint = stage('OVR', 'Overall Experience', 'Guest Satisfaction', 0, 'customer_experience', 'Overall satisfaction, likelihood to recommend and the shopper’s own words. Not weighted; feeds CSAT and NPS.', [
+  { text: 'Overall, how satisfied were you with this visit? (1-10)', type: 'rating_10', weight: 0, kpi: ['csat'], guidance: 'Your honest overall impression as a guest. 1 = extremely dissatisfied, 10 = extremely satisfied.' },
+  { text: 'How likely are you to recommend this restaurant to a friend or colleague? (1-10)', type: 'rating_10', weight: 0, kpi: ['nps'], guidance: 'Net Promoter question. 9-10 promoter, 7-8 passive, 1-6 detractor.' },
+  { text: 'What was the single best moment of the visit?', type: 'text', weight: 0 },
+  { text: 'What one change would most improve the experience?', type: 'text', weight: 0 },
+])
+
+const CRITICAL_FAILURES_DINING = [
+  'Unsafe food served (raw, spoiled or at an unsafe temperature)',
+  'Serious hygiene issue in the dining area, kitchen or washroom',
+  'Foreign object found in food',
+  'Serious allergen or special-request failure',
+  'Major pricing or billing issue',
+  'Serious staff misconduct',
+  'Customer safety issue',
+]
+
+// ── FSR_DINE_IN · full-service restaurant · dine-in ─────────────────────────
+
+const FSR_STAGES: SectionBlueprint[] = [
+  stage('ARR', 'Arrival & Exterior', 'Arrival & First Impression', 5, 'product_environment', 'Frontage, signage, entrance and the first impression before any staff contact.', [
+    { text: 'Was the exterior (frontage, windows, entrance) clean and well maintained?', type: 'yes_no', weight: 2 },
+    { text: 'Was signage lit, legible and in good repair?', type: 'yes_no', weight: 1 },
+    { text: 'Overall first impression on entering', type: 'rating_5', weight: 3, guidance: '1 = unwelcoming or neglected, 5 = immaculate and inviting.' },
+    { text: 'Was the entrance area free of obstructions and clutter?', type: 'rating_5', weight: 1 },
+    { text: 'Photograph of the exterior and entrance', type: 'photo', weight: 0, evidence: true, guidance: 'One wide shot taken before entering.' },
+  ]),
+  stage('GRT', 'Reception & Greeting', 'Greeting & Reception', 10, 'customer_experience', 'Acknowledgement on arrival, warmth of the welcome and how any wait was handled.', [
+    { text: 'Were you acknowledged within 30 seconds of entering?', type: 'yes_no', weight: 3, guidance: 'Start timing as you cross the threshold. A nod or eye contact counts; being ignored does not.', tag: 'greet_30s', kpi: ['service'] },
+    { text: 'Time to first greeting (minutes)', type: 'time', weight: 2, threshold: 1, guidance: 'Standard: within 1 minute of arrival.', tag: 'time_greet' },
+    { text: 'Warmth and professionalism of the welcome', type: 'rating_5', weight: 3, guidance: '1 = no greeting, 5 = warm, personal, by name if known.', kpi: ['service'] },
+    { text: 'Did the host make eye contact and smile?', type: 'yes_no', weight: 1 },
+    { text: 'If there was a wait, was the expected time communicated?', type: 'yes_no', weight: 1, na: true, guidance: 'N/A when seated straight away.' },
+  ]),
+  stage('SEA', 'Seating', 'Seating Experience', 5, 'customer_experience', 'Escort to the table, table readiness and the welcome ritual at the table.', [
+    { text: 'Were you escorted to the table rather than pointed towards it?', type: 'yes_no', weight: 2 },
+    { text: 'Table cleanliness on arrival', type: 'rating_5', weight: 3, evidence: true, guidance: 'Surface, seating and under-table. Photograph any residue.', tag: 'cleanliness', kpi: ['cleanliness'] },
+    { text: 'Was the table fully set (cutlery, glassware, napkins) before you sat down?', type: 'yes_no', weight: 2 },
+    { text: 'Was a seating preference honoured when requested?', type: 'yes_no', weight: 1, na: true, guidance: 'N/A when no preference was expressed.' },
+    { text: 'Was a welcome offered at the table (bread, herb platter, water) without asking?', type: 'yes_no', weight: 2, guidance: 'Persian dining standard: fresh bread or a herb platter arrives unprompted.' },
+  ]),
+  stage('ORD', 'Order Taking', 'Order Taking & Product Knowledge', 15, 'customer_experience', 'Listening, menu and product knowledge, recommendations, special requests and order confirmation.', [
+    { text: 'Time from being seated to the order being taken (minutes)', type: 'time', weight: 3, threshold: 5, guidance: 'Standard: within 5 minutes of seating.', tag: 'time_order' },
+    { text: 'Did the server listen without interrupting or asking you to repeat yourself?', type: 'yes_no', weight: 2, kpi: ['service'] },
+    { text: 'Product knowledge: could the server answer a direct question about a dish?', type: 'rating_5', weight: 3, comment: true, guidance: 'Ask about a kebab cut and how it is cooked, or what goes into a rice dish. 1 = could not answer, 5 = confident and accurate.', kpi: ['product_knowledge'] },
+    { text: 'Did the server explain a dish or daily special when asked?', type: 'yes_no', weight: 2, na: true, kpi: ['product_knowledge'] },
+    { text: 'Quality of the recommendation offered', type: 'rating_5', weight: 2, na: true, guidance: 'N/A when no recommendation was requested or offered.', kpi: ['product_knowledge', 'service'] },
+    { key: 'ord_special', text: 'Did you make a special request (allergen, substitution, cooking preference)?', type: 'yes_no', weight: 0, guidance: 'Informational — gates the next question. Make one reasonable request per visit where the scenario allows.' },
+    { text: 'Was the special request handled correctly?', type: 'yes_no', weight: 3, comment: true, when: { key: 'ord_special', equals: true }, kpi: ['order_accuracy'] },
+    { text: 'Was the order repeated back and confirmed?', type: 'yes_no', weight: 2, kpi: ['order_accuracy'] },
+  ]),
+  stage('UPS', 'Suggestive Selling', 'Upselling Performance', 5, 'upselling_sales', 'Whether the server grew the order naturally: starters, premium options, beverages and desserts.', [
+    { text: 'Did the server suggest a starter, mezze or premium option?', type: 'yes_no', weight: 3, tag: 'upsell', kpi: ['upselling'] },
+    { text: 'Did the server suggest a complementary item (beverage, side, dessert, Persian tea)?', type: 'yes_no', weight: 3, tag: 'cross_sell', kpi: ['upselling'] },
+    { text: 'Were current promotions or set menus mentioned?', type: 'yes_no', weight: 1, tag: 'promotions', kpi: ['upselling'] },
+    { text: 'Quality of the sales approach (natural vs. pushy)', type: 'rating_5', weight: 2, na: true, guidance: 'N/A when no suggestion was made at all.', kpi: ['upselling'] },
+  ]),
+  stage('BEV', 'Beverage Service', 'Beverage Service', 5, 'service_speed', 'Speed, accuracy and quality of drinks, and attentiveness to refills.', [
+    { text: 'Time from order to the first beverage arriving (minutes)', type: 'time', weight: 2, threshold: 5, guidance: 'Standard: within 5 minutes of ordering.' },
+    { text: 'Was the correct beverage served, as ordered?', type: 'yes_no', weight: 2 },
+    { text: 'Beverage quality (temperature, presentation, taste)', type: 'rating_5', weight: 2 },
+    { text: 'Was a refill or second drink offered without prompting?', type: 'yes_no', weight: 1, na: true },
+  ]),
+  stage('FSV', 'Food Service', 'Speed & Accuracy', 10, 'service_speed', 'Time to the main course, accuracy of what arrived and communication about any delay.', [
+    { text: 'Time from order confirmation to the main course arriving (minutes)', type: 'time', weight: 4, threshold: 15, guidance: 'Standard: within 15 minutes of order confirmation.', tag: 'time_receive', kpi: ['food_delivery_time'] },
+    { text: 'Was every item delivered exactly as ordered?', type: 'pass_fail', weight: 4, comment: true, tag: 'order_accuracy', kpi: ['order_accuracy'] },
+    { text: 'Were courses served in the correct sequence and not rushed?', type: 'yes_no', weight: 1, na: true },
+    { text: 'If the wait exceeded the standard, was a delay communicated proactively?', type: 'yes_no', weight: 1, na: true, guidance: 'N/A when the main course arrived within standard.' },
+  ]),
+  stage('FOOD', 'Food Evaluation', 'Food Quality', 20, 'product_environment', 'Taste, temperature, freshness, presentation, portion and ingredient quality of what was served.', [
+    { text: 'Taste and seasoning', type: 'rating_5', weight: 4, kpi: ['food_quality'] },
+    { text: 'Was the food served at the correct temperature?', type: 'yes_no', weight: 3, tag: 'temperature', kpi: ['food_quality'] },
+    { text: 'Freshness of ingredients', type: 'rating_5', weight: 3, kpi: ['food_quality'] },
+    { text: 'Presentation against brand standard', type: 'rating_5', weight: 3, evidence: true, guidance: 'Photograph the main course as served.', kpi: ['food_quality'] },
+    { text: 'Portion size relative to menu and price', type: 'rating_5', weight: 2, kpi: ['food_quality'] },
+    { text: 'Grill items cooked to the requested doneness, with visible char', type: 'rating_5', weight: 2, na: true, guidance: 'N/A when no grilled item was ordered.', kpi: ['food_quality'] },
+    { text: 'Overall quality of ingredients', type: 'rating_5', weight: 3, kpi: ['food_quality'] },
+    { text: 'Food safe to eat: no raw or spoiled items, no foreign object', type: 'pass_fail', weight: 4, critical: true, evidence: true, comment: true, guidance: 'CRITICAL. Any undercooked, spoiled or contaminated item must be photographed and described.', tag: 'food_integrity' },
+  ]),
+  stage('TBL', 'Table Maintenance', 'Table Service', 10, 'customer_experience', 'Attentiveness during the meal: check-backs, clearing, refills and handling a small issue.', [
+    { text: 'Did the server check back within a few minutes of the food arriving?', type: 'yes_no', weight: 3, tag: 'check_back', kpi: ['service'] },
+    { text: 'Were finished plates cleared promptly?', type: 'yes_no', weight: 2 },
+    { text: 'Were water and drinks topped up without asking?', type: 'yes_no', weight: 1, na: true },
+    { text: 'Attentiveness throughout the meal', type: 'rating_5', weight: 3, guidance: '1 = had to seek out staff, 5 = anticipated needs.', kpi: ['service'] },
+    { text: 'Problem-solving: how was a minor issue handled?', type: 'multiple_choice', weight: 3, options: PROBLEM_SOLVING_OPTIONS, comment: true, guidance: 'Raise one minor issue (e.g. missing cutlery, a cold side) and observe the response.', tag: 'problem_solving', kpi: ['service'] },
+  ]),
+  stage('CLN', 'Cleanliness', 'Cleanliness & Hygiene', 5, 'safety_entertainment', 'Hygiene of the dining room, washrooms and any visible food-handling.', [
+    { text: 'No visible food-safety hazard observed (cross-contamination, uncovered food, pests)', type: 'pass_fail', weight: 4, critical: true, evidence: true, comment: true, guidance: 'CRITICAL. Any observed hazard must be photographed and described.', tag: 'food_safety', kpi: ['cleanliness'] },
+    { text: 'Floors, seating and surfaces clean throughout the visit', type: 'rating_5', weight: 3, tag: 'hygiene', kpi: ['cleanliness'] },
+    { text: 'Washroom cleanliness and supplies', type: 'rating_5', weight: 3, evidence: true, comment: true, tag: 'washroom', kpi: ['cleanliness'] },
+    { text: 'Staff observed following hand-hygiene practice', type: 'yes_no', weight: 2, na: true, tag: 'hand_hygiene', kpi: ['cleanliness'] },
+  ]),
+  stage('BIL', 'Billing & Payment', 'Billing Experience', 5, 'operational_compliance', 'Promptness and accuracy of the bill, professionalism of payment handling, change and receipt.', [
+    { text: 'Time from requesting the bill to it arriving (minutes)', type: 'time', weight: 2, threshold: 5, guidance: 'Standard: within 5 minutes of the request.' },
+    { text: 'Bill accurate: items and prices matched what was ordered', type: 'pass_fail', weight: 4, evidence: true, comment: true, guidance: 'Photograph the receipt. Any overcharge is a High finding.', tag: 'billing', kpi: ['bill_accuracy'] },
+    { text: 'Payment handled professionally and discreetly', type: 'rating_5', weight: 2 },
+    { key: 'bil_cash', text: 'Did you pay in cash?', type: 'yes_no', weight: 0, guidance: 'Informational — gates the change question.' },
+    { text: 'Was the correct change returned?', type: 'yes_no', weight: 2, when: { key: 'bil_cash', equals: true }, kpi: ['bill_accuracy'] },
+    { text: 'Was a receipt provided without prompting?', type: 'yes_no', weight: 1 },
+  ]),
+  stage('DEP', 'Departure', 'Departure Experience', 5, 'customer_experience', 'The farewell and the last impression on leaving.', [
+    { text: 'Were you thanked on leaving?', type: 'yes_no', weight: 2 },
+    { text: 'Were you invited to return?', type: 'yes_no', weight: 1 },
+    { text: 'Warmth of the farewell', type: 'rating_5', weight: 2, guidance: '1 = ignored on the way out, 5 = personal farewell at the door.' },
+    { text: 'Was a closing gesture offered (tea, sweet, warm goodbye at the door)?', type: 'yes_no', weight: 1, na: true },
+    { text: 'Was the exit route clear and the entrance area still presentable?', type: 'yes_no', weight: 1 },
+  ]),
+  OVERALL_EXPERIENCE,
+]
+
+const FSR_SEQUENCE: ServiceSequence = {
+  industry: 'Food & Beverage',
+  serviceModel: 'Full Service Restaurant',
+  visitMode: 'Dine-in',
+  mainKpis: [
+    { key: 'food_quality', label: 'Food Quality Score', kind: 'weighted' },
+    { key: 'service', label: 'Service Score', kind: 'weighted' },
+    { key: 'order_accuracy', label: 'Order Accuracy', kind: 'weighted' },
+    { key: 'food_delivery_time', label: 'Food Delivery Time', kind: 'timing' },
+    { key: 'product_knowledge', label: 'Product Knowledge Score', kind: 'weighted' },
+    { key: 'upselling', label: 'Upselling Rate', kind: 'weighted' },
+    { key: 'cleanliness', label: 'Cleanliness Score', kind: 'weighted' },
+    { key: 'bill_accuracy', label: 'Bill Accuracy', kind: 'weighted' },
+    { key: 'csat', label: 'Customer Satisfaction (CSAT)', kind: 'satisfaction' },
+    { key: 'nps', label: 'Net Promoter Score (NPS)', kind: 'satisfaction' },
+  ],
+  criticalFailures: CRITICAL_FAILURES_DINING,
+}
+
+// ── CASUAL_DINING · casual dining · dine-in ─────────────────────────────────
+
+const CASUAL_STAGES: SectionBlueprint[] = [
+  stage('ARR', 'Arrival', 'First Impression', 5, 'product_environment', 'Exterior, entrance and the first impression on walking in.', [
+    { text: 'Was the exterior and entrance clean and well maintained?', type: 'yes_no', weight: 2 },
+    { text: 'Was signage and exterior lighting working and in good repair?', type: 'yes_no', weight: 1 },
+    { text: 'Overall first impression on entering', type: 'rating_5', weight: 3, guidance: '1 = unwelcoming or neglected, 5 = lively, clean and inviting.' },
+    { text: 'Photograph of the exterior and entrance', type: 'photo', weight: 0, evidence: true },
+  ]),
+  stage('HST', 'Host / Reception', 'Reception Score', 5, 'customer_experience', 'Acknowledgement at the host stand and the welcome.', [
+    { text: 'Were you acknowledged within 30 seconds of entering?', type: 'yes_no', weight: 3, guidance: 'Start timing as you cross the threshold.', tag: 'greet_30s' },
+    { text: 'Time to first greeting (minutes)', type: 'time', weight: 2, threshold: 1, guidance: 'Standard: within 1 minute of arrival.', tag: 'time_greet' },
+    { text: 'Warmth and energy of the host welcome', type: 'rating_5', weight: 3, guidance: '1 = no greeting, 5 = warm, upbeat welcome.' },
+  ]),
+  stage('SEA', 'Seating', 'Seating Experience', 5, 'customer_experience', 'Escort to the table, table readiness and menus.', [
+    { text: 'Were you escorted to the table?', type: 'yes_no', weight: 2 },
+    { text: 'Table cleanliness on arrival', type: 'rating_5', weight: 3, evidence: true, guidance: 'Surface, seating and condiments. Photograph any residue.', tag: 'cleanliness', kpi: ['cleanliness'] },
+    { text: 'Were menus presented and specials pointed out when seated?', type: 'yes_no', weight: 2 },
+  ]),
+  stage('SRV', 'Server Greeting', 'Server Engagement', 10, 'customer_experience', 'How quickly the server arrived and how they engaged with the table.', [
+    { text: 'Time from being seated to the server greeting the table (minutes)', type: 'time', weight: 3, threshold: 3, guidance: 'Standard: within 3 minutes of seating.' },
+    { text: 'Did the server introduce themself by name?', type: 'yes_no', weight: 2, kpi: ['server_engagement'] },
+    { text: 'Warmth and friendliness of the server', type: 'rating_5', weight: 3, guidance: '1 = transactional, 5 = genuinely friendly and personal.', kpi: ['server_engagement'] },
+    { text: 'Engagement with the table (conversation, reading the party, pace)', type: 'rating_5', weight: 3, kpi: ['server_engagement'] },
+  ]),
+  stage('MPK', 'Menu & Product Knowledge', 'Product Knowledge Score', 10, 'customer_experience', 'How well the server knows the menu, signature items and allergens.', [
+    { text: 'Menu and product knowledge when questioned', type: 'rating_5', weight: 3, comment: true, guidance: 'Ask what is in a dish and how it is prepared. 1 = could not answer, 5 = confident and accurate.', kpi: ['product_knowledge'] },
+    { text: 'Could the server describe a signature item (e.g. the Monte Cristo) when asked?', type: 'yes_no', weight: 2, kpi: ['product_knowledge'] },
+    { text: 'Was an allergen question answered correctly or checked with the kitchen?', type: 'yes_no', weight: 2, na: true, guidance: 'N/A when no allergen question was asked.', kpi: ['product_knowledge'] },
+    { text: 'Quality of the recommendation offered', type: 'rating_5', weight: 2, na: true, kpi: ['product_knowledge'] },
+  ]),
+  stage('UPS', 'Suggestive Selling', 'Sales & Upselling', 10, 'upselling_sales', 'Appetisers, premium options, beverages and desserts suggested naturally.', [
+    { text: 'Did the server suggest an appetiser or premium option?', type: 'yes_no', weight: 3, tag: 'upsell', kpi: ['upselling'] },
+    { text: 'Did the server suggest a complementary item (beverage, side, signature dessert)?', type: 'yes_no', weight: 3, tag: 'cross_sell', kpi: ['upselling'] },
+    { text: 'Were current promotions or combos mentioned?', type: 'yes_no', weight: 2, tag: 'promotions', kpi: ['upselling'] },
+    { text: 'Quality of the sales approach (natural vs. pushy)', type: 'rating_5', weight: 2, na: true, guidance: 'N/A when no suggestion was made at all.', kpi: ['upselling'] },
+  ]),
+  stage('ORD', 'Order Taking', 'Order Accuracy', 10, 'operational_compliance', 'Promptness of order taking, confirmation and whether the order arrived as placed.', [
+    { text: 'Time from seating to the order being taken (minutes)', type: 'time', weight: 2, threshold: 5, guidance: 'Standard: within 5 minutes of seating.', tag: 'time_order' },
+    { text: 'Was the order repeated back and confirmed?', type: 'yes_no', weight: 2, kpi: ['order_accuracy'] },
+    { key: 'ord_special', text: 'Did you make a special request (substitution, cooking preference, allergen)?', type: 'yes_no', weight: 0, guidance: 'Informational — gates the next question.' },
+    { text: 'Was the special request honoured as agreed?', type: 'yes_no', weight: 3, comment: true, when: { key: 'ord_special', equals: true }, kpi: ['order_accuracy'] },
+    { text: 'Was every item delivered exactly as ordered?', type: 'pass_fail', weight: 4, comment: true, tag: 'order_accuracy', kpi: ['order_accuracy'] },
+  ]),
+  stage('BEV', 'Beverage Service', 'Beverage Service', 5, 'service_speed', 'Speed and accuracy of drinks and attentiveness to refills.', [
+    { text: 'Time from order to the first beverage arriving (minutes)', type: 'time', weight: 2, threshold: 5, guidance: 'Standard: within 5 minutes of ordering.', kpi: ['beverage_service'] },
+    { text: 'Was the correct beverage served, as ordered?', type: 'yes_no', weight: 2, kpi: ['beverage_service'] },
+    { text: 'Beverage quality (temperature, presentation, taste)', type: 'rating_5', weight: 2, kpi: ['beverage_service'] },
+    { text: 'Was a refill offered without prompting?', type: 'yes_no', weight: 2, na: true, guidance: 'N/A for bottled drinks with no refill offer in the concept.', kpi: ['beverage_service'] },
+  ]),
+  stage('FDL', 'Food Delivery', 'Speed of Service', 10, 'service_speed', 'Time to the main course and communication about any delay.', [
+    { text: 'Time from order confirmation to the main course arriving (minutes)', type: 'time', weight: 4, threshold: 15, guidance: 'Standard: within 15 minutes of order confirmation.', tag: 'time_receive', kpi: ['speed_of_service'] },
+    { text: 'Did all dishes for the table arrive together?', type: 'yes_no', weight: 2 },
+    { text: 'If the wait exceeded the standard, was a delay communicated proactively?', type: 'yes_no', weight: 1, na: true, guidance: 'N/A when the main course arrived within standard.' },
+    { text: 'Was the food delivered to the right person without auctioning dishes?', type: 'yes_no', weight: 1 },
+  ]),
+  stage('FQ', 'Food Quality', 'Product Quality', 15, 'product_environment', 'Taste, temperature, freshness, presentation and portion of what was served.', [
+    { text: 'Taste and seasoning', type: 'rating_5', weight: 4, kpi: ['food_quality'] },
+    { text: 'Was the food served hot and at the correct temperature?', type: 'yes_no', weight: 3, tag: 'temperature', kpi: ['food_quality'] },
+    { text: 'Freshness of ingredients', type: 'rating_5', weight: 3, kpi: ['food_quality'] },
+    { text: 'Presentation against brand standard', type: 'rating_5', weight: 2, evidence: true, guidance: 'Photograph the main course as served.', kpi: ['food_quality'] },
+    { text: 'Portion size relative to menu and price', type: 'rating_5', weight: 2, kpi: ['food_quality'] },
+    { text: 'Food safe to eat: no raw or spoiled items, no foreign object', type: 'pass_fail', weight: 4, critical: true, evidence: true, comment: true, guidance: 'CRITICAL. Any undercooked, spoiled or contaminated item must be photographed and described.', tag: 'food_integrity' },
+  ]),
+  stage('TBL', 'Table Maintenance', 'Table Service', 5, 'customer_experience', 'Check-back after food, clearing, attentiveness and handling a small issue.', [
+    { text: 'Did the server check back within 3 minutes of the food arriving to confirm everything was right?', type: 'yes_no', weight: 3, na: true, guidance: 'The check-back KPI. N/A only when the server was visibly pulled away by an incident.', tag: 'check_back', kpi: ['check_back', 'table_maintenance'] },
+    { text: 'Were finished plates cleared promptly?', type: 'yes_no', weight: 2, kpi: ['table_maintenance'] },
+    { text: 'Attentiveness throughout the meal', type: 'rating_5', weight: 3, guidance: '1 = had to seek out staff, 5 = anticipated needs.', kpi: ['table_maintenance'] },
+    { text: 'Problem-solving: how was a minor issue handled?', type: 'multiple_choice', weight: 3, options: PROBLEM_SOLVING_OPTIONS, comment: true, guidance: 'Raise one minor issue (e.g. missing cutlery, a cold side) and observe the response.', tag: 'problem_solving', kpi: ['table_maintenance'] },
+  ]),
+  stage('CLN', 'Cleanliness', 'Cleanliness', 5, 'safety_entertainment', 'Hygiene of the dining room, washrooms and any visible food-handling.', [
+    { text: 'No visible food-safety hazard observed (cross-contamination, uncovered food, pests)', type: 'pass_fail', weight: 4, critical: true, evidence: true, comment: true, guidance: 'CRITICAL. Any observed hazard must be photographed and described.', tag: 'food_safety', kpi: ['cleanliness'] },
+    { text: 'Floors, seating and surfaces clean throughout the visit', type: 'rating_5', weight: 3, tag: 'hygiene', kpi: ['cleanliness'] },
+    { text: 'Washroom cleanliness and supplies', type: 'rating_5', weight: 3, evidence: true, comment: true, tag: 'washroom', kpi: ['cleanliness'] },
+    { text: 'Staff observed following hand-hygiene practice', type: 'yes_no', weight: 2, na: true, tag: 'hand_hygiene', kpi: ['cleanliness'] },
+  ]),
+  stage('CLO', 'Bill & Payment + Departure', 'Closing Experience', 5, 'operational_compliance', 'Bill promptness and accuracy, payment, receipt and the farewell.', [
+    { text: 'Time from requesting the bill to it arriving (minutes)', type: 'time', weight: 2, threshold: 5, guidance: 'Standard: within 5 minutes of the request.' },
+    { text: 'Bill accurate: items and prices matched what was ordered', type: 'pass_fail', weight: 4, evidence: true, comment: true, guidance: 'Photograph the receipt. Any overcharge is a High finding.', tag: 'billing' },
+    { text: 'Was a receipt provided without prompting?', type: 'yes_no', weight: 1 },
+    { text: 'Were you thanked and invited to return?', type: 'yes_no', weight: 2 },
+    { text: 'Warmth of the farewell', type: 'rating_5', weight: 2 },
+  ]),
+  OVERALL_EXPERIENCE,
+]
+
+const CASUAL_SEQUENCE: ServiceSequence = {
+  industry: 'Food & Beverage',
+  serviceModel: 'Casual Dining',
+  visitMode: 'Dine-in',
+  mainKpis: [
+    { key: 'server_engagement', label: 'Server Engagement Score', kind: 'weighted' },
+    { key: 'product_knowledge', label: 'Product Knowledge Score', kind: 'weighted' },
+    { key: 'upselling', label: 'Upselling Compliance', kind: 'weighted' },
+    { key: 'order_accuracy', label: 'Order Accuracy', kind: 'weighted' },
+    { key: 'speed_of_service', label: 'Speed of Service', kind: 'timing' },
+    { key: 'food_quality', label: 'Food Quality', kind: 'weighted' },
+    { key: 'beverage_service', label: 'Beverage Service', kind: 'weighted' },
+    { key: 'table_maintenance', label: 'Table Maintenance', kind: 'weighted' },
+    { key: 'check_back', label: 'Check-Back Compliance', kind: 'derived' },
+    { key: 'cleanliness', label: 'Cleanliness', kind: 'weighted' },
+    { key: 'csat', label: 'Customer Satisfaction (CSAT)', kind: 'satisfaction' },
+    { key: 'nps', label: 'Net Promoter Score (NPS)', kind: 'satisfaction' },
+  ],
+  criticalFailures: CRITICAL_FAILURES_DINING,
+}
+
+// ── QSR_COUNTER_ORDER · quick service · counter order ───────────────────────
+
+const QSR_STAGES: SectionBlueprint[] = [
+  stage('OUT', 'Outlet Appearance', 'Outlet Presentation', 5, 'product_environment', 'Frontage, menu boards and the counter area as seen on approach.', [
+    { text: 'Was the frontage and counter area clean and well maintained?', type: 'yes_no', weight: 2 },
+    { text: 'Were menu boards lit, legible and showing current prices?', type: 'yes_no', weight: 2 },
+    { text: 'Overall presentation of the outlet on approach', type: 'rating_5', weight: 3, guidance: '1 = untidy or dim, 5 = bright, clean and on brand.' },
+    { text: 'Photograph of the frontage and menu boards', type: 'photo', weight: 0, evidence: true },
+  ]),
+  stage('QUE', 'Queue Experience', 'Queue Experience', 10, 'service_speed', 'From joining the queue to the cashier beginning to serve you.', [
+    { text: 'Queue time: joining the queue to the cashier beginning to serve you (minutes)', type: 'time', weight: 4, threshold: 5, timing: 'queue', guidance: 'Timing KPI. Start when you join the line; stop when the cashier addresses you. Standard: 5 minutes.', tag: 'time_queue' },
+    { text: 'Were you acknowledged while waiting in the queue?', type: 'yes_no', weight: 2 },
+    { text: 'Was the queue orderly and actively managed?', type: 'rating_5', weight: 2 },
+    { text: 'If the wait was long, was the expected time communicated?', type: 'yes_no', weight: 1, na: true, guidance: 'N/A when served within 2 minutes.' },
+    { text: 'Were enough tills open for the number of guests waiting?', type: 'yes_no', weight: 1 },
+  ]),
+  stage('GRT', 'Greeting', 'Cashier Service', 10, 'customer_experience', 'The cashier’s welcome, friendliness and clarity.', [
+    { text: 'Were you greeted within 30 seconds of reaching the counter?', type: 'yes_no', weight: 3, tag: 'greet_30s', kpi: ['cashier_service'] },
+    { text: 'Friendliness of the cashier', type: 'rating_5', weight: 3, guidance: '1 = flat or indifferent, 5 = warm and engaged.', kpi: ['cashier_service'] },
+    { text: 'Did the cashier make eye contact and smile?', type: 'yes_no', weight: 2, kpi: ['cashier_service'] },
+    { text: 'Clarity of communication (audible, clear, polite)', type: 'rating_5', weight: 2, kpi: ['cashier_service'] },
+  ]),
+  stage('ORD', 'Order Taking', 'Order Taking', 10, 'operational_compliance', 'From the cashier starting your order to payment completed; accuracy of what was captured.', [
+    { text: 'Order-taking time: cashier starts your order to payment completed (minutes)', type: 'time', weight: 3, threshold: 3, timing: 'order', guidance: 'Timing KPI. Standard: 3 minutes.', tag: 'time_order' },
+    { text: 'Was the order repeated back and confirmed on the screen or verbally?', type: 'yes_no', weight: 2, kpi: ['order_accuracy'] },
+    { text: 'Were crust type and size confirmed for pizza items?', type: 'yes_no', weight: 2, na: true, guidance: 'N/A when no pizza was ordered.', kpi: ['order_accuracy'] },
+    { key: 'ord_avail', text: 'Was every item you asked for available?', type: 'yes_no', weight: 0, guidance: 'Informational — gates the next question.' },
+    { text: 'Was an alternative offered for the unavailable item?', type: 'yes_no', weight: 2, when: { key: 'ord_avail', equals: false }, kpi: ['order_accuracy'] },
+    { text: 'Was a special request (no onion, extra sauce, dietary) captured correctly?', type: 'yes_no', weight: 2, na: true, guidance: 'N/A when no special request was made.', kpi: ['order_accuracy'] },
+  ]),
+  stage('PRK', 'Product Knowledge', 'Product Knowledge', 5, 'customer_experience', 'Whether the cashier knows the menu, deals and ingredients.', [
+    { text: 'Product knowledge when questioned about a menu item', type: 'rating_5', weight: 3, comment: true, guidance: 'Ask what comes in a meal deal or what is on a named pizza. 1 = could not answer, 5 = confident and accurate.', kpi: ['product_knowledge'] },
+    { text: 'Was an ingredient or allergen question answered correctly?', type: 'yes_no', weight: 2, na: true, kpi: ['product_knowledge'] },
+    { text: 'Were meal or deal options explained when asked?', type: 'yes_no', weight: 2, kpi: ['product_knowledge'] },
+  ]),
+  stage('UPS', 'Suggestive Selling', 'Upselling', 10, 'upselling_sales', 'Upsize, add-ons and promotions offered at the counter.', [
+    { text: 'Was an upsize or crust upgrade offered?', type: 'yes_no', weight: 3, tag: 'upsell', kpi: ['upselling'] },
+    { text: 'Was an add-on suggested (sides, dips, drink, dessert)?', type: 'yes_no', weight: 3, tag: 'cross_sell', kpi: ['upselling'] },
+    { text: 'Were current deals or promotions mentioned?', type: 'yes_no', weight: 2, tag: 'promotions', kpi: ['upselling'] },
+    { text: 'Quality of the sales approach (natural vs. scripted or pushy)', type: 'rating_5', weight: 2, na: true, guidance: 'N/A when no suggestion was made at all.', kpi: ['upselling'] },
+  ]),
+  stage('PAY', 'Payment', 'Transaction Accuracy', 5, 'operational_compliance', 'Receipt accuracy, change and payment handling.', [
+    { text: 'Receipt matched the order: items, quantities and prices', type: 'pass_fail', weight: 4, evidence: true, comment: true, guidance: 'Photograph the receipt. Any overcharge is a High finding.', tag: 'billing' },
+    { key: 'pay_cash', text: 'Did you pay in cash?', type: 'yes_no', weight: 0, guidance: 'Informational — gates the change question.' },
+    { text: 'Was the correct change returned?', type: 'yes_no', weight: 2, when: { key: 'pay_cash', equals: true } },
+    { text: 'Was a receipt offered without prompting?', type: 'yes_no', weight: 1 },
+    { text: 'Was the payment handled smoothly (card terminal working, no re-entry)?', type: 'yes_no', weight: 1 },
+  ]),
+  stage('PRP', 'Preparation', 'Speed of Service', 15, 'service_speed', 'From payment completed to the order handed over.', [
+    { text: 'Preparation time: payment completed to order handed over (minutes)', type: 'time', weight: 5, threshold: 7, timing: 'preparation', guidance: 'Timing KPI. Start when payment completes; stop when the order is placed in your hands. Standard: 7 minutes.', tag: 'time_receive' },
+    { text: 'Was an order number or name used so you knew when it was ready?', type: 'yes_no', weight: 2 },
+    { text: 'Was the expected wait communicated when the order was placed?', type: 'yes_no', weight: 1, na: true },
+    { text: 'If the wait exceeded the standard, was an update or apology given?', type: 'yes_no', weight: 2, na: true, guidance: 'N/A when the order arrived within standard.' },
+    { text: 'Was the collection point organised (no mixed-up or abandoned orders)?', type: 'rating_5', weight: 2 },
+    { text: 'Were staff behind the counter working with urgency and focus?', type: 'rating_5', weight: 2 },
+  ]),
+  stage('HND', 'Handover', 'Handover & Accuracy', 10, 'operational_compliance', 'Completeness and accuracy of the order at handover, and the packaging.', [
+    { text: 'Was the order complete and correct at handover?', type: 'pass_fail', weight: 4, comment: true, tag: 'order_accuracy', kpi: ['order_accuracy'] },
+    { text: 'Packaging quality: box sealed, pizza intact and not shifted, items upright', type: 'rating_5', weight: 3, evidence: true, guidance: 'Photograph the packaging before opening and the product on opening.', kpi: ['packaging'] },
+    { text: 'Were napkins, cutlery and requested condiments or dips included?', type: 'yes_no', weight: 1, kpi: ['packaging'] },
+    { text: 'Did the team member confirm the order contents with you at handover?', type: 'yes_no', weight: 2, kpi: ['order_accuracy'] },
+  ]),
+  stage('FQ', 'Food Quality', 'Food Quality', 15, 'product_environment', 'Temperature, taste, freshness and presentation of the product.', [
+    { text: 'Was the food hot and fresh at handover?', type: 'yes_no', weight: 4, tag: 'temperature', kpi: ['food_quality'] },
+    { text: 'Taste and seasoning', type: 'rating_5', weight: 3, kpi: ['food_quality'] },
+    { text: 'Freshness of ingredients and toppings', type: 'rating_5', weight: 3, kpi: ['food_quality'] },
+    { text: 'Presentation: cut evenly, toppings as ordered and evenly distributed', type: 'rating_5', weight: 3, evidence: true, guidance: 'Photograph the product on opening.', kpi: ['food_quality'] },
+    { text: 'Food safe to eat: no raw or spoiled items, no foreign object', type: 'pass_fail', weight: 4, critical: true, evidence: true, comment: true, guidance: 'CRITICAL. Any undercooked, spoiled or contaminated item must be photographed and described.', tag: 'food_integrity' },
+  ]),
+  stage('CLN', 'Cleanliness', 'Cleanliness', 3, 'safety_entertainment', 'Hygiene of the counter, dining area, washrooms and visible food-handling.', [
+    { text: 'No visible food-safety hazard observed (cross-contamination, uncovered food, pests)', type: 'pass_fail', weight: 4, critical: true, evidence: true, comment: true, guidance: 'CRITICAL. Any observed hazard must be photographed and described.', tag: 'food_safety', kpi: ['cleanliness'] },
+    { text: 'Dining area floors and seating clean', type: 'rating_5', weight: 2, tag: 'hygiene', kpi: ['cleanliness'] },
+    { text: 'Table or counter cleanliness where you ate', type: 'rating_5', weight: 2, evidence: true, tag: 'cleanliness', kpi: ['cleanliness'] },
+    { text: 'Washroom cleanliness and supplies', type: 'rating_5', weight: 2, evidence: true, comment: true, na: true, guidance: 'N/A when the outlet has no washroom of its own (shared mall facilities).', tag: 'washroom', kpi: ['cleanliness'] },
+    { text: 'Staff observed following hand-hygiene / glove practice', type: 'yes_no', weight: 2, na: true, tag: 'hand_hygiene', kpi: ['cleanliness'] },
+  ]),
+  stage('DEP', 'Departure', 'Farewell', 2, 'customer_experience', 'The farewell at the counter or on leaving.', [
+    { text: 'Were you thanked at handover or on leaving?', type: 'yes_no', weight: 2 },
+    { text: 'Were you invited to return or told about the loyalty programme?', type: 'yes_no', weight: 1 },
+  ]),
+  OVERALL_EXPERIENCE,
+]
+
+const QSR_SEQUENCE: ServiceSequence = {
+  industry: 'Food & Beverage',
+  serviceModel: 'Quick Service',
+  visitMode: 'Counter Order',
+  mainKpis: [
+    { key: 'queue_time', label: 'Queue Time', kind: 'timing' },
+    { key: 'order_taking_time', label: 'Order Taking Time', kind: 'timing' },
+    { key: 'preparation_time', label: 'Preparation Time', kind: 'timing' },
+    { key: 'total_service_time', label: 'Total Service Time', kind: 'timing' },
+    { key: 'order_accuracy', label: 'Order Accuracy', kind: 'weighted' },
+    { key: 'food_quality', label: 'Food Quality', kind: 'weighted' },
+    { key: 'cashier_service', label: 'Cashier Service', kind: 'weighted' },
+    { key: 'product_knowledge', label: 'Product Knowledge', kind: 'weighted' },
+    { key: 'upselling', label: 'Upselling Compliance', kind: 'weighted' },
+    { key: 'packaging', label: 'Packaging Score', kind: 'weighted' },
+    { key: 'cleanliness', label: 'Cleanliness', kind: 'weighted' },
+    { key: 'csat', label: 'Customer Satisfaction (CSAT)', kind: 'satisfaction' },
+    { key: 'nps', label: 'Net Promoter Score (NPS)', kind: 'satisfaction' },
+  ],
+  criticalFailures: [
+    'Unsafe food temperature',
+    'Contamination of food or packaging',
+    'Serious hygiene issue at the counter, kitchen or dining area',
+    'Incorrect product with serious dietary impact',
+    'Major pricing issue',
+    'Serious employee misconduct',
+    'Customer safety issue',
+  ],
+  timingChain: ['queue', 'order', 'preparation'],
+}
+
 interface TemplateBlueprint {
   id: string
   code: string
@@ -243,6 +638,8 @@ interface TemplateBlueprint {
   journey: JourneyType
   isFollowUp: boolean
   sections: SectionBlueprint[]
+  /** Present on a service sequence template. */
+  sequence?: ServiceSequence
 }
 
 const TEMPLATE_BLUEPRINTS: TemplateBlueprint[] = [
@@ -316,6 +713,40 @@ const TEMPLATE_BLUEPRINTS: TemplateBlueprint[] = [
     isFollowUp: true,
     sections: [GREETING, SPEED, STAFF, COMPLIANCE, UPSELL, PRODUCT_FNB, PRODUCT_ENT, FOOD_SAFETY, ENTERTAINMENT],
   },
+  // ── Service sequence templates (selected by brand, see BLUEPRINTS_FOR_CLIENT) ──
+  {
+    id: 'tpl-fsr-dine-in',
+    code: 'FSR_DINE_IN',
+    name: 'Full Service Restaurant — Dine-in Sequence',
+    description: 'Thirteen-stage dine-in journey for a full-service restaurant: arrival, greeting, seating, order taking, upselling, beverage and food service, food evaluation, table maintenance, cleanliness, billing, departure and overall experience.',
+    segment: 'F&B',
+    journey: 'In-store / Dine-in',
+    isFollowUp: false,
+    sections: FSR_STAGES,
+    sequence: FSR_SEQUENCE,
+  },
+  {
+    id: 'tpl-casual-dining',
+    code: 'CASUAL_DINING',
+    name: 'Casual Dining — Dine-in Sequence',
+    description: 'Fourteen-stage casual-dining journey with server engagement, product knowledge, sales behaviour, speed of service, food quality and the check-back compliance KPI.',
+    segment: 'F&B',
+    journey: 'In-store / Dine-in',
+    isFollowUp: false,
+    sections: CASUAL_STAGES,
+    sequence: CASUAL_SEQUENCE,
+  },
+  {
+    id: 'tpl-qsr-counter',
+    code: 'QSR_COUNTER_ORDER',
+    name: 'Quick Service — Counter Order Sequence',
+    description: 'Thirteen-stage counter-order journey timed from queue to handover: queue, cashier, order taking, product knowledge, upselling, payment, preparation, handover, food quality, cleanliness and farewell.',
+    segment: 'F&B',
+    journey: 'Counter Order',
+    isFollowUp: false,
+    sections: QSR_STAGES,
+    sequence: QSR_SEQUENCE,
+  },
 ]
 
 export interface TemplateBundle {
@@ -353,11 +784,23 @@ function sectionApplies(s: SectionBlueprint): boolean {
  * when a visit is conducted, so no shopper was ever asked those questions. It
  * simply described the wrong business.
  */
-const BLUEPRINTS_FOR_CLIENT: TemplateBlueprint[] = TEMPLATE_BLUEPRINTS
-  .filter((t) => t.segment === 'Both' || CLIENT_SEGMENTS.has(t.segment))
-  .map((t) => ({ ...t, sections: t.sections.filter(sectionApplies) }))
-  // A template whose sections have all been filtered away has nothing to ask.
-  .filter((t) => t.sections.length > 0)
+/**
+ * Service sequence templates the client's brands name. When any brand does, the
+ * library is exactly those templates: a client assessed by service sequence is
+ * not also shown the generic questionnaires.
+ */
+const CLIENT_TEMPLATE_CODES = new Set(CLIENT.portfolio.brands.flatMap((b) => (b.templateCode ? [b.templateCode] : [])))
+
+const BLUEPRINTS_FOR_CLIENT: TemplateBlueprint[] = CLIENT_TEMPLATE_CODES.size
+  ? TEMPLATE_BLUEPRINTS.filter((t) => CLIENT_TEMPLATE_CODES.has(t.code))
+  : TEMPLATE_BLUEPRINTS
+      // Sequence templates are only ever reached by brand; a client whose brands
+      // name none keeps the generic library it had before they existed.
+      .filter((t) => !t.sequence)
+      .filter((t) => t.segment === 'Both' || CLIENT_SEGMENTS.has(t.segment))
+      .map((t) => ({ ...t, sections: t.sections.filter(sectionApplies) }))
+      // A template whose sections have all been filtered away has nothing to ask.
+      .filter((t) => t.sections.length > 0)
 
 export function buildTemplates(): TemplateBundle {
   const templates: AuditTemplate[] = []
@@ -368,6 +811,11 @@ export function buildTemplates(): TemplateBundle {
   for (const t of BLUEPRINTS_FOR_CLIENT) {
     const sectionIds: string[] = []
     let qCount = 0
+    // Stage weights are the visit score; an authoring slip here would mis-score every visit.
+    if (t.sequence) {
+      const total = t.sections.reduce((n, s) => n + (s.stageWeight ?? 0), 0)
+      if (total !== 100) throw new Error(`Template ${t.code}: stage weights sum to ${total}, not 100`)
+    }
     t.sections.forEach((s, si) => {
       const suffix = s.applicableTo === 'all' ? s.code : `${s.code}${s.applicableTo[0] === 'F&B' ? 'F' : 'E'}`
       const sid = `${t.id}-${suffix}`
@@ -381,10 +829,15 @@ export function buildTemplates(): TemplateBundle {
         description: s.description,
         order: si + 1,
         applicableTo: s.applicableTo,
+        ...(s.stageWeight !== undefined ? { stageWeight: s.stageWeight, kpiName: s.kpiName } : {}),
       })
+      // A gating question is named by its local key; the condition stores the sibling's code.
+      const codeByKey = new Map(s.questions.flatMap((q, qi) => (q.key ? [[q.key, `${s.code}.${qi + 1}`] as const] : [])))
       s.questions.forEach((q, qi) => {
         const qid = `${sid}-${String(qi + 1).padStart(2, '0')}`
         qCount++
+        const parentCode = q.when ? codeByKey.get(q.when.key) : undefined
+        if (q.when && !parentCode) throw new Error(`Template ${t.code}: question ${s.code}.${qi + 1} gates on unknown key ${q.when.key}`)
         questions.push({
           id: qid,
           sectionId: sid,
@@ -400,6 +853,9 @@ export function buildTemplates(): TemplateBundle {
           options: q.options,
           threshold: q.threshold,
           order: qi + 1,
+          ...(q.kpi ? { kpiKeys: q.kpi } : {}),
+          ...(q.timing ? { timingRole: q.timing } : {}),
+          ...(parentCode && q.when ? { condition: { questionCode: parentCode, equals: q.when.equals } } : {}),
         })
         if (q.tag) tags.set(qid, q.tag)
       })
@@ -411,13 +867,14 @@ export function buildTemplates(): TemplateBundle {
       description: t.description,
       segment: t.segment,
       journey: t.journey,
-      version: t.isFollowUp ? '2.1' : '3.0',
+      version: t.sequence ? '1.0' : t.isFollowUp ? '2.1' : '3.0',
       status: 'Active',
       sectionIds,
       questionCount: qCount,
       createdAt: '2025-09-01T09:00:00',
       updatedAt: '2026-03-14T14:20:00',
       isFollowUp: t.isFollowUp,
+      ...(t.sequence ? { sequence: t.sequence } : {}),
     })
   }
   return { templates, sections, questions, tags }

@@ -29,7 +29,7 @@ import type {
   VisitType,
 } from '@/types'
 import type { DatasetPatch } from '@/repositories/types'
-import { CATEGORY_KEYS, computeVisitScores } from '@/utils/scoring'
+import { CATEGORY_KEYS, computeVisitScores, roundScoreMap } from '@/utils/scoring'
 import { T } from '@/config/terms'
 
 /**
@@ -133,6 +133,8 @@ export function submitVisit(data: Dataset, ctx: ActionContext, visitId: string, 
     submittedAt: iso(ctx.now),
     score: res.overall !== null ? Math.round(res.overall * 10) / 10 : null,
     categoryScores: res.categoryScores ? (Object.fromEntries(CATEGORY_KEYS.map((k) => [k, Math.round(res.categoryScores![k] * 10) / 10])) as Visit['categoryScores']) : null,
+    stageScores: roundScoreMap(res.stageScores),
+    kpiScores: roundScoreMap(res.kpiScores),
     risk: res.risk === 'Not Assessed' ? null : res.risk,
     reportStatus: 'Pending Review',
     slaStatus: gradeSla(ctx.now, visitEnd, deadline, data.organization.reportingTargetHours),

@@ -15,7 +15,8 @@ import { RadarCompareChart } from '@/components/charts'
 import { ClientLogo } from '@/components/ui/ClientLogo'
 import { CLIENT_BRAND } from '@/config/client'
 import { approveVisit, getVisitQuestions, getVisitSections, logExport, rejectVisit, startReview } from '@/services/actions'
-import { CATEGORY_KEYS, CATEGORY_LABELS, CATEGORY_SHORT, computeVisitScores } from '@/utils/scoring'
+import { CATEGORY_KEYS, CATEGORY_LABELS, CATEGORY_SHORT, computeVisitScores, visibleQuestions } from '@/utils/scoring'
+import { KPI_KIND_LABEL, formatKpiValue, stageRows, timingChainText } from '@/utils/sequence'
 import { exportCsv, exportElementToPdf, printPage } from '@/utils/export'
 import { fmtDate, fmtDateTime, fmtPct, hoursBetween } from '@/utils/format'
 import type { AnswerValue, Evidence, Question } from '@/types'
@@ -80,10 +81,18 @@ export default function VisitReportPage() {
   if (!visit || !outlet || !allowed) return <EmptyState title="Report not available" message="This visit does not exist or is outside your authorised scope." action={<Link to="/reports/visits" className="btn-secondary">Back to visit reports</Link>} />
   if (visit.score === null) return <EmptyState title="Report not yet available" message={`Visit ${visit.code} is ${visit.status.toLowerCase()} — the report is generated once the assessment is submitted.`} action={<Link to={`/operations/visits/${visit.id}`} className="btn-secondary">Open visit</Link>} />
 
-  const rows = questions.map((q) => ({ q, a: answerMap.get(q.id), section: sections.find((s) => s.id === q.sectionId)! }))
-  const positives = rows.filter((r) => r.a && !r.a.na && r.a.score !== null && r.a.score >= 0.9).sort((x, y) => y.q.weight - x.q.weight).slice(0, 6)
-  const improvements = rows.filter((r) => r.a && !r.a.na && r.a.score !== null && r.a.score < 0.5 && !r.q.critical).sort((x, y) => y.q.weight - x.q.weight).slice(0, 8)
-  const criticals = rows.filter((r) => r.a && !r.a.na && r.a.score !== null && r.a.score < 0.5 && r.q.critical)
+  const template = data.templates.find((t) => t.id === visit.templateId)
+  // Gated questions that were never asked are listed as skipped, and weight-0 answers
+  // (CSAT, NPS, gating questions) are information rather than standards met or missed.
+  const asked = new Set(visibleQuestions(questions, answers).map((q) => q.id))
+  const rows = questions.map((q) => ({ q, a: answerMap.get(q.id), section: sections.find((s) => s.id === q.sectionId)!, skipped: !asked.has(q.id) }))
+  const assessed = rows.filter((r) => !r.skipped && r.q.weight > 0)
+  const positives = assessed.filter((r) => r.a && !r.a.na && r.a.score !== null && r.a.score >= 0.9).sort((x, y) => y.q.weight - x.q.weight).slice(0, 6)
+  const improvements = assessed.filter((r) => r.a && !r.a.na && r.a.score !== null && r.a.score < 0.5 && !r.q.critical).sort((x, y) => y.q.weight - x.q.weight).slice(0, 8)
+  const criticals = assessed.filter((r) => r.a && !r.a.na && r.a.score !== null && r.a.score < 0.5 && r.q.critical)
+  const stages = template?.sequence ? stageRows(sections, questions, visit.stageScores ?? result.stageScores ?? undefined) : []
+  const kpiScores = visit.kpiScores ?? result.kpiScores ?? null
+  const timingSummary = timingChainText(template?.sequence?.timingChain, kpiScores)
   const weakCats = CATEGORY_KEYS.filter((k) => visit.categoryScores && !Number.isNaN(visit.categoryScores[k]) && visit.categoryScores[k] < 80).sort((a, b) => (visit.categoryScores![a] ?? 0) - (visit.categoryScores![b] ?? 0))
   const canDecide = can('visits.review') && (visit.status === 'Submitted' || visit.status === 'Under Review')
   const turnaround = hoursBetween(visit.visitEnd, visit.submittedAt)
@@ -238,6 +247,71 @@ export default function VisitReportPage() {
             </div>
           </section>
 
+          {/* Service sequence: stages, main KPIs, critical-failure checklist */}
+          {template?.sequence && stages.length > 0 && (
+            <section className="space-y-6">
+              <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+                <div>
+                  <h2 className="section-title mb-1">Service sequence · stage scores</h2>
+                  <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">{template.sequence.industry} · {template.sequence.serviceModel} · {template.sequence.visitMode}. Each stage contributes its weight share of the visit score; contributions are rounded to one decimal.</p>
+                  <div className="table-wrap">
+                    <table className="table text-xs">
+                      <caption className="sr-only">Stage scores</caption>
+                      <thead>
+                        <tr><th>#</th><th>Stage</th><th>KPI</th><th className="text-right">Weight</th><th className="text-right">Score</th><th className="text-right">Contribution</th></tr>
+                      </thead>
+                      <tbody>
+                        {stages.map((r, i) => (
+                          <tr key={r.section.id} className={cn(r.weight === 0 && 'text-slate-500 dark:text-slate-400')}>
+                            <td className="tabular-nums">{i + 1}</td>
+                            <td className="font-medium text-slate-800 dark:text-slate-100">{r.section.title}</td>
+                            <td>{r.section.kpiName}</td>
+                            <td className="text-right tabular-nums">{r.weight === 0 ? '—' : `${r.weight}%`}</td>
+                            <td className={cn('text-right tabular-nums font-semibold', scoreTextClass(r.score))}>{fmtPct(r.score)}</td>
+                            <td className="text-right tabular-nums">{r.contribution === null ? '—' : `${r.contribution.toFixed(1)} pts`}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="font-semibold">
+                          <td colSpan={3}>Visit score</td>
+                          <td className="text-right tabular-nums">{stages.reduce((n, r) => n + (r.score === null ? 0 : r.weight), 0)}%</td>
+                          <td />
+                          <td className="text-right tabular-nums">{visit.score.toFixed(1)} pts</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+                <div>
+                  <h2 className="section-title mb-3">Main KPIs</h2>
+                  <ul className="space-y-1.5">
+                    {template.sequence.mainKpis.map((k) => (
+                      <li key={k.key} className="flex items-center justify-between gap-3 border-b border-slate-100 pb-1.5 text-xs dark:border-navy-800">
+                        <span className="min-w-0 text-slate-700 dark:text-slate-200">
+                          {k.label} <span className="text-slate-400">· {KPI_KIND_LABEL[k.kind]}</span>
+                        </span>
+                        <span className="shrink-0 font-semibold tabular-nums text-slate-800 dark:text-slate-100">{formatKpiValue(k, kpiScores?.[k.key], 'visit')}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {timingSummary && <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs tabular-nums text-slate-700 dark:bg-navy-800/60 dark:text-slate-200">Timing chain · {timingSummary}</p>}
+                </div>
+              </div>
+              <div className="rounded-xl border border-slate-200 p-4 dark:border-navy-800">
+                <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100"><AlertOctagon className="h-4 w-4 text-red-600" aria-hidden /> Critical failure checklist</h2>
+                <ul className="mt-2 grid gap-1.5 text-xs text-slate-700 dark:text-slate-200 sm:grid-cols-2">
+                  {template.sequence.criticalFailures.map((f) => (
+                    <li key={f} className="flex gap-2"><span className="text-slate-400" aria-hidden>•</span><span>{f}</span></li>
+                  ))}
+                </ul>
+                <p className={cn('mt-3 text-xs font-medium', criticals.length ? 'text-red-700 dark:text-red-300' : 'text-emerald-700 dark:text-emerald-300')}>
+                  {criticals.length ? `Critical standard${criticals.length === 1 ? '' : 's'} failed on this visit: ${criticals.map((r) => `${r.q.code} ${r.q.text.replace(/\?$/, '')}`).join('; ')}.` : 'No critical failure observed on this visit.'}
+                </p>
+              </div>
+            </section>
+          )}
+
           {/* Critical findings */}
           {criticals.length > 0 && (
             <section className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-500/30 dark:bg-red-500/10">
@@ -285,7 +359,10 @@ export default function VisitReportPage() {
                 return (
                   <div key={s.id} className="rounded-xl border border-slate-200 dark:border-navy-800 overflow-hidden">
                     <div className="flex items-center justify-between bg-slate-50 dark:bg-navy-800/60 px-4 py-2">
-                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Section {s.code} · {s.title} <span className="ml-1 text-xs font-normal text-slate-500">{CATEGORY_LABELS[s.category]}</span></p>
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                        {s.stageWeight !== undefined ? `Stage ${s.order} · ${s.title}` : `Section ${s.code} · ${s.title}`}{' '}
+                        <span className="ml-1 text-xs font-normal text-slate-500">{CATEGORY_LABELS[s.category]}{s.stageWeight !== undefined && ` · ${s.stageWeight === 0 ? 'unweighted' : `weight ${s.stageWeight}%`}`}</span>
+                      </p>
                       <ScoreBadge score={ss?.score ?? null} />
                     </div>
                     <div className="table-wrap">
@@ -294,14 +371,14 @@ export default function VisitReportPage() {
                           <tr><th>Code</th><th>Question</th><th>Answer</th><th className="text-right">Score</th><th className="text-right">Weight</th><th>Comment</th><th className="text-right">Evidence</th></tr>
                         </thead>
                         <tbody>
-                          {sr.map(({ q, a }) => {
-                            const sc = a?.score ?? null
+                          {sr.map(({ q, a, skipped }) => {
+                            const sc = skipped ? null : a?.score ?? null
                             const failed = sc !== null && sc < 0.5
                             return (
-                              <tr key={q.id} className={cn(failed && q.critical && 'bg-red-50/60 dark:bg-red-500/5')}>
+                              <tr key={q.id} className={cn(failed && q.critical && 'bg-red-50/60 dark:bg-red-500/5', skipped && 'text-slate-400 dark:text-slate-500')}>
                                 <td className="font-mono">{q.code}</td>
                                 <td className="max-w-[320px]">{q.text}{q.critical && <Badge tone="red" size="xs" className="ml-1">Critical</Badge>}</td>
-                                <td className={cn('whitespace-nowrap font-medium', failed ? 'text-red-700 dark:text-red-300' : sc === 1 ? 'text-emerald-700 dark:text-emerald-300' : '')}>{a ? answerText(q, a.value, a.na) : '—'}</td>
+                                <td className={cn('whitespace-nowrap font-medium', failed ? 'text-red-700 dark:text-red-300' : sc === 1 ? 'text-emerald-700 dark:text-emerald-300' : '')}>{skipped ? 'Skipped' : a ? answerText(q, a.value, a.na) : '—'}</td>
                                 <td className="text-right tabular-nums">{sc === null ? '—' : `${Math.round(sc * 100)}%`}</td>
                                 <td className="text-right tabular-nums">{q.weight}</td>
                                 <td className="max-w-[260px] text-slate-600 dark:text-slate-300">{a?.comment || ''}</td>

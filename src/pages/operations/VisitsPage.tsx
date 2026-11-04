@@ -26,7 +26,7 @@ import { T } from '@/config/terms'
 const VISIT_STATUSES: Visit['status'][] = ['Planned', 'Assigned', 'In Progress', 'Draft', 'Submitted', 'Under Review', 'Approved', 'Rejected', 'Closed']
 const VISIT_TYPES: VisitType[] = ['Main Audit 1', 'Follow-up 1', 'Main Audit 2', 'Follow-up 2']
 const RISKS = ['Excellent', 'Good', 'Needs Improvement', 'Critical']
-const JOURNEYS: JourneyType[] = ['In-store / Dine-in', 'Social Media Interaction', 'Takeaway', 'Delivery', 'Entertainment Ticketing', 'Reception', 'Guest Onboarding', 'Safety Briefing', 'Digital Interaction']
+const JOURNEYS: JourneyType[] = ['In-store / Dine-in', 'Social Media Interaction', 'Takeaway', 'Delivery', 'Entertainment Ticketing', 'Reception', 'Guest Onboarding', 'Safety Briefing', 'Digital Interaction', 'Counter Order']
 
 function scoreBand(score: number | null): string {
   if (score === null) return 'none'
@@ -546,17 +546,25 @@ function NewVisitModal({ open, onClose }: { open: boolean; onClose: () => void }
 
   const outlet = data.outlets.find((o) => o.id === outletId)
   const isFollow = type.startsWith('Follow')
-  const templates = useMemo(() => data.templates.filter((t) => t.status === 'Active' && (isFollow ? t.isFollowUp : !t.isFollowUp) && (!outlet || t.segment === 'Both' || t.segment === outlet.segment)), [data.templates, isFollow, outlet])
+  // A brand assessed by service sequence uses its one template for every visit type.
+  const sequenceTemplate = useMemo(() => {
+    const code = data.brands.find((b) => b.id === outlet?.brandId)?.templateCode
+    return code ? data.templates.find((t) => t.code === code && t.status === 'Active') ?? null : null
+  }, [data.brands, data.templates, outlet])
+  const templates = useMemo(
+    () => (sequenceTemplate ? [sequenceTemplate] : data.templates.filter((t) => t.status === 'Active' && (isFollow ? t.isFollowUp : !t.isFollowUp) && (!outlet || t.segment === 'Both' || t.segment === outlet.segment))),
+    [data.templates, isFollow, outlet, sequenceTemplate],
+  )
 
-  // Auto-suggest template from outlet segment + visit type
+  // Auto-suggest template from the brand's sequence, else outlet segment + visit type
   useEffect(() => {
     if (!outlet) return
-    const suggested = templates.find((t) => t.segment === outlet.segment) ?? templates[0]
+    const suggested = sequenceTemplate ?? templates.find((t) => t.segment === outlet.segment) ?? templates[0]
     if (suggested) {
       setTemplateId(suggested.id)
       setJourney(suggested.isFollowUp ? (outlet.segment === 'Entertainment' ? 'Entertainment Ticketing' : 'In-store / Dine-in') : suggested.journey)
     }
-  }, [outlet, templates])
+  }, [outlet, templates, sequenceTemplate])
 
   const eligibleShoppers = useMemo(() => data.shoppers.filter((s) => s.status === 'Active' && (!outlet || s.assignedCategories.includes(outlet.segment))).sort((a, b) => a.name.localeCompare(b.name)), [data.shoppers, outlet])
 
@@ -635,7 +643,7 @@ function NewVisitModal({ open, onClose }: { open: boolean; onClose: () => void }
             ))}
           </Select>
         </Field>
-        <Field label="Audit template" htmlFor="nv-template" required hint={outlet ? `Suggested from ${outlet.segment} · ${outlet.subcategory}` : `Select an ${T.outlet} to auto-suggest`} className="sm:col-span-2">
+        <Field label="Audit template" htmlFor="nv-template" required hint={outlet ? (sequenceTemplate ? `${outlet.brand} is assessed on the ${sequenceTemplate.code} service sequence` : `Suggested from ${outlet.segment} · ${outlet.subcategory}`) : `Select an ${T.outlet} to auto-suggest`} className="sm:col-span-2">
           <Select id="nv-template" value={templateId} onChange={(e) => setTemplateId(e.target.value)} invalid={!!error && !templateId}>
             <option value="">Select a template…</option>
             {templates.map((t) => (

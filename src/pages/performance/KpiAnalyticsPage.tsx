@@ -4,9 +4,10 @@ import { Activity, Gauge, ShieldCheck, ShoppingBag, Sparkles, Timer, type Lucide
 import { useData } from '@/contexts/DataContext'
 import { useFilters } from '@/contexts/FilterContext'
 import { useDocumentTitle, useNow } from '@/hooks'
-import { categoryAverages, heatmapRows, kpiSummary, monthlyTrend, segmentComparison } from '@/services/analytics'
+import { categoryAverages, heatmapRows, kpiSummary, monthlyTrend, segmentComparison, sequenceKpis } from '@/services/analytics'
 import type { CategoryKey } from '@/types'
 import { CATEGORY_KEYS, CATEGORY_LABELS, CATEGORY_SHORT } from '@/utils/scoring'
+import { KPI_KIND_LABEL, formatKpiValue } from '@/utils/sequence'
 import { avg, fmtPct, round } from '@/utils/format'
 import { cn } from '@/utils/cn'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
@@ -14,7 +15,7 @@ import { KpiCard } from '@/components/ui/KpiCard'
 import { Badge, ScoreBadge, scoreTextClass } from '@/components/ui/Badge'
 import { DataTable, type Column } from '@/components/ui/DataTable'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { ProgressBar } from '@/components/ui/Misc'
+import { ProgressBar, Stat } from '@/components/ui/Misc'
 import { CHART_COLORS, ChartCard, DonutChart, GroupedBarChart, HeatLegend, Heatmap, SERIES_COLORS, TrendChart } from '@/components/charts'
 import { T } from '@/config/terms'
 
@@ -58,6 +59,15 @@ export default function KpiAnalyticsPage() {
   const heat = useMemo(() => heatmapRows(scopedOutlets).map((r) => ({ id: r.outletId, label: r.name, sub: r.code, values: CATEGORY_KEYS.map((k) => r[k]) })), [scopedOutlets])
 
   const segments = useMemo(() => segmentComparison(scopedOutlets), [scopedOutlets])
+
+  // Main KPIs of every service sequence template in scope, across its scored visits.
+  const conceptKpis = useMemo(
+    () =>
+      data.templates
+        .filter((t) => t.sequence && scopedVisits.some((v) => v.templateId === t.id && v.score !== null))
+        .map((t) => ({ template: t, kpis: sequenceKpis(t, scopedVisits), visits: scopedVisits.filter((v) => v.templateId === t.id && v.score !== null).length })),
+    [data.templates, scopedVisits],
+  )
   const segmentChart = useMemo(() => CATEGORY_KEYS.map((k) => ({ name: CATEGORY_SHORT[k], 'F&B': segments[0][k] ?? 0, Entertainment: segments[1][k] ?? 0 })), [segments])
 
   const totalWeight = kpiConfig.reduce((a, k) => a + k.weight, 0)
@@ -160,6 +170,25 @@ export default function KpiAnalyticsPage() {
           )
         })}
       </div>
+
+      {conceptKpis.length > 0 && (
+        <div className="space-y-3">
+          {conceptKpis.map(({ template, kpis, visits }) => (
+            <Card key={template.id}>
+              <CardHeader
+                title={`Concept KPIs · ${template.sequence!.serviceModel}`}
+                subtitle={`${template.name} · ${template.sequence!.visitMode} · across ${visits} scored visit${visits === 1 ? '' : 's'}`}
+                actions={<Badge tone="slate" className="font-mono">{template.code}</Badge>}
+              />
+              <CardBody className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                {kpis.map((k) => (
+                  <Stat key={k.key} label={k.label} value={formatKpiValue(k, k.value, 'portfolio')} sub={`${KPI_KIND_LABEL[k.kind]} · ${k.n} visit${k.n === 1 ? '' : 's'}`} />
+                ))}
+              </CardBody>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <ChartCard title="KPI vs target" subtitle="Current portfolio average against configured target per category" height={300}>

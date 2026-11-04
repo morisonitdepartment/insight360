@@ -1,6 +1,6 @@
 import { APP_CONFIG } from '@/config/app'
 import { DEMO_ACCOUNTS } from '@/config/demoAccounts'
-import { emptyDataset, generateDataset } from '@/data/seed'
+import { SEED_VERSION, emptyDataset, generateDataset } from '@/data/seed'
 import { DEMO_SHIFT_DAYS } from '@/data/demoClock'
 import type { Dataset, Evidence, User } from '@/types'
 import { hashString } from '@/utils/prng'
@@ -69,12 +69,15 @@ export class DemoRepository implements Repository {
     const raw = safeGet(localStorage, DATA_KEY)
     if (raw) {
       try {
-        const stored = JSON.parse(raw) as { shift?: number; overlay?: Partial<Dataset> }
+        const stored = JSON.parse(raw) as { shift?: number; seedVersion?: number; overlay?: Partial<Dataset> }
         // The seeded dates move with the calendar (see demoClock), so an overlay
         // saved in an earlier week carries dates from that week. Mixed with a
         // freshly shifted seed it produces visits whose report predates them.
-        // Anything saved against a different shift is discarded rather than merged.
-        this.overlay = stored && stored.shift === DEMO_SHIFT_DAYS && stored.overlay ? stored.overlay : {}
+        // Likewise an overlay saved against an earlier portfolio (other brands,
+        // other outlets) would put 200 visits on a 16-outlet estate. Anything
+        // saved against a different shift or seed version is discarded, not merged.
+        const matches = stored && stored.shift === DEMO_SHIFT_DAYS && stored.seedVersion === SEED_VERSION
+        this.overlay = matches && stored.overlay ? stored.overlay : {}
       } catch {
         this.overlay = {}
       }
@@ -151,7 +154,7 @@ export class DemoRepository implements Repository {
       ;(this.overlay as any)[key] = (patch as any)[key]
       ;(current as any)[key] = (patch as any)[key]
     }
-    safeSet(localStorage, DATA_KEY, JSON.stringify({ shift: DEMO_SHIFT_DAYS, overlay: this.overlay }))
+    safeSet(localStorage, DATA_KEY, JSON.stringify({ shift: DEMO_SHIFT_DAYS, seedVersion: SEED_VERSION, overlay: this.overlay }))
   }
 
   async uploadEvidence(file: File | null, meta: EvidenceUploadMeta): Promise<Evidence> {

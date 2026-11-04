@@ -47,6 +47,7 @@ import { ConfirmDialog, Modal } from '@/components/ui/Modal'
 import { Field, Input, Select, Textarea, Toggle } from '@/components/ui/Form'
 import { EmptyState } from '@/components/ui/States'
 import { Divider, ProgressBar, Stat } from '@/components/ui/Misc'
+import { ServiceSequencePanel } from '@/components/sequence/ServiceSequencePanel'
 import { fmtDateTime, truncate } from '@/utils/format'
 import { cn } from '@/utils/cn'
 
@@ -77,6 +78,7 @@ const JOURNEYS: JourneyType[] = [
   'Guest Onboarding',
   'Safety Briefing',
   'Digital Interaction',
+  'Counter Order',
 ]
 
 type ApplicableChoice = 'all' | 'F&B' | 'Entertainment'
@@ -391,6 +393,8 @@ export default function TemplatesPage() {
       description: sectionForm.description.trim(),
       order: existing?.order ?? (sections.length ? Math.max(...sections.map((s) => s.order)) + 1 : 1),
       applicableTo: fromApplicable(sectionForm.applicableTo),
+      // The stage weight and KPI name are reference data the form does not show; an edit must not drop them.
+      ...(existing?.stageWeight !== undefined ? { stageWeight: existing.stageWeight, kpiName: existing.kpiName } : {}),
     }
     await run(existing ? `Section ${code} updated` : `Section ${code} added`, (d, ctx) => upsertSection(d, ctx, section), () => setSectionForm(null))
   }
@@ -474,6 +478,10 @@ export default function TemplatesPage() {
       options,
       threshold: (questionForm.type === 'time' || questionForm.type === 'numeric') && questionForm.threshold !== '' && Number.isFinite(thresholdNum) ? thresholdNum : undefined,
       order: existing?.order ?? (siblings.length ? Math.max(...siblings.map((q) => q.order)) + 1 : 1),
+      // KPI mapping, timing role and gating are reference data the form does not show; an edit must not drop them.
+      ...(existing?.kpiKeys ? { kpiKeys: existing.kpiKeys } : {}),
+      ...(existing?.timingRole ? { timingRole: existing.timingRole } : {}),
+      ...(existing?.condition ? { condition: existing.condition } : {}),
     }
     await run(existing ? `Question ${question.code} updated` : `Question ${question.code} added`, (d, ctx) => upsertQuestion(d, ctx, question), () => setQuestionForm(null))
   }
@@ -754,6 +762,11 @@ export default function TemplatesPage() {
                               <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400">{s.code}</span>
                               <span className="text-sm font-semibold text-slate-900 dark:text-white">{s.title}</span>
                               <Badge tone="teal" size="xs">{CATEGORY_LABELS[s.category]}</Badge>
+                              {s.stageWeight !== undefined && (
+                                <Badge tone={s.stageWeight === 0 ? 'slate' : 'navy'} size="xs">
+                                  {s.stageWeight === 0 ? 'unweighted stage' : `stage ${s.stageWeight}%`}
+                                </Badge>
+                              )}
                               <Badge tone={s.applicableTo === 'all' ? 'slate' : 'navy'} size="xs">{APPLICABLE_LABELS[toApplicable(s.applicableTo)]}</Badge>
                             </span>
                             <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">{s.description}</span>
@@ -808,44 +821,48 @@ export default function TemplatesPage() {
 
             {/* Summary + thresholds */}
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-              <Card>
-                <CardHeader title="Template summary" subtitle="Weight distribution across KPI categories" />
-                <CardBody className="space-y-4">
-                  {summary.perCategory.length === 0 ? (
-                    <p className="text-sm text-slate-500 dark:text-slate-400">Add sections to see the weight distribution.</p>
-                  ) : (
-                    <ul className="space-y-2.5">
-                      {summary.perCategory.map((c) => {
-                        const share = summary.totalWeight ? (c.weight / summary.totalWeight) * 100 : 0
-                        return (
-                          <li key={c.key}>
-                            <div className="flex items-baseline justify-between gap-2 text-xs">
-                              <span className="truncate text-slate-700 dark:text-slate-200">
-                                <span className="sm:hidden">{c.short}</span>
-                                <span className="hidden sm:inline">{c.label}</span>
-                              </span>
-                              <span className="tabular-nums text-slate-500 dark:text-slate-400">
-                                {c.weight} · {share.toFixed(0)}% · {c.questions}Q
-                              </span>
-                            </div>
-                            <ProgressBar value={share} tone="accent" size="sm" className="mt-1" label={`${c.label} weight share`} />
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  )}
-                  <Divider />
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                    <Stat label="Questions" value={summary.questions} />
-                    <Stat label="Total weight" value={summary.totalWeight} />
-                    <Stat label="Critical" value={summary.critical} />
-                    <Stat label="Evidence req." value={summary.evidence} />
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {summary.comment} question{summary.comment === 1 ? '' : 's'} require a written comment. Question weight drives the section score; section weight drives the category score.
-                  </p>
-                </CardBody>
-              </Card>
+              {selected.sequence ? (
+                <ServiceSequencePanel template={selected} sections={sections} questions={templateQuestions} />
+              ) : (
+                <Card>
+                  <CardHeader title="Template summary" subtitle="Weight distribution across KPI categories" />
+                  <CardBody className="space-y-4">
+                    {summary.perCategory.length === 0 ? (
+                      <p className="text-sm text-slate-500 dark:text-slate-400">Add sections to see the weight distribution.</p>
+                    ) : (
+                      <ul className="space-y-2.5">
+                        {summary.perCategory.map((c) => {
+                          const share = summary.totalWeight ? (c.weight / summary.totalWeight) * 100 : 0
+                          return (
+                            <li key={c.key}>
+                              <div className="flex items-baseline justify-between gap-2 text-xs">
+                                <span className="truncate text-slate-700 dark:text-slate-200">
+                                  <span className="sm:hidden">{c.short}</span>
+                                  <span className="hidden sm:inline">{c.label}</span>
+                                </span>
+                                <span className="tabular-nums text-slate-500 dark:text-slate-400">
+                                  {c.weight} · {share.toFixed(0)}% · {c.questions}Q
+                                </span>
+                              </div>
+                              <ProgressBar value={share} tone="accent" size="sm" className="mt-1" label={`${c.label} weight share`} />
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    )}
+                    <Divider />
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                      <Stat label="Questions" value={summary.questions} />
+                      <Stat label="Total weight" value={summary.totalWeight} />
+                      <Stat label="Critical" value={summary.critical} />
+                      <Stat label="Evidence req." value={summary.evidence} />
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {summary.comment} question{summary.comment === 1 ? '' : 's'} require a written comment. Question weight drives the section score; section weight drives the category score.
+                    </p>
+                  </CardBody>
+                </Card>
+              )}
 
               <Card>
                 <CardHeader title="Score ranges" subtitle="Applied to every visit scored with this template" />

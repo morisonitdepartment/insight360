@@ -40,7 +40,7 @@ export function buildDemoSteps(): DemoStep[] {
     },
     {
       title: `${T.Outlet} Drill-Down`,
-      description: 'Urban Fork – Al Wakrah scored 68.1% at its latest main audit: service delays, cleanliness gaps, no upselling and one critical hygiene observation.',
+      description: `${STORYLINE.outletName} scored ${STORYLINE.mainAuditScore.toFixed(1)}% at its latest main audit: service delays, cleanliness gaps, no upselling and one critical food-safety observation.`,
       path: `/performance/outlets/${STORYLINE.outletId}`,
       target: 'outlet-score',
     },
@@ -64,7 +64,7 @@ export function buildDemoSteps(): DemoStep[] {
     },
     {
       title: 'Follow-Up Improvement',
-      description: 'The follow-up visit re-assessed the same standards: the score improved from 68.1% to 83.1%, and the trend line shows the recovery.',
+      description: `The follow-up visit re-assessed the same standards: the score improved from ${STORYLINE.mainAuditScore.toFixed(1)}% to ${STORYLINE.followUpScore.toFixed(1)}%, and the trend line shows the recovery.`,
       path: `/performance/outlets/${STORYLINE.outletId}#comparison`,
       target: 'outlet-comparison',
     },
@@ -80,9 +80,13 @@ export function buildDemoSteps(): DemoStep[] {
 export function GuidedDemoProvider({ children }: { children: ReactNode }) {
   const [active, setActive] = useState(false)
   const [stepIndex, setStepIndex] = useState(0)
-  const steps = useMemo(() => buildDemoSteps(), [])
+  // The steps quote the storyline outlet and its scores, which the seed fills in
+  // when the dataset is generated — after this provider has mounted. Build them
+  // when the tour starts, by which time the data has loaded.
+  const [steps, setSteps] = useState<DemoStep[]>(() => buildDemoSteps())
 
   const start = useCallback(() => {
+    setSteps(buildDemoSteps())
     setStepIndex(0)
     setActive(true)
   }, [])

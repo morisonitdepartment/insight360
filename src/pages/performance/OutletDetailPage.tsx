@@ -15,6 +15,7 @@ import { benchmarksFor, monthlyTrend, outletVisitHistory, percentile } from '@/s
 import { isFollowUp, isMainAudit, isOpenFinding, isScored } from '@/services/derive'
 import { logExport } from '@/services/actions'
 import { CATEGORY_KEYS, CATEGORY_LABELS, CATEGORY_SHORT } from '@/utils/scoring'
+import { stageRows } from '@/utils/sequence'
 import { exportCsv } from '@/utils/export'
 import { fmtDate, fmtDelta, fmtPct, round } from '@/utils/format'
 import type { Evidence } from '@/types'
@@ -72,6 +73,10 @@ export default function OutletDetailPage() {
   })
   const delta = outlet.overallScore !== null && outlet.previousScore !== null ? outlet.overallScore - outlet.previousScore : null
   const openFindings = findings.filter(isOpenFinding)
+  // Stage scores of the latest approved visit on a service sequence template.
+  const latestCompleted = [...history].filter((v) => (v.status === 'Approved' || v.status === 'Closed') && v.score !== null).pop()
+  const sequenceTemplate = latestCompleted ? data.templates.find((t) => t.id === latestCompleted.templateId && t.sequence) : undefined
+  const stages = sequenceTemplate && latestCompleted ? stageRows(data.sections.filter((x) => x.templateId === sequenceTemplate.id), data.questions, latestCompleted.stageScores) : []
 
   const exportOutlet = () => {
     exportCsv(
@@ -191,6 +196,31 @@ export default function OutletDetailPage() {
           </CardBody>
         </Card>
       </div>
+
+      {/* Service sequence stage scores */}
+      {sequenceTemplate?.sequence && latestCompleted && stages.length > 0 && (
+        <Card>
+          <CardHeader
+            title="Service sequence"
+            subtitle={`${sequenceTemplate.sequence.serviceModel} · ${sequenceTemplate.sequence.visitMode} · stage scores from ${latestCompleted.type} on ${fmtDate(latestCompleted.visitDate)}`}
+            actions={<Link to={`/reports/visits/${latestCompleted.id}`} className="link text-xs">Open report</Link>}
+          />
+          <CardBody className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
+            {stages.map((r, i) => (
+              <div key={r.section.id}>
+                <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+                  <span className="min-w-0 truncate text-slate-600 dark:text-slate-300">
+                    <span className="tabular-nums text-slate-400">{i + 1}.</span> {r.section.title}
+                    <span className="ml-1 text-slate-400">· {r.weight === 0 ? 'unweighted' : `${r.weight}%`}</span>
+                  </span>
+                  <span className={cn('shrink-0 font-semibold tabular-nums', scoreTextClass(r.score))}>{fmtPct(r.score)}</span>
+                </div>
+                <ProgressBar value={r.score} size="sm" />
+              </div>
+            ))}
+          </CardBody>
+        </Card>
+      )}
 
       {/* Trends */}
       <div className="grid gap-4 xl:grid-cols-2">

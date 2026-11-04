@@ -33,7 +33,7 @@ import type {
   VisitType,
 } from '@/types'
 import { Rng, hashString } from '@/utils/prng'
-import { CATEGORY_KEYS, DEFAULT_THRESHOLDS, computeVisitScores, scoreQuestion } from '@/utils/scoring'
+import { CATEGORY_KEYS, DEFAULT_THRESHOLDS, computeVisitScores, roundScoreMap, scoreQuestion } from '@/utils/scoring'
 import { buildTemplates } from './templates'
 import { BRAND_DEFS, IMPROVEMENT_OBSERVATIONS, IPS, MANAGER_NAMES, MAP_BY_LOCATION, NARRATIVE_OPENERS, POSITIVE_OBSERVATIONS, REGION_BY_LOCATION, ROOT_CAUSES, SHOPPER_NAMES } from './lists'
 import { DEFAULT_KPI_CONFIG, DEFAULT_NOTIFICATION_RULES, DEFAULT_ORGANIZATION, TRAINING_MODULES } from './defaults'
@@ -52,11 +52,22 @@ const dayIso = (d: Date) => format(d, 'yyyy-MM-dd')
  */
 export { DEMO_NOW } from './demoClock'
 
+/**
+ * Bumped whenever the generated portfolio changes shape (brands, outlets, visit
+ * plan, templates). The demo repository discards a saved overlay from another
+ * version instead of merging it into a seed it no longer matches.
+ */
+export const SEED_VERSION = 2
+
 const STORYLINE_OUTLET_KEY = CLIENT.portfolio.storylineKey
 export const STORYLINE = {
   outletId: 'out-012',
+  outletName: '',
   mainAuditVisitId: '',
   followUpVisitId: '',
+  /** Scores of the two storyline visits, for copy that quotes them. */
+  mainAuditScore: 0,
+  followUpScore: 0,
   findingId: '',
   alertId: '',
   actionId: '',
@@ -96,7 +107,7 @@ export function generateDataset(): Dataset {
   }
 
   // ───────────────────────────── Brands & Outlets ─────────────────────────────
-  const brands: Brand[] = BRAND_DEFS.map((b) => ({ id: b.id, name: b.name, segment: b.segment, outletCount: b.locations.length }))
+  const brands: Brand[] = BRAND_DEFS.map((b) => ({ id: b.id, name: b.name, segment: b.segment, outletCount: b.locations.length, ...(b.templateCode ? { templateCode: b.templateCode } : {}) }))
   const outletsBase: Outlet[] = []
   // Portfolio size varies by client, so pick the non-trading sites proportionally.
   const totalLocations = BRAND_DEFS.reduce((n, b) => n + b.locations.length, 0)
@@ -152,6 +163,7 @@ export function generateDataset(): Dataset {
   }
   const storylineOutlet = outletsBase.find((o) => `${o.brandId}:${o.location}` === STORYLINE_OUTLET_KEY)!
   STORYLINE.outletId = storylineOutlet.id
+  STORYLINE.outletName = storylineOutlet.name
 
   // ───────────────────────────── Outlet quality profiles ─────────────────────
   const others = outletsBase.filter((o) => o.id !== storylineOutlet.id)
@@ -199,7 +211,7 @@ export function generateDataset(): Dataset {
   const users: User[] = [
     mkUser('usr-001', 'Adam Reynolds', 'admin@insight360.demo', 'super_admin', 'Platform Administrator', [], '2026-09-13T08:42:00'),
     mkUser('usr-002', 'Fatima Al-Kuwari', 'clientadmin@insight360.demo', 'client_admin', 'Head of Customer Experience', [], '2026-09-12T17:05:00'),
-    mkUser('usr-003', 'Rajesh Menon', 'manager@insight360.demo', 'ops_manager', 'Regional Operations Manager – South & Al Rayyan', regionOutlets(['South', 'Al Rayyan']), '2026-09-13T07:58:00'),
+    mkUser('usr-003', 'Rajesh Menon', 'manager@insight360.demo', 'ops_manager', 'Regional Operations Manager – Central, South & Al Rayyan', regionOutlets(['Central Doha', 'South', 'Al Rayyan']), '2026-09-13T07:58:00'),
     mkUser('usr-004', 'Sara Al-Naimi', 'shopper@insight360.demo', 'shopper', 'Senior Mystery Shopper', [], '2026-09-13T09:31:00', 'shp-001'),
     mkUser('usr-005', 'Priya Nair', 'analyst@insight360.demo', 'analyst', 'Customer Experience Analyst', [], '2026-09-12T14:20:00'),
     mkUser('usr-006', 'Khalid Al-Mansoori', 'executive@insight360.demo', 'executive', 'Chief Operating Officer', [], '2026-09-11T19:12:00'),
@@ -280,7 +292,16 @@ export function generateDataset(): Dataset {
   let evSeq = 0
   let findSeq = 0
 
+  // A brand on a service sequence uses that one template for every visit type.
+  const brandTemplate = new Map(
+    BRAND_DEFS.flatMap((b) => {
+      const t = b.templateCode ? templates.find((x) => x.code === b.templateCode) : undefined
+      return t ? [[b.id, t.id] as const] : []
+    }),
+  )
   const templateFor = (o: Outlet, type: VisitType): string => {
+    const sequence = brandTemplate.get(o.brandId)
+    if (sequence) return sequence
     if (type.startsWith('Follow')) return 'tpl-followup'
     const k = profiles.get(o.id)!.k
     // A slice of the first main-audit cycle is run remotely through social channels.
@@ -577,6 +598,12 @@ export function generateDataset(): Dataset {
         const sectionT = Math.max(0.3, Math.min(0.995, (rawCat[s.category] + rng.normal(0, 1.2)) / 100))
         for (const q of qs) {
           if (answered >= answerLimit) break
+          // A gated question is only asked when its parent was answered the gating way.
+          if (q.condition) {
+            const parent = qs.find((x) => x.code === q.condition!.questionCode)
+            const pa = parent ? visitAnswers.find((a) => a.questionId === parent.id) : undefined
+            if (!pa || pa.na || pa.value !== q.condition.equals) continue
+          }
           answered++
           const tag = tags.get(q.id)
           const f = tag ? forced.get(tag) : undefined
@@ -589,6 +616,8 @@ export function generateDataset(): Dataset {
       // Calibrate to target for scored visits (small adaptive steps, keep best state)
       if (scored) {
         const qMap = new Map(questions.map((q) => [q.id, q]))
+        // Sequence templates ask more yes/no questions, so heavier ones are levers too.
+        const flipWeightMax = secs.some((s) => s.stageWeight !== undefined) ? 3 : 2
         let best: { diff: number; values: Map<string, AnswerValue> } | null = null
         for (let iter = 0; iter < 24; iter++) {
           const res = computeVisitScores(questions, secs, visitAnswers, kpiConfig, thresholds)
@@ -601,8 +630,10 @@ export function generateDataset(): Dataset {
             const tag = tags.get(q.id)
             if (tag && forced.has(tag)) return false
             if (a.na || q.critical) return false
+            // Informational, timing and gating answers are KPIs or switches, not levers.
+            if (q.weight === 0 || q.timingRole || q.condition) return false
             if (q.type === 'rating_5' || q.type === 'rating_10') return diff > 0 ? Number(a.value) < (q.type === 'rating_5' ? 5 : 10) : Number(a.value) > 1
-            if (big && (q.type === 'yes_no' || q.type === 'pass_fail') && q.weight <= 2) return diff > 0 ? a.value === false : a.value === true
+            if (big && (q.type === 'yes_no' || q.type === 'pass_fail') && q.weight <= flipWeightMax) return diff > 0 ? a.value === false : a.value === true
             return false
           })
           if (!adjustable.length) break
@@ -676,11 +707,16 @@ export function generateDataset(): Dataset {
         visit.categoryScores = res.categoryScores ? Object.fromEntries(CATEGORY_KEYS.map((k) => [k, Math.round(res.categoryScores![k] * 10) / 10])) as CategoryScores : null
         visit.risk = res.risk === 'Not Assessed' ? null : res.risk
         visit.criticalCount = res.criticalFailures.length
+        visit.stageScores = roundScoreMap(res.stageScores)
+        visit.kpiScores = roundScoreMap(res.kpiScores)
         visit.narrative = mkNarrative(rng, o, visitAnswers, qMap2, tags, isStory && plan.type === 'Main Audit 2', isStory && plan.type === 'Follow-up 2')
+        if (isStory && plan.type === 'Main Audit 2') STORYLINE.mainAuditScore = visit.score
+        if (isStory && plan.type === 'Follow-up 2') STORYLINE.followUpScore = visit.score
 
         // ── Findings ──
+        // Weight-0 answers (CSAT, NPS, gating questions) are information, not standards.
         const failedAnswers = visitAnswers
-          .filter((a) => a.score !== null && a.score < 0.5 && !a.na)
+          .filter((a) => a.score !== null && a.score < 0.5 && !a.na && (qMap2.get(a.questionId)?.weight ?? 0) > 0)
           .map((a) => ({ a, q: qMap2.get(a.questionId)! }))
           .sort((x, y) => Number(y.q.critical) - Number(x.q.critical) || y.q.weight - x.q.weight || (x.a.score ?? 0) - (y.a.score ?? 0))
         const isRecent = plan.type === 'Follow-up 2' || (plan.type === 'Main Audit 2' && (plan.status !== 'Approved' || plan.visit!.getTime() >= new Date(2026, 5, 1).getTime()))
@@ -1065,19 +1101,34 @@ export function generateDataset(): Dataset {
   const segmentsPresent = Array.from(new Set(outletsBase.map((o) => o.segment)))
   const estateLabel = segmentsPresent.length > 1 ? 'F&B and entertainment' : segmentsPresent[0] === 'F&B' ? 'food & beverage' : 'entertainment'
   const allOutlets = `All ${outletCount} outlets`
+  // Figures quoted in the summaries come from the visits above, so they hold for any portfolio.
+  const cycleAvg = (type: VisitType) => {
+    const scores = visits.filter((v) => v.type === type && v.score !== null).map((v) => v.score!)
+    return scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0
+  }
+  const ma1Avg = cycleAvg('Main Audit 1')
+  const ma2Avg = cycleAvg('Main Audit 2')
+  const fu1Gain = cycleAvg('Follow-up 1') - ma1Avg
+  const ma2Approved = visits.filter((v) => v.type === 'Main Audit 2' && (v.status === 'Approved' || v.status === 'Closed')).length
+  const ma2VisitIds = new Set(visits.filter((v) => v.type === 'Main Audit 2').map((v) => v.id))
+  const ma2Critical = findings.filter((f) => f.severity === 'Critical' && ma2VisitIds.has(f.visitId)).length
+  const ma2Below70 = visits.filter((v) => v.type === 'Main Audit 2' && v.score !== null && v.score < 70).length
+  const fu2Submitted = visits.filter((v) => v.type === 'Follow-up 2' && (v.status === 'Submitted' || v.status === 'Under Review')).length
+  const fu2InProgress = visits.filter((v) => v.type === 'Follow-up 2' && (v.status === 'In Progress' || v.status === 'Draft')).length
+  const countWord = (n: number) => ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'][n] ?? String(n)
 
   const reports: ManagementReport[] = [
-    { id: 'rep-001', code: 'RPT-2026-001', title: 'Main Audit 1 — Portfolio Report', type: 'Main Audit Report', period: 'Oct – Dec 2025', generatedAt: '2026-01-12T10:00:00', generatedBy: 'Omar Saleh', status: 'Published', scope: allOutlets, outletIds: [], summary: `Baseline assessment across ${outletCount} ${estateLabel} outlets. Portfolio average 83.2%; upselling and service speed identified as primary gaps.`, pages: 46 },
-    { id: 'rep-002', code: 'RPT-2026-002', title: 'Follow-up 1 — Summary Report', type: 'Follow-up Report', period: 'Jan – Mar 2026', generatedAt: '2026-04-09T14:30:00', generatedBy: 'Omar Saleh', status: 'Published', scope: allOutlets, outletIds: [], summary: 'Verification of corrective actions raised at Main Audit 1. 78% of actions verified effective; average score improved 2.1 points.', pages: 28 },
+    { id: 'rep-001', code: 'RPT-2026-001', title: 'Main Audit 1 — Portfolio Report', type: 'Main Audit Report', period: 'Oct – Dec 2025', generatedAt: '2026-01-12T10:00:00', generatedBy: 'Omar Saleh', status: 'Published', scope: allOutlets, outletIds: [], summary: `Baseline assessment across ${outletCount} ${estateLabel} outlets. Portfolio average ${ma1Avg.toFixed(1)}%; upselling and service speed identified as primary gaps.`, pages: 46 },
+    { id: 'rep-002', code: 'RPT-2026-002', title: 'Follow-up 1 — Summary Report', type: 'Follow-up Report', period: 'Jan – Mar 2026', generatedAt: '2026-04-09T14:30:00', generatedBy: 'Omar Saleh', status: 'Published', scope: allOutlets, outletIds: [], summary: `Verification of corrective actions raised at Main Audit 1. 78% of actions verified effective; average score ${fu1Gain >= 0 ? 'improved' : 'fell'} ${Math.abs(fu1Gain).toFixed(1)} points.`, pages: 28 },
     { id: 'rep-003', code: 'RPT-2026-003', title: 'Q1 2026 Quarterly Performance', type: 'Quarterly Performance', period: 'Jan – Mar 2026', generatedAt: '2026-04-15T09:00:00', generatedBy: 'Priya Nair', status: 'Published', scope: 'All brands', outletIds: [], summary: 'Quarterly KPI performance, brand ranking and trend analysis.', pages: 22 },
     { id: 'rep-004', code: 'RPT-2026-004', title: 'Q2 2026 Quarterly Performance', type: 'Quarterly Performance', period: 'Apr – Jun 2026', generatedAt: '2026-07-10T09:00:00', generatedBy: 'Priya Nair', status: 'Published', scope: 'All brands', outletIds: [], summary: 'Quarterly KPI performance, brand ranking and trend analysis.', pages: 24 },
-    { id: 'rep-005', code: 'RPT-2026-005', title: 'Main Audit 2 — Portfolio Report', type: 'Main Audit Report', period: 'Apr – Aug 2026', generatedAt: '2026-08-28T16:45:00', generatedBy: 'Omar Saleh', status: 'Final', scope: '46 approved visits', outletIds: [], summary: 'Second main audit cycle. Portfolio average 87.4%; 7 critical findings escalated; three outlets below 70%.', pages: 52 },
+    { id: 'rep-005', code: 'RPT-2026-005', title: 'Main Audit 2 — Portfolio Report', type: 'Main Audit Report', period: 'Apr – Aug 2026', generatedAt: '2026-08-28T16:45:00', generatedBy: 'Omar Saleh', status: 'Final', scope: `${ma2Approved} approved visits`, outletIds: [], summary: `Second main audit cycle. Portfolio average ${ma2Avg.toFixed(1)}%; ${ma2Critical} critical finding${ma2Critical === 1 ? '' : 's'} escalated; ${countWord(ma2Below70)} outlet${ma2Below70 === 1 ? '' : 's'} below 70%.`, pages: 52 },
     { id: 'rep-006', code: 'RPT-2026-006', title: 'Risk & Compliance Review — August 2026', type: 'Risk & Compliance', period: 'Aug 2026', generatedAt: '2026-09-02T11:15:00', generatedBy: 'Fatima Al-Kuwari', status: 'Final', scope: 'All outlets', outletIds: [], summary: 'Critical and high-risk findings, escalation SLA performance and safety compliance by segment.', pages: 18 },
     { id: 'rep-007', code: 'RPT-2026-007', title: 'Corrective Action Status — September 2026', type: 'Corrective Action', period: 'Sep 2026', generatedAt: '2026-09-11T08:20:00', generatedBy: 'Fatima Al-Kuwari', status: 'Final', scope: 'Open & closed actions', outletIds: [], summary: 'CAPA closure rate 82%, overdue actions by outlet and owner, verification backlog.', pages: 14 },
     { id: 'rep-008', code: 'RPT-2026-008', title: `Outlet Performance — ${storylineOutlet.name}`, type: 'Outlet Performance', period: 'Oct 2025 – Sep 2026', generatedAt: '2026-09-10T13:00:00', generatedBy: 'Rajesh Menon', status: 'Draft', scope: storylineOutlet.name, outletIds: [storylineOutlet.id], summary: 'Main Audit 2 critical finding, corrective action progress and Follow-up 2 verification (pending approval).', pages: 12 },
     { id: 'rep-009', code: 'RPT-2026-009', title: '12-Month Trend Analysis', type: 'Trend Analysis', period: 'Oct 2025 – Sep 2026', generatedAt: '2026-09-12T10:30:00', generatedBy: 'Priya Nair', status: 'Final', scope: 'All outlets', outletIds: [], summary: 'Monthly KPI trends, improvement after corrective actions, F&B vs Entertainment comparison.', pages: 20 },
     { id: 'rep-010', code: 'RPT-2026-010', title: 'Executive Summary — September 2026', type: 'Executive Summary', period: 'Sep 2026', generatedAt: '2026-09-13T08:00:00', generatedBy: 'Omar Saleh', status: 'Draft', scope: 'Board pack', outletIds: [], summary: 'Organisation health, top and bottom outlets, critical risks, corrective action status and recommendations.', pages: 8 },
-    { id: 'rep-011', code: 'RPT-2026-011', title: 'Follow-up 2 — Interim Summary', type: 'Follow-up Report', period: 'Sep – Nov 2026', generatedAt: '2026-09-13T09:30:00', generatedBy: 'Omar Saleh', status: 'Draft', scope: 'In-progress cycle', outletIds: [], summary: 'Early verification results from the second follow-up cycle (4 submitted, 12 in progress).', pages: 6 },
+    { id: 'rep-011', code: 'RPT-2026-011', title: 'Follow-up 2 — Interim Summary', type: 'Follow-up Report', period: 'Sep – Nov 2026', generatedAt: '2026-09-13T09:30:00', generatedBy: 'Omar Saleh', status: 'Draft', scope: 'In-progress cycle', outletIds: [], summary: `Early verification results from the second follow-up cycle (${fu2Submitted} submitted, ${fu2InProgress} in progress).`, pages: 6 },
   ]
 
   const outlets = deriveOutlets(outletsBase, visits, findings, thresholds)
@@ -1263,7 +1314,7 @@ function mkComment(q: Question, value: AnswerValue, na: boolean, tag: string | u
     if (tag === 'upsell' || tag === 'cross_sell') return 'No upselling or cross-selling attempt was made during the order.'
     if (tag === 'cleanliness') return 'Table showed visible residue; not wiped before seating.'
     if (tag === 'washroom') return 'Washroom lacked hand soap and floor was wet without signage.'
-    if (tag === 'time_receive') return `Order received after ${value} minutes, above the 15-minute standard.`
+    if (tag === 'time_receive') return `Order received after ${value} minutes, above the ${q.threshold ?? 15}-minute standard.`
     if (tag === 'time_queue') return `Queue waited ${value} minutes with no acknowledgement or wait-time communication.`
     if (tag === 'billing') return 'Receipt included an item that was not ordered (overcharge). Corrected only after being raised.'
     if (tag === 'safety_briefing') return 'No safety briefing delivered before the activity started; guests were directed straight to the equipment.'

@@ -3,10 +3,16 @@ import type { ClientProfile } from './types'
 /**
  * Sterling Catering Services — Qatar.
  *
- * The original demonstration tenant: a mixed food & beverage and entertainment
- * portfolio of 50 outlets across Doha, Lusail and the wider country. Every brand,
- * outlet and person below is fictional; only the client name and mark are real,
- * and those appear on the demonstration site alone.
+ * The original demonstration tenant, now assessed by service sequence: three
+ * restaurant concepts, each on the sequence template for its service model.
+ *
+ *   Shebestan Palace  — full-service Persian dining      → FSR_DINE_IN
+ *   Bennigan's        — casual dining                    → CASUAL_DINING
+ *   Pizza Hut         — quick service, counter order     → QSR_COUNTER_ORDER
+ *
+ * The first location of each brand is the real site named in the brief; the
+ * others are illustrative Qatar locations. Every person below is fictional, and
+ * the client name and marks appear on the demonstration site alone.
  */
 export const sterling: ClientProfile = {
   id: 'sterling',
@@ -17,14 +23,16 @@ export const sterling: ClientProfile = {
     logoFile: 'brands/sterling/logo.png',
     markFile: 'brands/sterling/mark.png',
     logoAlt: 'Sterling Catering Services',
-    descriptor: 'Food & beverage and entertainment portfolio',
-    estate: 'food & beverage and entertainment outlets',
+    descriptor: 'Full-service, casual-dining and quick-service restaurants',
+    estate: 'full-service, casual-dining and quick-service restaurants',
   },
 
+  // Matches the seeded dataset: 16 restaurants x 4 visits a year, 48 completed by
+  // the storyline date. Verified with `npm run check:seed`, not guessed.
   snapshot: {
-    outlets: 50,
-    plannedVisits: 200,
-    completedVisits: 146,
+    outlets: 16,
+    plannedVisits: 64,
+    completedVisits: 48,
     visitsPerOutlet: 4,
     trend: [82.6, 84.7, 82.4, 86.7, 84.5, 84.6, 85.4, 89.0, 89.2, 86.4, 85.2, 86.3],
   },
@@ -49,27 +57,31 @@ export const sterling: ClientProfile = {
 
   portfolio: {
     brands: [
-  { id: 'br-01', name: 'Harbour Kitchen', segment: 'F&B', subcategory: 'Fine Dining', locations: ['The Pearl', 'West Bay', 'Lusail Marina'] },
-  { id: 'br-02', name: 'Olive & Ember', segment: 'F&B', subcategory: 'Fine Dining', locations: ['Msheireb', 'Katara'] },
-  { id: 'br-03', name: 'The Terrace Café', segment: 'F&B', subcategory: 'Café', locations: ['Corniche', 'Education City', 'Al Sadd', 'Festival Mall'] },
-  { id: 'br-04', name: 'Urban Fork', segment: 'F&B', subcategory: 'Casual Dining', locations: ['Lusail Boulevard', 'Al Wakrah', 'Villaggio Mall', 'Al Khor'] },
-  { id: 'br-05', name: 'Palm Kitchen', segment: 'F&B', subcategory: 'Casual Dining', locations: ['Souq District', 'Bin Mahmoud', 'Al Rayyan'] },
-  { id: 'br-06', name: 'Cedar Table', segment: 'F&B', subcategory: 'Casual Dining', locations: ['West Bay', 'The Pearl'] },
-  { id: 'br-07', name: 'Saffron Lane', segment: 'F&B', subcategory: 'Fast Casual', locations: ['City Centre Mall', 'Mall of Qatar', 'Al Gharrafa', 'Old Airport'] },
-  { id: 'br-08', name: 'Marina Grill', segment: 'F&B', subcategory: 'Casual Dining', locations: ['Lusail Marina', 'Al Wakrah Corniche'] },
-  { id: 'br-09', name: 'The Courtyard', segment: 'F&B', subcategory: 'Food Court', locations: ['Mall of Qatar', 'Doha Festival City', 'Place Vendôme'] },
-  { id: 'br-10', name: 'Brew District', segment: 'F&B', subcategory: 'Café', locations: ['Msheireb', 'Lusail Boulevard', 'Al Dafna'] },
-  { id: 'br-11', name: 'Adventure Zone', segment: 'Entertainment', subcategory: 'Indoor Entertainment', locations: ['Mall of Qatar', 'Doha Festival City', 'Al Wakrah'] },
-  { id: 'br-12', name: 'Pixel Arena', segment: 'Entertainment', subcategory: 'Indoor Entertainment', locations: ['Lusail Boulevard', 'City Centre Mall'] },
-  { id: 'br-13', name: 'Skyline Cinema', segment: 'Entertainment', subcategory: 'Cinema', locations: ['The Pearl', 'Villaggio Mall', 'Place Vendôme'] },
-  { id: 'br-14', name: 'Wonder Park', segment: 'Entertainment', subcategory: 'Attraction', locations: ['Lusail', 'Al Khor'] },
-  { id: 'br-15', name: 'Velocity Karting', segment: 'Entertainment', subcategory: 'Recreation', locations: ['Lusail', 'Industrial Area'] },
-  { id: 'br-16', name: 'PlaySphere', segment: 'Entertainment', subcategory: 'Family Entertainment', locations: ['Doha Festival City', 'Al Rayyan'] },
-  { id: 'br-17', name: 'Quest Rooms', segment: 'Entertainment', subcategory: 'Indoor Entertainment', locations: ['Msheireb', 'The Pearl'] },
-  { id: 'br-18', name: 'Jump District', segment: 'Entertainment', subcategory: 'Recreation', locations: ['Al Gharrafa', 'Al Wakrah'] },
-  { id: 'br-19', name: 'Galaxy Bowling', segment: 'Entertainment', subcategory: 'Recreation', locations: ['Al Sadd'] },
-  { id: 'br-20', name: 'Family Fun Hub', segment: 'Entertainment', subcategory: 'Family Entertainment', locations: ['Doha Festival City'] },
-],
+      {
+        id: 'br-01',
+        name: 'Shebestan Palace',
+        segment: 'F&B',
+        subcategory: 'Fine Dining',
+        templateCode: 'FSR_DINE_IN',
+        locations: ['Al Sadd', 'The Pearl', 'Lusail Marina'],
+      },
+      {
+        id: 'br-02',
+        name: "Bennigan's",
+        segment: 'F&B',
+        subcategory: 'Casual Dining',
+        templateCode: 'CASUAL_DINING',
+        locations: ['Qatar Tennis Federation', 'West Bay', 'Al Wakrah', 'Al Rayyan'],
+      },
+      {
+        id: 'br-03',
+        name: 'Pizza Hut',
+        segment: 'F&B',
+        subcategory: 'Fast Casual',
+        templateCode: 'QSR_COUNTER_ORDER',
+        locations: ['Doha Festival City Mall', 'Villaggio Mall', 'Mall of Qatar', 'City Centre Mall', 'Al Khor', 'Al Gharrafa', 'Lusail Boulevard', 'Old Airport', 'Msheireb'],
+      },
+    ],
 
     regionByLocation: {
   'The Pearl': 'West Bay & Pearl',
@@ -97,6 +109,8 @@ export const sterling: ClientProfile = {
   'City Centre Mall': 'West Bay & Pearl',
   'Festival Mall': 'Central Doha',
   'Doha Festival City': 'North',
+  'Doha Festival City Mall': 'North',
+  'Qatar Tennis Federation': 'West Bay & Pearl',
   'Place Vendôme': 'Lusail',
 },
 
@@ -127,11 +141,13 @@ export const sterling: ClientProfile = {
   'City Centre Mall': [64, 38],
   'Festival Mall': [50, 62],
   'Doha Festival City': [46, 24],
+  'Doha Festival City Mall': [46, 24],
+  'Qatar Tennis Federation': [60, 44],
   'Place Vendôme': [60, 20],
 },
 
-    /** Urban Fork – Al Wakrah: the outlet that fails, escalates and recovers. */
-    storylineKey: 'br-04:Al Wakrah',
+    /** Shebestan Palace – Al Sadd: the restaurant that fails, escalates and recovers. */
+    storylineKey: 'br-01:Al Sadd',
   },
 
   people: {

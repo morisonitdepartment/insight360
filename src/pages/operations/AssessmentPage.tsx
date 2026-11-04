@@ -12,7 +12,8 @@ import { ProgressBar } from '@/components/ui/Misc'
 import { EmptyState } from '@/components/ui/States'
 import { EvidenceVisual } from '@/components/ui/EvidenceThumb'
 import { addEvidence, getVisitQuestions, getVisitSections, saveDraft, startVisit, submitVisit } from '@/services/actions'
-import { computeVisitScores, isQuestionAnswered, scoreQuestion } from '@/utils/scoring'
+import { computeVisitScores, isQuestionAnswered, scoreQuestion, visibleQuestions } from '@/utils/scoring'
+import { timingChainText } from '@/utils/sequence'
 import { fmtDateTime } from '@/utils/format'
 import type { AnswerValue, Question, VisitAnswer } from '@/types'
 import { cn } from '@/utils/cn'
@@ -42,11 +43,6 @@ export default function AssessmentPage() {
 
   const sections = useMemo(() => (visit ? getVisitSections(data, visit) : []), [data, visit])
   const questions = useMemo(() => (visit ? getVisitQuestions(data, visit) : []), [data, visit])
-  const questionsBySection = useMemo(() => {
-    const m = new Map<string, Question[]>()
-    for (const q of questions) m.set(q.sectionId, [...(m.get(q.sectionId) ?? []), q])
-    return m
-  }, [questions])
 
   const [answers, setAnswers] = useState<Record<string, VisitAnswer>>({})
   const [step, setStep] = useState(0)
@@ -74,6 +70,14 @@ export default function AssessmentPage() {
   const ownVisit = !!visit && (role !== 'shopper' || visit.shopperId === user?.shopperId)
 
   const answerList = useMemo(() => Object.values(answers), [answers])
+  // Gated questions appear only once their parent has the gating answer, so the
+  // stepper, the validation and the live score all see the same questionnaire.
+  const visible = useMemo(() => visibleQuestions(questions, answerList), [questions, answerList])
+  const questionsBySection = useMemo(() => {
+    const m = new Map<string, Question[]>()
+    for (const q of visible) m.set(q.sectionId, [...(m.get(q.sectionId) ?? []), q])
+    return m
+  }, [visible])
   const result = useMemo(() => computeVisitScores(questions, sections, answerList, data.kpiConfig, data.thresholds), [questions, sections, answerList, data.kpiConfig, data.thresholds])
 
   const setAnswer = useCallback(
@@ -107,7 +111,7 @@ export default function AssessmentPage() {
 
   const validate = () => {
     const issues: { q: Question; reason: string }[] = []
-    for (const q of questions) {
+    for (const q of visible) {
       const a = answers[q.id]
       const scorable = q.weight > 0 && q.type !== 'text' && q.type !== 'photo' && q.type !== 'video'
       if (a?.na && q.allowNA) continue
@@ -170,6 +174,7 @@ export default function AssessmentPage() {
   const sectionQuestions = section ? (questionsBySection.get(section.id) ?? []) : []
   const sectionAnswered = sectionQuestions.filter((q) => isQuestionAnswered(q, answers[q.id])).length
   const template = data.templates.find((t) => t.id === visit.templateId)
+  const timingSummary = timingChainText(template?.sequence?.timingChain, result.kpiScores)
 
   return (
     <div className="mx-auto max-w-3xl pb-28">
@@ -275,8 +280,13 @@ export default function AssessmentPage() {
       {section && (
         <section className="mt-4" aria-labelledby="section-title">
           <div className="mb-3">
-            <h2 id="section-title" className="text-base font-semibold text-slate-900 dark:text-white">
-              Section {section.code} · {section.title}
+            <h2 id="section-title" className="flex flex-wrap items-center gap-2 text-base font-semibold text-slate-900 dark:text-white">
+              {section.stageWeight !== undefined ? `Stage ${step + 1} · ${section.title}` : `Section ${section.code} · ${section.title}`}
+              {section.stageWeight !== undefined && (
+                <Badge tone={section.stageWeight === 0 ? 'slate' : 'teal'} size="xs">
+                  {section.stageWeight === 0 ? 'unweighted' : `weight ${section.stageWeight}%`}
+                </Badge>
+              )}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">{section.description} · {sectionAnswered}/{sectionQuestions.length} answered</p>
           </div>
@@ -303,6 +313,7 @@ export default function AssessmentPage() {
           <span className="ml-auto text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
             Section {step + 1} of {sections.length}
             {role !== 'shopper' && result.overall !== null && <span className="ml-2 font-semibold text-slate-700 dark:text-slate-200">· Live score {result.overall.toFixed(1)}%</span>}
+            {timingSummary && <span className="ml-2 inline-flex items-center gap-1 tabular-nums"><Clock className="h-3 w-3" aria-hidden /> {timingSummary}</span>}
             {result.criticalFailures.length > 0 && <span className="ml-2 inline-flex items-center gap-1 font-semibold text-red-600"><AlertOctagon className="h-3 w-3" /> {result.criticalFailures.length} critical</span>}
           </span>
           {step < sections.length - 1 ? (

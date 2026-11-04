@@ -13,7 +13,8 @@
     "deploy": "gh-pages -d dist -t true",
     "check:rls": "node scripts/check-rls.mjs",
     "check:roles": "node scripts/check-role-scoping.mjs",
-    "check:spa": "node scripts/test-spa-fallback.mjs"
+    "check:spa": "node scripts/test-spa-fallback.mjs",
+    "check:seed": "node scripts/run-check-seed.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

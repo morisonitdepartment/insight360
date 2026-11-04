@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowDownRight, ArrowUpRight, ClipboardList, Download, GitCompare, MapPin, Minus, Trophy } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { ArrowDownRight, ArrowUpRight, ClipboardList, Download, FileText, GitCompare, MapPin, Minus, Trophy } from 'lucide-react'
 import { useData } from '@/contexts/DataContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { useDocumentTitle, useNow } from '@/hooks'
@@ -17,6 +18,7 @@ import { logExport } from '@/services/actions'
 import { CATEGORY_KEYS, CATEGORY_LABELS, CATEGORY_SHORT } from '@/utils/scoring'
 import { stageRows } from '@/utils/sequence'
 import { exportCsv } from '@/utils/export'
+import { exportOutletReportPdf } from '@/services/reportPdf'
 import { fmtDate, fmtDelta, fmtPct, round } from '@/utils/format'
 import type { Evidence } from '@/types'
 import { cn } from '@/utils/cn'
@@ -78,6 +80,29 @@ export default function OutletDetailPage() {
   const sequenceTemplate = latestCompleted ? data.templates.find((t) => t.id === latestCompleted.templateId && t.sequence) : undefined
   const stages = sequenceTemplate && latestCompleted ? stageRows(data.sections.filter((x) => x.templateId === sequenceTemplate.id), data.questions, latestCompleted.stageScores) : []
 
+  const exportPdf = async () => {
+    const t = toast.loading('Building report…')
+    try {
+      await exportOutletReportPdf({
+        outlet,
+        history,
+        findings,
+        actions,
+        kpiConfig: data.kpiConfig,
+        template: sequenceTemplate,
+        sections: sequenceTemplate ? data.sections.filter((x) => x.templateId === sequenceTemplate.id) : [],
+        questions: data.questions,
+        latestCompleted,
+        rankOf: authorizedOutlets.filter((o) => o.overallScore !== null).length,
+        percentile: pct,
+      })
+      await dispatch((d, ctx) => logExport(d, ctx, outlet.code, 'PDF'))
+      toast.success('PDF downloaded', { id: t })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'PDF export failed', { id: t })
+    }
+  }
+
   const exportOutlet = () => {
     exportCsv(
       history.map((v) => ({ Visit: v.code, Type: v.type, Status: v.status, 'Visit date': v.visitDate ?? '', Score: v.score ?? '', Risk: v.risk ?? '', ...Object.fromEntries(CATEGORY_KEYS.map((k) => [CATEGORY_LABELS[k], v.categoryScores?.[k] ?? ''])) })),
@@ -111,9 +136,14 @@ export default function OutletDetailPage() {
               </Link>
             )}
             {can('reports.export') && (
-              <button type="button" className="btn-primary" onClick={exportOutlet}>
-                <Download className="h-4 w-4" /> Export
-              </button>
+              <>
+                <button type="button" className="btn-secondary" onClick={exportOutlet}>
+                  <Download className="h-4 w-4" /> Export CSV
+                </button>
+                <button type="button" className="btn-primary" onClick={() => void exportPdf()}>
+                  <FileText className="h-4 w-4" /> Download PDF
+                </button>
+              </>
             )}
           </>
         }

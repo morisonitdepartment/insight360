@@ -58,49 +58,14 @@ export function exportJson(data: unknown, filename: string): void {
  * Renders a DOM element to a multi-page A4 PDF. Uses html2canvas + jsPDF loaded on demand so
  * they never affect initial bundle size.
  */
-export async function exportElementToPdf(element: HTMLElement, filename: string): Promise<void> {
-  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')])
-  const isDark = document.documentElement.classList.contains('dark')
-  if (isDark) document.documentElement.classList.remove('dark')
-  try {
-    const canvas = await html2canvas(element, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: '#ffffff',
-      logging: false,
-      windowWidth: Math.max(element.scrollWidth, 900),
-    })
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-    const pageWidth = pdf.internal.pageSize.getWidth()
-    const pageHeight = pdf.internal.pageSize.getHeight()
-    const margin = 8
-    const imgWidth = pageWidth - margin * 2
-    const pxPerMm = canvas.width / imgWidth
-    const pageHeightPx = Math.floor((pageHeight - margin * 2) * pxPerMm)
-
-    let offset = 0
-    let first = true
-    while (offset < canvas.height) {
-      const sliceHeight = Math.min(pageHeightPx, canvas.height - offset)
-      const slice = document.createElement('canvas')
-      slice.width = canvas.width
-      slice.height = sliceHeight
-      const ctx = slice.getContext('2d')
-      if (!ctx) break
-      ctx.fillStyle = '#ffffff'
-      ctx.fillRect(0, 0, slice.width, slice.height)
-      ctx.drawImage(canvas, 0, offset, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight)
-      if (!first) pdf.addPage()
-      pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgWidth, sliceHeight / pxPerMm)
-      first = false
-      offset += sliceHeight
-    }
-    pdf.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`)
-  } finally {
-    if (isDark) document.documentElement.classList.add('dark')
-  }
-}
-
+/**
+ * Reports are built as documents, not photographed.
+ *
+ * The screenshot exporter that used to live here rendered the page with
+ * html2canvas and sliced the bitmap across A4 pages: unsearchable text, tables
+ * cut mid-row, and megabytes per report. See `src/utils/pdf.ts` and
+ * `src/services/reportPdf.ts` for what replaced it.
+ */
 export function printPage(): void {
   window.print()
 }

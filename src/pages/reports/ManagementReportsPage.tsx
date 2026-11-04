@@ -18,7 +18,8 @@ import { Badge, StatusBadge, type Tone } from '@/components/ui/Badge'
 import { AutomatedLabel } from '@/components/ui/Misc'
 import { Input } from '@/components/ui/Form'
 import { TrendChart, CHART_COLORS, SERIES_COLORS } from '@/components/charts'
-import { exportCsv, exportElementToPdf, printPage } from '@/utils/export'
+import { exportCsv, printPage } from '@/utils/export'
+import { exportSummaryPdf } from '@/services/reportPdf'
 import { avg, fmtDate, fmtDateTime, fmtDelta, fmtPct, round, toDate } from '@/utils/format'
 import { cn } from '@/utils/cn'
 import { T, countOutlets, displayTerm } from '@/config/terms'
@@ -774,11 +775,32 @@ export default function ManagementReportsPage() {
 
   // Actions
   const downloadPdf = useCallback(async () => {
-    if (!previewRef.current || !selected) return
+    if (!selected || !model) return
     setExporting(true)
-    const t = toast.loading('Rendering PDF…')
+    const t = toast.loading('Building report…')
     try {
-      await exportElementToPdf(previewRef.current, `${selected.code}-${slug(selected.title)}`)
+      await exportSummaryPdf({
+        eyebrow: displayTerm(selected.type),
+        title: selected.title,
+        subtitle: `${selected.period} · ${selected.scope} · prepared by ${selected.generatedBy}`,
+        meta: [
+          { label: 'Report number', value: selected.code },
+          { label: 'Report type', value: displayTerm(selected.type) },
+          { label: 'Period', value: selected.period },
+          { label: 'Status', value: selected.status },
+          { label: 'Generated', value: fmtDateTime(selected.generatedAt) },
+          { label: 'Prepared by', value: selected.generatedBy },
+          { label: 'Portfolio score', value: fmtPct(model.portfolioScore) },
+          { label: 'Open critical', value: String(model.kpi.criticalIssues) },
+        ],
+        summary: selected.summary,
+        sections: [
+          ...(model.insights.length ? [{ heading: 'Automated insights', bullets: model.insights.slice(0, 8).map((x) => x.text) }] : []),
+          ...(model.recommendations.length ? [{ heading: 'Recommendations', bullets: model.recommendations }] : []),
+        ],
+        outlets: model.ranked,
+        filename: `${selected.code}-${slug(selected.title)}.pdf`,
+      })
       await dispatch((d, ctx) => logExport(d, ctx, `${selected.code} · ${selected.title}`, 'PDF'))
       toast.success('PDF downloaded', { id: t })
     } catch (err) {
@@ -786,7 +808,7 @@ export default function ManagementReportsPage() {
     } finally {
       setExporting(false)
     }
-  }, [selected, dispatch])
+  }, [selected, model, dispatch])
 
   const print = useCallback(async () => {
     if (!selected) return

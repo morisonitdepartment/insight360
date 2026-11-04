@@ -17,7 +17,8 @@ import { CLIENT_BRAND } from '@/config/client'
 import { approveVisit, getVisitQuestions, getVisitSections, logExport, rejectVisit, startReview } from '@/services/actions'
 import { CATEGORY_KEYS, CATEGORY_LABELS, CATEGORY_SHORT, computeVisitScores, visibleQuestions } from '@/utils/scoring'
 import { KPI_KIND_LABEL, formatKpiValue, stageRows, timingChainText } from '@/utils/sequence'
-import { exportCsv, exportElementToPdf, printPage } from '@/utils/export'
+import { exportCsv, printPage } from '@/utils/export'
+import { exportVisitReportPdf } from '@/services/reportPdf'
 import { fmtDate, fmtDateTime, fmtPct, hoursBetween } from '@/utils/format'
 import type { AnswerValue, Evidence, Question } from '@/types'
 import { cn } from '@/utils/cn'
@@ -124,10 +125,26 @@ export default function VisitReportPage() {
   }
 
   const exportPdf = async () => {
-    if (!printRef.current) return
-    const t = toast.loading('Rendering PDF…')
+    const t = toast.loading('Building report…')
     try {
-      await exportElementToPdf(printRef.current, `${visit.code}-visit-report.pdf`)
+      await exportVisitReportPdf({
+        visit,
+        outlet,
+        shopper,
+        scenario,
+        template,
+        sections,
+        questions,
+        answerMap,
+        askedIds: asked,
+        kpiConfig: data.kpiConfig,
+        sectionScores: result.sectionScores,
+        findings,
+        capas,
+        summary,
+        reviewerName: data.users.find((u) => u.id === visit.reviewerId)?.name ?? 'Pending',
+        turnaround,
+      })
       await dispatch((d, ctx) => logExport(d, ctx, visit.code, 'PDF'))
       toast.success('PDF downloaded', { id: t })
     } catch (e) {

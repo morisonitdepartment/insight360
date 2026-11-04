@@ -19,7 +19,8 @@ import { Checkbox, Field, Input, Select, Toggle } from '@/components/ui/Form'
 import { EvidenceCard } from '@/components/ui/EvidenceThumb'
 import { AutomatedLabel } from '@/components/ui/Misc'
 import { TrendChart, CHART_COLORS, SERIES_COLORS } from '@/components/charts'
-import { exportCsv, exportElementToPdf, printPage } from '@/utils/export'
+import { exportCsv, printPage } from '@/utils/export'
+import { exportSummaryPdf } from '@/services/reportPdf'
 import { avg, fmtDate, fmtDateTime, fmtDelta, fmtPct, SEVERITY_ORDER } from '@/utils/format'
 import { cn } from '@/utils/cn'
 import { T, displayTerm } from '@/config/terms'
@@ -303,11 +304,28 @@ export default function ReportBuilderPage() {
   }
 
   const downloadPdf = async () => {
-    if (!previewRef.current) return
     setExporting(true)
-    const t = toast.loading('Rendering PDF…')
+    const t = toast.loading('Building report…')
     try {
-      await exportElementToPdf(previewRef.current, `${slug(title) || 'custom-report'}-${format(now, 'yyyyMMdd')}`)
+      await exportSummaryPdf({
+        eyebrow: displayTerm(type),
+        title: title.trim() || 'Untitled report',
+        subtitle: `${periodLabel} · ${scopeLabel}`,
+        meta: [
+          { label: 'Report type', value: displayTerm(type) },
+          { label: 'Period', value: periodLabel },
+          { label: 'Scope', value: scopeLabel },
+          { label: 'Portfolio score', value: fmtPct(kpi.overall) },
+          { label: 'Scored visits', value: String(scoredVisits.length) },
+          { label: 'Open critical', value: String(kpi.criticalIssues) },
+          { label: 'Overdue actions', value: String(overdueCapas.length) },
+          { label: 'Generated', value: fmtDateTime(now.toISOString()) },
+        ],
+        summary: summaryText,
+        sections: [{ heading: 'Recommendations', bullets: recommendations }],
+        outlets: filteredOutlets,
+        filename: `${slug(title) || 'custom-report'}-${format(now, 'yyyyMMdd')}.pdf`,
+      })
       await dispatch((d, ctx) => logExport(d, ctx, `Report builder · ${title.trim() || 'Untitled'}`, 'PDF'))
       toast.success('PDF downloaded', { id: t })
     } catch (err) {

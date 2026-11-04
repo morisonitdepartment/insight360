@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { Download, GitCompareArrows, Search, X } from 'lucide-react'
+import { ChevronDown, Download, FileText, GitCompareArrows, ListChecks, Search, X } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useData } from '@/contexts/DataContext'
 import { useDocumentTitle } from '@/hooks'
@@ -11,6 +11,7 @@ import type { CategoryKey, Outlet } from '@/types'
 import { CATEGORY_KEYS, CATEGORY_LABELS, CATEGORY_SHORT } from '@/utils/scoring'
 import { round } from '@/utils/format'
 import { exportCsv, type ExportRow } from '@/utils/export'
+import { exportComparePdf } from '@/services/reportPdf'
 import { cn } from '@/utils/cn'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { RiskBadge, ScoreBadge, SegmentBadge } from '@/components/ui/Badge'
@@ -50,6 +51,18 @@ export default function ComparePage() {
     const valid = new Set(scopedOutlets.map((o) => o.id))
     return ids.filter((id) => valid.has(id)).slice(0, MAX_SELECT)
   })
+  /**
+   * Whether the picker is open.
+   *
+   * The checklist is a scrollable box holding every authorised site, and it sits
+   * between the selection and the comparison it produces. Left open it swallowed
+   * the wheel: a reader who had just ticked two boxes, with the pointer still
+   * over the list, scrolled the list rather than the page and concluded the page
+   * would not scroll. Arriving with a selection — from the Compare button on an
+   * outlet, or a shared link — now lands on the comparison, with the picker
+   * folded away behind a button.
+   */
+  const [picking, setPicking] = useState(() => selected.length < MIN_SELECT)
 
   // Keep the deep link in sync with the selection.
   useEffect(() => {
@@ -97,7 +110,8 @@ export default function ComparePage() {
     const m = new Map<string, number | null>()
     for (const o of scopedOutlets) {
       const submitted = scopedVisits.filter((v) => v.outletId === o.id && v.submittedAt && v.visitEnd)
-      const within = submitted.filter((v) => v.slaStatus === 'Within SLA').length
+      // 'Within Target' is the tighter 24h band inside the 48h SLA — both are compliant.
+      const within = submitted.filter((v) => v.slaStatus === 'Within SLA' || v.slaStatus === 'Within Target').length
       m.set(o.id, submitted.length ? round((within / submitted.length) * 100) : null)
     }
     return m
@@ -140,6 +154,20 @@ export default function ComparePage() {
     }
   }
 
+  const handleExportPdf = async () => {
+    try {
+      await exportComparePdf({
+        outlets: chosen,
+        metrics: metrics.map((m) => ({ label: m.label, values: chosen.map((o) => m.csv(o, m.value(o))) })),
+        kpiConfig: data.kpiConfig,
+      })
+      await dispatch((d, ctx) => logExport(d, ctx, `${T.Outlet} comparison (${chosen.map((o) => o.code).join(', ')})`, 'PDF'))
+      toast.success('Comparison exported to PDF')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'PDF export failed')
+    }
+  }
+
   const ready = chosen.length >= MIN_SELECT
 
   return (
@@ -149,9 +177,14 @@ export default function ComparePage() {
         subtitle={`Side-by-side comparison of ${MIN_SELECT}–${MAX_SELECT} ${T.outlets} across all KPI categories, issues and SLA`}
         actions={
           ready && can('reports.export') ? (
-            <button type="button" className="btn-secondary btn-sm" onClick={() => void handleExport()}>
-              <Download className="h-3.5 w-3.5" aria-hidden /> Export CSV
-            </button>
+            <>
+              <button type="button" className="btn-secondary btn-sm" onClick={() => void handleExport()}>
+                <Download className="h-3.5 w-3.5" aria-hidden /> Export CSV
+              </button>
+              <button type="button" className="btn-primary btn-sm" onClick={() => void handleExportPdf()}>
+                <FileText className="h-3.5 w-3.5" aria-hidden /> Download PDF
+              </button>
+            </>
           ) : undefined
         }
       />
@@ -162,11 +195,26 @@ export default function ComparePage() {
           title={`Select ${T.outlets}`}
           subtitle={`${chosen.length} of ${MAX_SELECT} selected${chosen.length < MIN_SELECT ? ` · choose at least ${MIN_SELECT}` : ''}`}
           actions={
-            chosen.length > 0 && (
-              <button type="button" className="btn-ghost btn-sm" onClick={() => setSelected([])}>
-                <X className="h-3.5 w-3.5" aria-hidden /> Clear
-              </button>
-            )
+            <>
+              {chosen.length > 0 && (
+                <button type="button" className="btn-ghost btn-sm" onClick={() => setSelected([])}>
+                  <X className="h-3.5 w-3.5" aria-hidden /> Clear
+                </button>
+              )}
+              {ready && (
+                <button type="button" className="btn-secondary btn-sm" onClick={() => setPicking((o) => !o)} aria-expanded={picking} aria-controls="outlet-picker">
+                  {picking ? (
+                    <>
+                      <ChevronDown className="h-3.5 w-3.5" aria-hidden /> Show comparison
+                    </>
+                  ) : (
+                    <>
+                      <ListChecks className="h-3.5 w-3.5" aria-hidden /> Change selection
+                    </>
+                  )}
+                </button>
+              )}
+            </>
           }
         />
         <CardBody className="space-y-3">
@@ -183,11 +231,17 @@ export default function ComparePage() {
               ))}
             </ul>
           )}
+          {!picking ? (
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Comparing {chosen.length} {T.outlets}. Use <span className="font-medium text-slate-700 dark:text-slate-200">Change selection</span> to pick different ones.
+            </p>
+          ) : (
+            <div id="outlet-picker" className="space-y-3">
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
             <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={`Search ${T.outlets} by name, code, brand or location…`} className="pl-8" aria-label={`Search ${T.outlets}`} />
           </div>
-          <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-200 dark:border-navy-800" role="group" aria-label={`${T.Outlet} checklist`}>
+          <div className="max-h-64 overflow-y-auto overscroll-contain rounded-lg border border-slate-200 dark:border-navy-800" role="group" aria-label={`${T.Outlet} checklist`}>
             {listed.length === 0 ? (
               <p className="px-3 py-6 text-center text-xs text-slate-500">No {T.outlets} match “{search}”.</p>
             ) : (
@@ -214,6 +268,13 @@ export default function ComparePage() {
               </ul>
             )}
           </div>
+          {ready && (
+            <button type="button" className="btn-primary btn-sm w-full justify-center sm:w-auto" onClick={() => setPicking(false)}>
+              Show comparison for {chosen.length} {T.outlets}
+            </button>
+          )}
+            </div>
+          )}
         </CardBody>
       </Card>
 

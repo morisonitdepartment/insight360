@@ -65,7 +65,7 @@ export function EvidenceVisual({ type, seed, label, className, large = false }: 
           <g>
             <rect x={w * 0.3} y={8} width={w * 0.4} height={h - 16} rx="3" fill="#f8fafc" opacity="0.95" />
             {Array.from({ length: 7 }, (_, i) => (
-              <rect key={i} x={w * 0.34} y={16 + i * 10} width={w * (0.12 + ((seed >> i) % 4) * 0.05)} height="3" rx="1" fill="#94a3b8" />
+              <rect key={i} x={w * 0.34} y={16 + i * 10} width={w * (0.12 + (((seed >> i) % 4) + 4) % 4 * 0.05)} height="3" rx="1" fill="#94a3b8" />
             ))}
             <rect x={w * 0.34} y={h - 22} width={w * 0.32} height="4" rx="1" fill={pal[2]} />
           </g>

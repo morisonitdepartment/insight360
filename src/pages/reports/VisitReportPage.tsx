@@ -144,6 +144,8 @@ export default function VisitReportPage() {
         summary,
         reviewerName: data.users.find((u) => u.id === visit.reviewerId)?.name ?? 'Pending',
         turnaround,
+        thresholds: data.thresholds,
+        evidence,
       })
       await dispatch((d, ctx) => logExport(d, ctx, visit.code, 'PDF'))
       toast.success('PDF downloaded', { id: t })

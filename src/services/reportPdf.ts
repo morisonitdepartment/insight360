@@ -4,18 +4,21 @@ import type {
   AuditTemplate,
   CategoryKey,
   CorrectiveAction,
+  Evidence,
   Finding,
   KpiConfig,
   Outlet,
   Question,
   Scenario,
+  ScoreThreshold,
   Section,
   Shopper,
   Visit,
   VisitAnswer,
 } from '@/types'
-import { CATEGORY_KEYS, CATEGORY_LABELS } from '@/utils/scoring'
-import { ReportDoc, loadClientMark, scoreTone, type BarItem, type CellTone, type PdfColumn } from '@/utils/pdf'
+import { CATEGORY_KEYS, CATEGORY_LABELS, DEFAULT_THRESHOLDS } from '@/utils/scoring'
+import { ReportDoc, bandColor, loadClientMark, scoreTone, type CellTone, type PdfColumn } from '@/utils/pdf'
+import { CLIENT } from '@/config/client'
 import { KPI_KIND_LABEL, formatKpiValue, stageRows, timingChainText, weightText } from '@/utils/sequence'
 import { T } from '@/config/terms'
 
@@ -28,6 +31,33 @@ import { T } from '@/config/terms'
  */
 
 const pct = (v: number | null | undefined) => (v === null || v === undefined || Number.isNaN(v) ? '—' : `${v.toFixed(1)}%`)
+/** Types whose answer carries information the score alone does not. */
+const ANSWER_WORTH_SHOWING = new Set<Question['type']>(['time', 'numeric', 'rating_5', 'rating_10', 'multiple_choice'])
+/** A question read as a statement: the trailing question mark earns nothing in a bullet. */
+const strip = (text: string) => text.replace(/\?$/, '')
+const clock = (d: string | null | undefined) => (d ? format(new Date(d), 'HH:mm') : '—')
+/** `  ·  70–79%` — the band a rating covers, for the cover pill. */
+const bandRange = (label: string, bands: ScoreThreshold[]) => {
+  const b = bands.find((x) => x.label === label)
+  return b ? `  ·  ${b.min === 0 ? `below ${Math.ceil(b.max)}` : `${b.min}–${Math.ceil(b.max)}`}%` : ''
+}
+
+/**
+ * The closing page every document shares: who ran the programme and how to
+ * reach them. Drawn from the client profile, so a second client's reports carry
+ * their own details rather than the first one's.
+ */
+function backCover(doc: ReportDoc) {
+  doc.backCover({
+    lead: 'Get in',
+    title: 'Touch',
+    blocks: [
+      [CLIENT.brand.name, CLIENT.org.engagementName],
+      [`Programme period ${format(new Date(CLIENT.org.engagementStart), 'MMM yyyy')} – ${format(new Date(CLIENT.org.engagementEnd), 'MMM yyyy')}`, `${CLIENT.org.timezone} · reporting in ${CLIENT.org.currency}`],
+      ['Issued by INSIGHT360 · Mystery Shopping Intelligence Platform', 'This report is confidential and intended for the named client only.'],
+    ],
+  })
+}
 const day = (d: string | null | undefined) => (d ? format(new Date(d), 'd MMM yyyy') : '—')
 const dayTime = (d: string | null | undefined) => (d ? format(new Date(d), 'd MMM yyyy, HH:mm') : '—')
 const riskTone = (risk: string | null | undefined): CellTone =>
@@ -63,79 +93,142 @@ export interface VisitPdfInput {
   summary: string
   reviewerName: string
   turnaround: number | null
+  /** The client's configured rating bands; the gauge and the legend are drawn from them. */
+  thresholds?: ScoreThreshold[]
+  evidence?: Evidence[]
 }
 
 export async function exportVisitReportPdf(i: VisitPdfInput): Promise<void> {
   const { visit, outlet, template } = i
   const doc = await ReportDoc.create()
   const mark = await loadClientMark()
+  const bands = i.thresholds ?? DEFAULT_THRESHOLDS
+  const rating = visit.risk ?? 'Not Assessed'
 
-  doc.cover({
-    eyebrow: 'Mystery Shopping Visit Report',
-    title: outlet.name,
-    subtitle: `${outlet.brand} · ${outlet.subcategory} · ${outlet.location}, ${outlet.region}`,
-    stat: { value: pct(visit.score), label: `${visit.risk ?? 'Not assessed'}`, tone: riskTone(visit.risk) },
-    logo: mark,
-  })
-
-  doc.meta(
-    [
-      { label: 'Visit number', value: visit.code },
-      { label: 'Visit type', value: visit.type },
-      { label: 'Journey', value: visit.journey },
-      { label: 'Visit date', value: day(visit.visitDate) },
-      { label: 'Mystery shopper', value: i.shopper?.code ?? '—' },
-      { label: 'Shopper profile', value: i.shopper?.profileType ?? '—' },
-      { label: 'Review status', value: visit.status },
-      { label: 'Reviewer', value: i.reviewerName },
-    ],
-    4,
-  )
-  if (i.scenario) {
-    doc.meta([{ label: 'Scenario', value: `${i.scenario.code} · ${i.scenario.name}` }], 1)
+  /**
+   * Points, in the currency the client's own report uses.
+   *
+   * A question is worth its weight, and earns that weight times its score. The
+   * sum over a section is the "34 of 51 pts" a manager reads — the same numbers
+   * the percentage is calculated from, never a second opinion about them.
+   */
+  const pointsFor = (qs: Question[]) => {
+    let got = 0
+    let max = 0
+    for (const q of qs) {
+      if (q.weight <= 0 || !i.askedIds.has(q.id)) continue
+      const a = i.answerMap.get(q.id)
+      if (!a || a.na || a.score === null) continue
+      got += a.score * q.weight
+      max += q.weight
+    }
+    return { got, max }
   }
 
-  doc.heading('Reporting SLA')
-  doc.tiles(
-    [
-      { label: 'Visit completed', value: dayTime(visit.visitEnd) },
-      { label: 'Submission due', value: dayTime(visit.submissionDeadline) },
-      { label: 'Submitted', value: dayTime(visit.submittedAt), note: i.turnaround !== null ? `${i.turnaround}h turnaround` : undefined },
-      {
-        label: 'Reporting SLA',
-        value: visit.slaStatus,
-        tone: visit.slaStatus === 'Breached' ? 'bad' : visit.slaStatus === 'At Risk' ? 'warn' : 'good',
-      },
+  const scored = i.sections
+    .map((sec) => {
+      const qs = i.questions.filter((q) => q.sectionId === sec.id)
+      return { sec, qs, points: pointsFor(qs), score: i.sectionScores.find((x) => x.sectionId === sec.id)?.score ?? null }
+    })
+    .filter((r) => r.qs.length > 0)
+  const assessedSections = scored.filter((r) => r.score !== null)
+  const totalPoints = assessedSections.reduce((n, r) => n + r.points.got, 0)
+  const maxPoints = assessedSections.reduce((n, r) => n + r.points.max, 0)
+
+  // ── Cover ──
+  doc.coverPage({
+    eyebrow: `${CLIENT.brand.name} · ${visit.type}`,
+    title: ['Service', 'Excellence', 'Report'],
+    subtitle: `${template?.name ?? 'Mystery shopping assessment'} · ${i.scenario ? `${i.scenario.name} scenario` : 'Standard visit'}`,
+    logo: mark,
+    score: {
+      value: visit.score,
+      caption: 'Overall',
+      band: `${rating.toUpperCase()}${bandRange(rating, bands)}`,
+      bandTone: bandColor(rating),
+      narrative: i.summary,
+    },
+    meta: [
+      { label: 'Brand', value: outlet.brand },
+      { label: T.Outlet, value: outlet.name.replace(`${outlet.brand} – `, '') },
+      { label: 'Location', value: `${outlet.location}, ${outlet.region}` },
+      { label: 'Visit date', value: day(visit.visitDate) },
     ],
-    4,
+  })
+
+  // ── Performance overview ──
+  doc.section('Performance overview', 'Rating dial, bands and the score behind every section')
+  doc.gauge(visit.score, bands, rating)
+  doc.gap(2)
+  doc.bandLegend(bands)
+  doc.gap(3)
+  doc.scoreBars(
+    scored.map((r) => ({ title: r.sec.title, score: r.score, points: r.points })),
+    {
+      title: 'Section scores',
+      valueHeader: 'Points · %',
+      total: { title: 'Total', score: visit.score, points: { got: totalPoints, max: maxPoints } },
+    },
   )
 
-  doc.heading('Executive summary')
-  doc.paragraph(i.summary)
+  doc.gap(2)
+  // The six-category roll-up every dashboard in the platform shares, so a reader
+  // can place this visit against the portfolio without leaving the document.
+  doc.heading('KPI category scores')
+  doc.bars(
+    CATEGORY_KEYS.map((k) => {
+      const v = visit.categoryScores?.[k]
+      const weight = i.kpiConfig.find((c) => c.key === k)?.weight ?? 0
+      return { label: CATEGORY_LABELS[k], value: v === undefined || Number.isNaN(v) ? null : v, note: `weight ${weight}%` }
+    }),
+    { columns: 2 },
+  )
 
-  // ── Service sequence, when the template is one ──
-  const stages = template?.sequence ? stageRows(i.sections, i.questions, visit.stageScores ?? undefined) : []
-  if (template?.sequence && stages.length) {
+  // ── Score summary ──
+  doc.section('Score summary', 'Performance cards by audit section')
+  doc.scoreCards(
+    scored.map((r) => ({
+      title: r.sec.title,
+      score: r.score,
+      points: r.points,
+      note: r.sec.stageWeight === undefined ? undefined : r.sec.stageWeight === 0 ? 'unweighted' : `${weightText(r.sec.stageWeight)}% of the visit score`,
+    })),
+  )
+  doc.totalBand({
+    label: 'Overall total',
+    value: pct(visit.score),
+    note: `${Math.round(totalPoints)} / ${Math.round(maxPoints)} points across ${assessedSections.length} assessed sections`,
+    body: template?.sequence
+      ? 'The visit score is the stage-weighted mean of the section scores above, not the raw point total: each stage carries the share the framework assigns it, renormalised over the stages this visit actually scored. Sections in amber or red are where the points went; those are the fastest to recover.'
+      : 'Sections in amber or red are where the points went. Every question scored below standard is listed later in this report with the shopper\u2019s own observation beneath it.',
+  })
+
+  // ── Visit details ──
+  doc.section('Visit details', 'Mystery shopper visit information')
+  doc.detailCards([
+    { label: T.Outlet, value: outlet.name },
+    { label: `${T.Outlet} code`, value: outlet.code },
+    { label: 'Location', value: `${outlet.location}, ${outlet.region}` },
+    { label: `${T.Outlet} manager`, value: outlet.manager },
+    { label: 'Visit number', value: visit.code },
+    { label: 'Visit type', value: visit.type },
+    { label: 'Journey', value: visit.journey },
+    { label: 'Scenario', value: i.scenario ? `${i.scenario.code} · ${i.scenario.name}` : 'Standard visit' },
+    { label: 'Visit date', value: day(visit.visitDate) },
+    { label: 'Time in / out', value: `${clock(visit.visitStart)} – ${clock(visit.visitEnd)}` },
+    { label: 'Mystery shopper', value: i.shopper ? `${i.shopper.code} · ${i.shopper.profileType}` : '—' },
+    { label: 'Party size', value: visit.partySize ? `${visit.partySize} guest${visit.partySize === 1 ? '' : 's'}` : '—' },
+    { label: 'Spend', value: visit.spend ? `${CLIENT.org.currency} ${visit.spend}` : '—' },
+    { label: 'Submitted', value: dayTime(visit.submittedAt) },
+    { label: 'Reporting SLA', value: `${visit.slaStatus}${i.turnaround !== null ? ` · ${i.turnaround}h turnaround` : ''}` },
+    { label: 'Reviewed by', value: i.reviewerName },
+  ])
+
+  // ── Main KPIs, on a framework that reports them ──
+  if (template?.sequence) {
     const seq = template.sequence
-    doc.heading('Service sequence')
-    doc.paragraph(
-      `${seq.industry} · ${seq.serviceModel} · ${seq.visitMode}. Each stage carries a fixed share of the visit score; the contributions below sum to the score on the cover.`,
-      { size: 8 },
-    )
-    const stageCols: PdfColumn<(typeof stages)[number]>[] = [
-      { header: '#', width: 0.4, align: 'center', render: (r) => String(stages.indexOf(r) + 1) },
-      { header: 'Stage', width: 3, strong: true, render: (r) => r.section.title },
-      { header: 'KPI', width: 3, render: (r) => r.section.kpiName ?? '—' },
-      { header: 'Weight', width: 1, align: 'right', render: (r) => (r.weight === 0 ? '—' : `${weightText(r.weight)}%`) },
-      { header: 'Score', width: 1, align: 'right', render: (r) => pct(r.score), tone: (r) => scoreTone(r.score) },
-      { header: 'Contribution', width: 1.4, align: 'right', render: (r) => (r.contribution === null ? '—' : `${r.contribution.toFixed(1)} pts`) },
-    ]
-    doc.table(stageCols, stages, {
-      footer: ['', 'Visit score', '', `${stages.reduce((n, r) => n + (r.score === null ? 0 : r.weight), 0)}%`, '', `${(visit.score ?? 0).toFixed(1)} pts`],
-    })
-
     const kpiScores = visit.kpiScores ?? null
-    doc.heading('Main KPIs')
+    doc.section('Main KPIs', `${seq.industry} · ${seq.serviceModel} · ${seq.visitMode}`)
     doc.tiles(
       seq.mainKpis.map((k) => ({
         label: k.label,
@@ -143,135 +236,138 @@ export async function exportVisitReportPdf(i: VisitPdfInput): Promise<void> {
         note: KPI_KIND_LABEL[k.kind],
         tone: k.kind === 'weighted' || k.kind === 'derived' ? scoreTone(kpiScores?.[k.key] ?? null) : 'default',
       })),
-      4,
+      3,
     )
     const chain = timingChainText(seq.timingChain, kpiScores)
     if (chain) doc.paragraph(`Timing chain · ${chain}`, { size: 8 })
+
+    const stages = stageRows(i.sections, i.questions, visit.stageScores ?? undefined)
+    if (stages.length) {
+      doc.heading('How the visit score was built')
+      const stageCols: PdfColumn<(typeof stages)[number]>[] = [
+        { header: '#', width: 0.4, align: 'center', render: (r) => String(stages.indexOf(r) + 1) },
+        { header: 'Stage', width: 3.4, strong: true, render: (r) => r.section.title },
+        { header: 'Weight', width: 1, align: 'right', render: (r) => (r.weight === 0 ? '—' : `${weightText(r.weight)}%`) },
+        { header: 'Score', width: 1, align: 'right', render: (r) => pct(r.score), tone: (r) => scoreTone(r.score) },
+        { header: 'Contribution', width: 1.4, align: 'right', render: (r) => (r.contribution === null ? '—' : `${r.contribution.toFixed(1)} pts`) },
+      ]
+      doc.table(stageCols, stages, { footer: ['', 'Visit score', '', '', `${(visit.score ?? 0).toFixed(1)} pts`] })
+    }
   }
 
-  // ── Category scores ──
-  doc.heading('KPI category scores')
-  const catBars: BarItem[] = CATEGORY_KEYS.map((k) => {
-    const v = visit.categoryScores?.[k]
-    const weight = i.kpiConfig.find((c) => c.key === k)?.weight ?? 0
-    return { label: CATEGORY_LABELS[k], value: v === undefined || Number.isNaN(v) ? null : v, note: `weight ${weight}%` }
-  })
-  doc.bars(catBars, { columns: 2 })
-
-  // ── Critical findings ──
+  // ── What went wrong, and what went right ──
   const criticals = i.questions
     .filter((q) => q.critical && i.askedIds.has(q.id))
     .map((q) => ({ q, a: i.answerMap.get(q.id) }))
     .filter((r) => r.a && !r.a.na && r.a.score !== null && r.a.score < 0.5)
+  const assessed = i.questions
+    .filter((q) => i.askedIds.has(q.id) && q.weight > 0)
+    .map((q) => ({ q, a: i.answerMap.get(q.id) }))
+    .filter((r) => r.a && !r.a.na && r.a.score !== null)
+  const positives = assessed.filter((r) => (r.a!.score ?? 0) >= 0.9).sort((x, y) => y.q.weight - x.q.weight).slice(0, 8)
+  const improvements = assessed.filter((r) => (r.a!.score ?? 0) < 0.5 && !r.q.critical).sort((x, y) => y.q.weight - x.q.weight).slice(0, 10)
+
+  doc.section('Summary & priorities', 'What the visit found, and where the points went')
+  doc.heading('Executive summary')
+  doc.paragraph(i.summary)
   if (criticals.length) {
-    doc.heading('Critical findings')
     doc.callout(
       `${criticals.length} critical standard${criticals.length === 1 ? '' : 's'} failed — immediate escalation`,
-      criticals.map((r) => `${r.q.code} · ${r.q.text.replace(/\?$/, '')}. ${r.a?.comment || 'Critical standard failed.'}`),
+      criticals.map((r) => `${r.q.code} · ${strip(r.q.text)}. ${r.a?.comment || 'Critical standard failed.'}`),
       'bad',
     )
   }
+  doc.heading('Positive observations')
+  doc.bullets(positives.map((r) => `${strip(r.q.text)}${r.a?.comment ? ` — ${r.a.comment}` : ''}`), 'good')
+  doc.heading('Priority improvements')
+  doc.bullets(
+    improvements.map((r) => `${strip(r.q.text)} (${answerText(r.q, r.a!.value, r.a!.na)})${r.a?.comment ? ` — ${r.a.comment}` : ''}`),
+    'warn',
+  )
   if (template?.sequence?.criticalFailures.length) {
     doc.heading('Critical failure checklist')
     doc.bullets(template.sequence.criticalFailures, 'muted', '–')
     doc.paragraph(
       criticals.length
-        ? `Failed on this visit: ${criticals.map((r) => `${r.q.code} ${r.q.text.replace(/\?$/, '')}`).join('; ')}.`
+        ? `Observed on this visit: ${criticals.map((r) => `${r.q.code} ${strip(r.q.text)}`).join('; ')}.`
         : 'No critical failure was observed on this visit.',
       { size: 8, tone: criticals.length ? 'bad' : 'good' },
     )
   }
-
-  // ── Positives and improvements ──
-  const assessed = i.questions
-    .filter((q) => i.askedIds.has(q.id) && q.weight > 0)
-    .map((q) => ({ q, a: i.answerMap.get(q.id) }))
-    .filter((r) => r.a && !r.a.na && r.a.score !== null)
-  const positives = assessed.filter((r) => (r.a!.score ?? 0) >= 0.9).sort((x, y) => y.q.weight - x.q.weight).slice(0, 6)
-  const improvements = assessed.filter((r) => (r.a!.score ?? 0) < 0.5 && !r.q.critical).sort((x, y) => y.q.weight - x.q.weight).slice(0, 8)
-
-  doc.heading('Positive observations')
-  doc.bullets(positives.map((r) => `${r.q.text.replace(/\?$/, '')}${r.a?.comment ? ` — ${r.a.comment}` : ''}`), 'good')
-
-  doc.heading('Areas for improvement')
-  doc.bullets(
-    improvements.map((r) => `${r.q.text.replace(/\?$/, '')} (${answerText(r.q, r.a!.value, r.a!.na)})${r.a?.comment ? ` — ${r.a.comment}` : ''}`),
-    'warn',
-  )
-
-  // ── Detailed questionnaire ──
-  doc.heading('Detailed questionnaire results')
-  interface QRow {
-    q: Question
-    a?: VisitAnswer
-    skipped: boolean
-  }
-  const qCols: PdfColumn<QRow>[] = [
-    { header: 'Code', width: 0.8, render: (r) => r.q.code },
-    { header: 'Question', width: 5.2, render: (r) => `${r.q.text}${r.q.critical ? '  [CRITICAL]' : ''}` },
-    {
-      header: 'Answer',
-      width: 1.4,
-      render: (r) => (r.skipped ? 'Skipped' : r.a ? answerText(r.q, r.a.value, r.a.na) : '—'),
-      tone: (r) => (r.skipped ? 'muted' : r.a?.score === null || r.a?.score === undefined ? 'muted' : r.a.score < 0.5 ? 'bad' : r.a.score === 1 ? 'good' : 'default'),
-      strong: true,
-    },
-    {
-      header: 'Score',
-      width: 0.8,
-      align: 'right',
-      render: (r) => (r.skipped || r.a?.score === null || r.a?.score === undefined ? '—' : `${Math.round(r.a.score * 100)}%`),
-    },
-    { header: 'Wt', width: 0.5, align: 'right', render: (r) => String(r.q.weight) },
-  ]
-
-  for (const s of i.sections) {
-    const sectionQs = i.questions.filter((q) => q.sectionId === s.id)
-    if (!sectionQs.length) continue
-    const ss = i.sectionScores.find((x) => x.sectionId === s.id)
-    const stageNote = s.stageWeight !== undefined ? (s.stageWeight === 0 ? ' · unweighted' : ` · weight ${s.stageWeight}%`) : ''
-    doc.heading(`${s.stageWeight !== undefined ? 'Stage' : 'Section'} ${s.stageWeight !== undefined ? s.order : s.code} · ${s.title}  —  ${pct(ss?.score ?? null)}`)
-    doc.paragraph(`${CATEGORY_LABELS[s.category]}${stageNote}. ${s.description}`, { size: 7.6 })
-    doc.table(
-      qCols,
-      sectionQs.map((q) => ({ q, a: i.answerMap.get(q.id), skipped: !i.askedIds.has(q.id) })),
-    )
-  }
-
-  // ── Narrative and follow-up ──
   if (visit.narrative) {
     doc.heading('Shopper narrative')
     doc.quote(visit.narrative)
-    doc.paragraph(
-      `Shopper ${i.shopper?.name ?? '—'} · ${i.shopper?.profileType ?? ''} profile · party of ${visit.partySize}${visit.spend ? ` · spend QAR ${visit.spend}` : ''}`,
-      { size: 7.6 },
+  }
+
+  // ── The questionnaire, a section to a page ──
+  scored.forEach((r, idx) => {
+    doc.section(
+      `${idx + 1}. ${r.sec.title}`,
+      `${Math.round(r.points.got)} / ${Math.round(r.points.max)} points${r.sec.stageWeight ? `  ·  ${weightText(r.sec.stageWeight)}% of the visit score` : ''}`,
+      { value: r.score === null ? '—' : `${r.score.toFixed(0)}%`, note: `${Math.round(r.points.got)}/${Math.round(r.points.max)} pts`, tone: scoreTone(r.score) },
+    )
+    doc.questionTable(
+      r.qs.map((q) => {
+        const a = i.answerMap.get(q.id)
+        const skipped = !i.askedIds.has(q.id)
+        const value = a && !skipped ? a.score : null
+        const shown = skipped ? 'not asked' : a ? answerText(q, a.value, a.na) : '—'
+        return {
+          code: q.code,
+          text: q.text,
+          answer: shown,
+          // Yes and Pass are already told by full marks; a measurement is not.
+          answerNote: !skipped && value !== null && ANSWER_WORTH_SHOWING.has(q.type) ? `Recorded: ${shown}` : undefined,
+          score: value,
+          points: q.weight > 0 && value !== null ? { got: value * q.weight, max: q.weight } : undefined,
+          observation: a?.comment?.trim() || undefined,
+          critical: q.critical,
+          skipped,
+        }
+      }),
+    )
+  })
+
+  // ── Evidence ──
+  if (i.evidence?.length) {
+    doc.section('Evidence', 'Visual documentation captured during the visit')
+    doc.photoGrid(
+      i.evidence.slice(0, 24).map((e) => ({
+        image: null,
+        title: e.title,
+        caption: `${e.type} · ${dayTime(e.capturedAt)}${e.questionId ? ` · ${i.questions.find((q) => q.id === e.questionId)?.code ?? ''}` : ''}`,
+      })),
     )
   }
 
-  if (i.findings.length) {
-    doc.heading(`Findings raised (${i.findings.length})`)
-    const fCols: PdfColumn<Finding>[] = [
-      { header: 'Code', width: 1, render: (f) => f.code },
-      { header: 'Finding', width: 4.6, strong: true, render: (f) => f.title },
-      { header: 'Category', width: 1.8, render: (f) => CATEGORY_LABELS[f.category] },
-      { header: 'Severity', width: 1, render: (f) => f.severity, tone: (f) => (f.severity === 'Critical' ? 'bad' : f.severity === 'High' ? 'warn' : 'default') },
-      { header: 'Status', width: 1.1, render: (f) => f.status },
-    ]
-    doc.table(fCols, i.findings)
+  // ── Findings and the actions they raised ──
+  if (i.findings.length || i.capas.length) {
+    doc.section('Findings & corrective actions', 'Raised by this visit and tracked to closure')
+    if (i.findings.length) {
+      doc.heading(`Findings raised (${i.findings.length})`)
+      const fCols: PdfColumn<Finding>[] = [
+        { header: 'Code', width: 1, render: (f) => f.code },
+        { header: 'Finding', width: 4.6, strong: true, render: (f) => f.title },
+        { header: 'Category', width: 1.8, render: (f) => CATEGORY_LABELS[f.category] },
+        { header: 'Severity', width: 1, render: (f) => f.severity, tone: (f) => (f.severity === 'Critical' ? 'bad' : f.severity === 'High' ? 'warn' : 'default') },
+        { header: 'Status', width: 1.1, render: (f) => f.status },
+      ]
+      doc.table(fCols, i.findings)
+    }
+    if (i.capas.length) {
+      doc.heading(`Corrective actions (${i.capas.length})`)
+      const cCols: PdfColumn<CorrectiveAction>[] = [
+        { header: 'Code', width: 1, render: (c) => c.code },
+        { header: 'Action', width: 4, strong: true, render: (c) => c.title },
+        { header: 'Owner', width: 1.6, render: (c) => c.ownerName },
+        { header: 'Target', width: 1.1, align: 'right', render: (c) => day(c.targetDate) },
+        { header: 'Status', width: 1.3, render: (c) => c.status, tone: (c) => (c.status === 'Overdue' ? 'bad' : c.status === 'Closed' ? 'good' : 'default') },
+      ]
+      doc.table(cCols, i.capas)
+    }
   }
 
-  if (i.capas.length) {
-    doc.heading(`Corrective actions (${i.capas.length})`)
-    const cCols: PdfColumn<CorrectiveAction>[] = [
-      { header: 'Code', width: 1, render: (c) => c.code },
-      { header: 'Action', width: 4, strong: true, render: (c) => c.title },
-      { header: 'Owner', width: 1.6, render: (c) => c.ownerName },
-      { header: 'Target', width: 1.1, align: 'right', render: (c) => day(c.targetDate) },
-      { header: 'Status', width: 1.3, render: (c) => c.status, tone: (c) => (c.status === 'Overdue' ? 'bad' : c.status === 'Closed' ? 'good' : 'default') },
-    ]
-    doc.table(cCols, i.capas)
-  }
-
+  backCover(doc)
   doc.save(`${visit.code}-visit-report.pdf`)
 }
 
@@ -296,12 +392,29 @@ export async function exportOutletReportPdf(i: OutletPdfInput): Promise<void> {
   const doc = await ReportDoc.create()
   const mark = await loadClientMark()
 
-  doc.cover({
-    eyebrow: `${T.Outlet} performance report`,
-    title: outlet.name,
-    subtitle: `${outlet.code} · ${outlet.brand} · ${outlet.location}, ${outlet.region} · Manager ${outlet.manager}`,
-    stat: { value: pct(outlet.overallScore), label: outlet.riskRating, tone: riskTone(outlet.riskRating) },
+  doc.coverPage({
+    eyebrow: `${CLIENT.brand.name} · ${T.Outlet} performance`,
+    title: ['Performance', 'Review', 'Report'],
+    subtitle: `${outlet.name} · ${outlet.code} · programme to date`,
     logo: mark,
+    score: {
+      value: outlet.overallScore,
+      caption: 'Score',
+      band: `${outlet.riskRating.toUpperCase()}${bandRange(outlet.riskRating, DEFAULT_THRESHOLDS)}`,
+      bandTone: bandColor(outlet.riskRating),
+      narrative: `${outlet.name} is rated ${outlet.riskRating} against a target of ${outlet.targetScore}%${outlet.rank ? `, ranking #${outlet.rank} of ${i.rankOf} assessed ${T.outlets}` : ''}. ${outlet.openIssues} issue${outlet.openIssues === 1 ? '' : 's'} are open, ${outlet.criticalFindings} of them critical.`,
+    },
+    meta: [
+      { label: 'Brand', value: outlet.brand },
+      { label: 'Location', value: `${outlet.location}, ${outlet.region}` },
+      { label: 'Manager', value: outlet.manager },
+      { label: 'Last audit', value: day(outlet.lastAudit) },
+    ],
+  })
+  doc.section(`${T.Outlet} performance`, `${outlet.name} · ${outlet.code}`, {
+    value: pct(outlet.overallScore),
+    note: outlet.riskRating,
+    tone: riskTone(outlet.riskRating),
   })
 
   const completed = i.history.filter((v) => v.status === 'Approved' || v.status === 'Closed').length
@@ -385,6 +498,7 @@ export async function exportOutletReportPdf(i: OutletPdfInput): Promise<void> {
     doc.table(cCols, openActions)
   }
 
+  backCover(doc)
   doc.save(`${outlet.code}-${T.outlet}-report.pdf`)
 }
 
@@ -400,12 +514,14 @@ export async function exportComparePdf(i: ComparePdfInput): Promise<void> {
   const doc = await ReportDoc.create()
   const mark = await loadClientMark()
 
-  doc.cover({
-    eyebrow: `${T.Outlet} comparison`,
-    title: i.outlets.map((o) => o.name).join('  ·  '),
-    subtitle: `Side-by-side comparison of ${i.outlets.length} ${T.outlets} across all KPI categories, issues and SLA`,
+  doc.coverPage({
+    eyebrow: `${CLIENT.brand.name} · ${T.Outlet} comparison`,
+    title: ['Side', 'by Side', 'Report'],
+    subtitle: i.outlets.map((o) => o.name).join('   ·   '),
     logo: mark,
+    meta: i.outlets.slice(0, 4).map((o) => ({ label: o.code, value: pct(o.overallScore) })),
   })
+  doc.section(`${T.Outlet} comparison`, `${i.outlets.length} ${T.outlets} across every KPI category, issue count and SLA`)
 
   doc.heading('Overall standing')
   doc.tiles(
@@ -448,6 +564,7 @@ export async function exportComparePdf(i: ComparePdfInput): Promise<void> {
   ]
   doc.table(mCols, i.metrics)
 
+  backCover(doc)
   doc.save(`${T.outlet}-comparison.pdf`)
 }
 
@@ -461,6 +578,8 @@ export interface SummaryPdfInput {
   summary: string
   outlets?: Outlet[]
   sections?: { heading: string; body?: string; bullets?: string[] }[]
+  /** The cover headline, broken where it should break; the last line takes the accent. */
+  titleLines?: string[]
   filename: string
 }
 
@@ -468,8 +587,15 @@ export async function exportSummaryPdf(i: SummaryPdfInput): Promise<void> {
   const doc = await ReportDoc.create()
   const mark = await loadClientMark()
 
-  doc.cover({ eyebrow: i.eyebrow, title: i.title, subtitle: i.subtitle, logo: mark })
-  if (i.meta.length) doc.meta(i.meta, 4)
+  doc.coverPage({
+    eyebrow: `${CLIENT.brand.name} · ${i.eyebrow}`,
+    title: i.titleLines ?? [i.title],
+    subtitle: i.subtitle,
+    logo: mark,
+    meta: i.meta.slice(0, 4),
+  })
+  doc.section(i.title, i.subtitle)
+  if (i.meta.length > 4) doc.meta(i.meta, 4)
 
   doc.heading('Summary')
   doc.paragraph(i.summary)
@@ -493,5 +619,6 @@ export async function exportSummaryPdf(i: SummaryPdfInput): Promise<void> {
     doc.table(cols, i.outlets)
   }
 
+  backCover(doc)
   doc.save(i.filename)
 }

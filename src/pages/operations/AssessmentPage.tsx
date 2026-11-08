@@ -12,7 +12,7 @@ import { ProgressBar } from '@/components/ui/Misc'
 import { EmptyState } from '@/components/ui/States'
 import { EvidenceVisual } from '@/components/ui/EvidenceThumb'
 import { addEvidence, getVisitQuestions, getVisitSections, saveDraft, startVisit, submitVisit } from '@/services/actions'
-import { computeVisitScores, isQuestionAnswered, scoreQuestion, visibleQuestions } from '@/utils/scoring'
+import { computeVisitScores, deriveTimedAnswers, isQuestionAnswered, scoreQuestion, visibleQuestions } from '@/utils/scoring'
 import { timingChainText } from '@/utils/sequence'
 import { fmtDateTime } from '@/utils/format'
 import type { AnswerValue, Question, VisitAnswer } from '@/types'
@@ -27,6 +27,7 @@ const TYPE_LABEL: Record<Question['type'], string> = {
   text: 'Comment',
   numeric: 'Numeric',
   time: 'Time (minutes)',
+  clock: 'Clock time',
   photo: 'Photo required',
   video: 'Video required',
 }
@@ -87,11 +88,17 @@ export default function AssessmentPage() {
         const cur = prev[q.id] ?? { id: `${visit.id}-${q.id}`, visitId: visit.id, questionId: q.id, value: null, na: false, comment: '', evidenceIds: [], score: null }
         const next = { ...cur, ...patch }
         next.score = scoreQuestion(q, next.value, next.na)
-        return { ...prev, [q.id]: next }
+        const merged = { ...prev, [q.id]: next }
+        // A clock stamp is only ever raw material: entering one settles every
+        // duration measured from or to it, so the shopper never types a minute.
+        if (q.type === 'clock') {
+          for (const d of deriveTimedAnswers(questions, Object.values(merged), visit.id)) merged[d.questionId] = d
+        }
+        return merged
       })
       setDirty(true)
     },
-    [locked, visit],
+    [locked, visit, questions],
   )
 
   const persistDraft = async (silent = false) => {
@@ -115,10 +122,12 @@ export default function AssessmentPage() {
       const a = answers[q.id]
       const scorable = q.weight > 0 && q.type !== 'text' && q.type !== 'photo' && q.type !== 'video'
       if (a?.na && q.allowNA) continue
-      if (scorable && !isQuestionAnswered(q, a)) issues.push({ q, reason: 'Answer required' })
+      if (scorable && !isQuestionAnswered(q, a)) issues.push({ q, reason: q.derivedFrom ? 'Record both clock times this duration is measured between' : 'Answer required' })
       if ((q.type === 'photo' || q.type === 'video') && !(a?.evidenceIds.length)) issues.push({ q, reason: `${q.type === 'photo' ? 'Photo' : 'Video'} evidence required` })
       if (q.evidenceRequired && q.type !== 'photo' && q.type !== 'video' && a && a.score !== null && a.score < 0.5 && !a.evidenceIds.length) issues.push({ q, reason: 'Evidence required for a failed standard' })
       if (q.commentRequired && isQuestionAnswered(q, a) && !(a?.comment?.trim())) issues.push({ q, reason: 'Comment required' })
+      // The brief's rule: a No, a Fail or a bottom-half rating has to be explained.
+      if (q.commentOnFail && a && a.score !== null && a.score < 0.5 && !(a.comment?.trim())) issues.push({ q, reason: 'This answer falls below standard and must be explained' })
       if (q.critical && a && a.score !== null && a.score < 0.5 && !(a.comment?.trim())) issues.push({ q, reason: 'Critical failure must be described' })
     }
     return issues
@@ -427,6 +436,7 @@ function QuestionCard({ index, q, answer, locked, onChange, onAttach, uploading,
             {q.critical && <Badge tone="red" size="xs" icon={AlertOctagon}>Critical</Badge>}
             {q.evidenceRequired && <Badge tone="blue" size="xs" icon={Camera}>Evidence required</Badge>}
             {q.commentRequired && <Badge tone="blue" size="xs" icon={MessageSquare}>Comment required</Badge>}
+            {!q.commentRequired && q.commentOnFail && <Badge tone="slate" size="xs" icon={MessageSquare}>Explain if below standard</Badge>}
             {q.allowNA && !locked && (
               <label className="ml-auto inline-flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer">
                 <input type="checkbox" checked={na} onChange={(e) => onChange({ na: e.target.checked, value: e.target.checked ? null : value })} className="h-3.5 w-3.5 rounded border-slate-300 text-teal-600" /> N/A
@@ -472,7 +482,22 @@ function QuestionCard({ index, q, answer, locked, onChange, onAttach, uploading,
                 ))}
               </div>
             )}
-            {(q.type === 'time' || q.type === 'numeric') && (
+            {q.type === 'clock' && (
+              <div className="flex items-center gap-2">
+                <input type="time" disabled={disabled} value={typeof value === 'string' ? value : ''} onChange={(e) => set(e.target.value === '' ? null : e.target.value)} className="input !w-36 text-lg font-semibold tabular-nums" aria-label={q.text} />
+                <span className="text-sm text-slate-500">24-hour clock</span>
+              </div>
+            )}
+            {q.type === 'time' && q.derivedFrom && (
+              <div className="flex flex-wrap items-center gap-2">
+                <output className={cn('input !w-36 flex items-center text-lg font-semibold tabular-nums', value === null && 'text-slate-400')} aria-label={q.text}>
+                  {value === null ? '—' : `${Number(value).toFixed(0)} min`}
+                </output>
+                <span className="text-xs text-slate-500">{value === null ? 'Calculated once both clock times are recorded' : 'Calculated from the clock times'}</span>
+                {q.threshold !== undefined && <span className={cn('ml-auto text-xs font-medium', failed ? 'text-red-600' : score === 1 ? 'text-emerald-600' : 'text-slate-500')}>Standard ≤ {q.threshold} min{typeof value === 'number' ? (value <= q.threshold ? ' · within standard' : ` · exceeded by ${(value - q.threshold).toFixed(0)}`) : ''}</span>}
+              </div>
+            )}
+            {((q.type === 'time' && !q.derivedFrom) || q.type === 'numeric') && (
               <div className="flex items-center gap-2">
                 <input type="number" inputMode="decimal" min={0} step={0.5} disabled={disabled} value={value === null ? '' : String(value)} onChange={(e) => set(e.target.value === '' ? null : Number(e.target.value))} className="input !w-32 text-lg font-semibold tabular-nums" aria-label={`${q.text} value`} />
                 <span className="text-sm text-slate-500">{q.type === 'time' ? 'minutes' : ''}</span>
@@ -507,8 +532,8 @@ function QuestionCard({ index, q, answer, locked, onChange, onAttach, uploading,
           </div>
           <div className="mt-3">
             <label className="label" htmlFor={`c-${q.id}`}>
-              Comment {q.commentRequired && <span className="text-red-600">*</span>}
-              {failed && !q.commentRequired && <span className="ml-1 text-amber-600">(recommended for a failed standard)</span>}
+              Comment {(q.commentRequired || (q.commentOnFail && failed)) && <span className="text-red-600">*</span>}
+              {failed && !q.commentRequired && <span className={cn('ml-1', q.commentOnFail ? 'text-red-600' : 'text-amber-600')}>{q.commentOnFail ? '(required — this answer is below standard)' : '(recommended for a failed standard)'}</span>}
             </label>
             <Textarea id={`c-${q.id}`} rows={2} disabled={locked} value={answer?.comment ?? ''} onChange={(e) => onChange({ comment: e.target.value })} placeholder="Describe what you observed…" className="!min-h-[56px]" />
           </div>

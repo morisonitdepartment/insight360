@@ -16,7 +16,7 @@ import { ClientLogo } from '@/components/ui/ClientLogo'
 import { CLIENT_BRAND } from '@/config/client'
 import { approveVisit, getVisitQuestions, getVisitSections, logExport, rejectVisit, startReview } from '@/services/actions'
 import { CATEGORY_KEYS, CATEGORY_LABELS, CATEGORY_SHORT, computeVisitScores, visibleQuestions } from '@/utils/scoring'
-import { KPI_KIND_LABEL, formatKpiValue, stageRows, timingChainText } from '@/utils/sequence'
+import { KPI_KIND_LABEL, formatKpiValue, stageRows, timingChainText, weightText } from '@/utils/sequence'
 import { exportCsv, printPage } from '@/utils/export'
 import { exportVisitReportPdf } from '@/services/reportPdf'
 import { fmtDate, fmtDateTime, fmtPct, hoursBetween } from '@/utils/format'
@@ -283,7 +283,7 @@ export default function VisitReportPage() {
                             <td className="tabular-nums">{i + 1}</td>
                             <td className="font-medium text-slate-800 dark:text-slate-100">{r.section.title}</td>
                             <td>{r.section.kpiName}</td>
-                            <td className="text-right tabular-nums">{r.weight === 0 ? '—' : `${r.weight}%`}</td>
+                            <td className="text-right tabular-nums">{r.weight === 0 ? '—' : `${weightText(r.weight)}%`}</td>
                             <td className={cn('text-right tabular-nums font-semibold', scoreTextClass(r.score))}>{fmtPct(r.score)}</td>
                             <td className="text-right tabular-nums">{r.contribution === null ? '—' : `${r.contribution.toFixed(1)} pts`}</td>
                           </tr>

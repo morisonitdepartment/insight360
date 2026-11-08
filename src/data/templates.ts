@@ -1,47 +1,12 @@
-import type { AnswerValue, AuditTemplate, CategoryKey, JourneyType, Question, QuestionType, Section, Segment, ServiceSequence, TimingRole } from '@/types'
+import type { AuditTemplate, Question, Section, Segment, ServiceSequence } from '@/types'
 import { CLIENT } from '@/config/client'
+import { CRITICAL_FAILURES_DINING, PROBLEM_SOLVING_OPTIONS, type SectionBlueprint, type TemplateBlueprint, isConditionalStage, stage } from './templateKit'
+import { SHEBESTAN_TEMPLATE } from './shebestan'
 
 /**
  * Assessment template blueprints. Sections are defined once and instantiated per template so
  * every template owns its own section/question ids (editable independently in the builder).
  */
-
-interface QuestionBlueprint {
-  text: string
-  type: QuestionType
-  weight?: number
-  critical?: boolean
-  evidence?: boolean
-  comment?: boolean
-  na?: boolean
-  guidance?: string
-  options?: string[]
-  threshold?: number
-  /** Storyline tag used by the demo data generator */
-  tag?: string
-  // ── Service sequence engine ──
-  /** Local handle another question in the same stage can gate on (`when`). */
-  key?: string
-  /** Main KPIs this question feeds (SequenceKpi.key). */
-  kpi?: string[]
-  /** Timing-chain leg this time question measures. */
-  timing?: TimingRole
-  /** Ask only when the sibling with `key` was answered `equals`. */
-  when?: { key: string; equals: AnswerValue }
-}
-
-interface SectionBlueprint {
-  code: string
-  title: string
-  category: CategoryKey
-  description: string
-  applicableTo: Segment[] | 'all'
-  questions: QuestionBlueprint[]
-  /** Stage weight (percent of the visit score) on a service sequence template. */
-  stageWeight?: number
-  /** The KPI the stage reports as. */
-  kpiName?: string
-}
 
 const GREETING: SectionBlueprint = {
   code: 'A',
@@ -266,18 +231,6 @@ const DELIVERY: SectionBlueprint = {
 // cross-concept dashboards (heatmap, radar, category trend) stay populated.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const stage = (
-  code: string,
-  title: string,
-  kpiName: string,
-  stageWeight: number,
-  category: CategoryKey,
-  description: string,
-  questions: QuestionBlueprint[],
-): SectionBlueprint => ({ code, title, kpiName, stageWeight, category, description, applicableTo: 'all', questions })
-
-const PROBLEM_SOLVING_OPTIONS = ['Resolved immediately with empathy', 'Resolved after escalation', 'Partially resolved', 'Not resolved / ignored']
-
 /** Closing stage on every sequence: unweighted, feeds CSAT and NPS only. */
 const OVERALL_EXPERIENCE: SectionBlueprint = stage('OVR', 'Overall Experience', 'Guest Satisfaction', 0, 'customer_experience', 'Overall satisfaction, likelihood to recommend and the shopper’s own words. Not weighted; feeds CSAT and NPS.', [
   { text: 'Overall, how satisfied were you with this visit? (1-10)', type: 'rating_10', weight: 0, kpi: ['csat'], guidance: 'Your honest overall impression as a guest. 1 = extremely dissatisfied, 10 = extremely satisfied.' },
@@ -285,16 +238,6 @@ const OVERALL_EXPERIENCE: SectionBlueprint = stage('OVR', 'Overall Experience', 
   { text: 'What was the single best moment of the visit?', type: 'text', weight: 0 },
   { text: 'What one change would most improve the experience?', type: 'text', weight: 0 },
 ])
-
-const CRITICAL_FAILURES_DINING = [
-  'Unsafe food served (raw, spoiled or at an unsafe temperature)',
-  'Serious hygiene issue in the dining area, kitchen or washroom',
-  'Foreign object found in food',
-  'Serious allergen or special-request failure',
-  'Major pricing or billing issue',
-  'Serious staff misconduct',
-  'Customer safety issue',
-]
 
 // ── FSR_DINE_IN · full-service restaurant · dine-in ─────────────────────────
 
@@ -639,19 +582,6 @@ const QSR_SEQUENCE: ServiceSequence = {
   timingChain: ['queue', 'order', 'preparation'],
 }
 
-interface TemplateBlueprint {
-  id: string
-  code: string
-  name: string
-  description: string
-  segment: Segment | 'Both'
-  journey: JourneyType
-  isFollowUp: boolean
-  sections: SectionBlueprint[]
-  /** Present on a service sequence template. */
-  sequence?: ServiceSequence
-}
-
 const TEMPLATE_BLUEPRINTS: TemplateBlueprint[] = [
   {
     id: 'tpl-fb-dine',
@@ -724,6 +654,8 @@ const TEMPLATE_BLUEPRINTS: TemplateBlueprint[] = [
     sections: [GREETING, SPEED, STAFF, COMPLIANCE, UPSELL, PRODUCT_FNB, PRODUCT_ENT, FOOD_SAFETY, ENTERTAINMENT],
   },
   // ── Service sequence templates (selected by brand, see BLUEPRINTS_FOR_CLIENT) ──
+  // A brand framework: the client's own document, not a reusable sequence.
+  SHEBESTAN_TEMPLATE,
   {
     id: 'tpl-fsr-dine-in',
     code: 'FSR_DINE_IN',
@@ -812,6 +744,9 @@ const BLUEPRINTS_FOR_CLIENT: TemplateBlueprint[] = CLIENT_TEMPLATE_CODES.size
       // A template whose sections have all been filtered away has nothing to ask.
       .filter((t) => t.sections.length > 0)
 
+/** Types that produce a score, and so can fall short of one. */
+const SCOREABLE = new Set<Question['type']>(['yes_no', 'pass_fail', 'rating_5', 'rating_10', 'multiple_choice', 'numeric', 'time'])
+
 export function buildTemplates(): TemplateBundle {
   const templates: AuditTemplate[] = []
   const sections: Section[] = []
@@ -821,11 +756,20 @@ export function buildTemplates(): TemplateBundle {
   for (const t of BLUEPRINTS_FOR_CLIENT) {
     const sectionIds: string[] = []
     let qCount = 0
-    // Stage weights are the visit score; an authoring slip here would mis-score every visit.
+    // Stage weights are the visit score; an authoring slip here would mis-score every
+    // visit. A conditional stage is excluded: it applies only to the visits that
+    // trigger it, where the engine renormalises over the stages actually scored.
+    // Weights carry a decimal, so the sum is compared at one place rather than exactly.
     if (t.sequence) {
-      const total = t.sections.reduce((n, s) => n + (s.stageWeight ?? 0), 0)
-      if (total !== 100) throw new Error(`Template ${t.code}: stage weights sum to ${total}, not 100`)
+      const total = t.sections.filter((s) => !isConditionalStage(s)).reduce((n, s) => n + (s.stageWeight ?? 0), 0)
+      if (Math.round(total * 10) !== 1000) throw new Error(`Template ${t.code}: stage weights sum to ${total}, not 100`)
     }
+    // `when` names a sibling in the same stage; `from`/`to` reach across the whole
+    // template, because a duration is routinely measured from a stamp taken earlier
+    // (seated in the hostess stage, order taken in the waiter stage).
+    const codeByKeyAll = new Map(
+      t.sections.flatMap((s) => s.questions.flatMap((q, qi) => (q.key ? [[q.key, `${s.code}.${qi + 1}`] as const] : []))),
+    )
     t.sections.forEach((s, si) => {
       const suffix = s.applicableTo === 'all' ? s.code : `${s.code}${s.applicableTo[0] === 'F&B' ? 'F' : 'E'}`
       const sid = `${t.id}-${suffix}`
@@ -848,6 +792,9 @@ export function buildTemplates(): TemplateBundle {
         qCount++
         const parentCode = q.when ? codeByKey.get(q.when.key) : undefined
         if (q.when && !parentCode) throw new Error(`Template ${t.code}: question ${s.code}.${qi + 1} gates on unknown key ${q.when.key}`)
+        const fromCode = q.from ? codeByKeyAll.get(q.from) : undefined
+        const toCode = q.to ? codeByKeyAll.get(q.to) : undefined
+        if ((q.from && !fromCode) || (q.to && !toCode)) throw new Error(`Template ${t.code}: question ${s.code}.${qi + 1} times against an unknown stamp (${q.from} → ${q.to})`)
         questions.push({
           id: qid,
           sectionId: sid,
@@ -858,6 +805,7 @@ export function buildTemplates(): TemplateBundle {
           critical: q.critical ?? false,
           evidenceRequired: q.evidence ?? false,
           commentRequired: q.comment ?? false,
+          ...((q.commentOnFail ?? t.commentOnFail) && SCOREABLE.has(q.type) ? { commentOnFail: true } : {}),
           allowNA: q.na ?? false,
           guidance: q.guidance ?? '',
           options: q.options,
@@ -866,6 +814,7 @@ export function buildTemplates(): TemplateBundle {
           ...(q.kpi ? { kpiKeys: q.kpi } : {}),
           ...(q.timing ? { timingRole: q.timing } : {}),
           ...(parentCode && q.when ? { condition: { questionCode: parentCode, equals: q.when.equals } } : {}),
+          ...(fromCode && toCode ? { derivedFrom: { from: fromCode, to: toCode } } : {}),
         })
         if (q.tag) tags.set(qid, q.tag)
       })

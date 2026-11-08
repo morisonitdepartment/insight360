@@ -57,7 +57,7 @@ export { DEMO_NOW } from './demoClock'
  * plan, templates). The demo repository discards a saved overlay from another
  * version instead of merging it into a seed it no longer matches.
  */
-export const SEED_VERSION = 7
+export const SEED_VERSION = 8
 
 const STORYLINE_OUTLET_KEY = CLIENT.portfolio.storylineKey
 export const STORYLINE = {
@@ -634,6 +634,8 @@ export function generateDataset(): Dataset {
           visitAnswers.push({ id: `${id}-${q.id}`, visitId: id, questionId: q.id, value, na, comment, evidenceIds: [], score: scoreQuestion(q, value, na) })
         }
       }
+
+      stampClockTimes(secs, questionsBySection, visitAnswers, rng)
 
       // Calibrate to target for scored visits (small adaptive steps, keep best state)
       if (scored) {
@@ -1349,6 +1351,61 @@ function mkUser(id: string, name: string, email: string, role: Role, title: stri
     mfaEnabled: role === 'super_admin' || role === 'client_admin' || role === 'executive',
     createdAt: '2025-09-15T09:00:00',
     shopperId,
+  }
+}
+
+/**
+ * Fills in the wall-clock stamps behind the calculated durations.
+ *
+ * The questionnaire asks a shopper for times of day and works the minutes out
+ * for itself. The generator runs the other way: the durations are drawn first,
+ * against their standards and the outlet's quality, and the stamps are then laid
+ * out along one timeline so that every pair differs by exactly the duration
+ * already generated. Walking the template in order means a stamp is written when
+ * the first duration needs it — the order is placed after the waiter arrives, the
+ * plate is finished after the grill lands — and the clock only moves forward.
+ */
+function stampClockTimes(secs: Section[], questionsBySection: Map<string, Question[]>, answers: VisitAnswer[], rng: Rng) {
+  const all = secs.flatMap((s) => questionsBySection.get(s.id) ?? [])
+  const derived = all.filter((q) => q.derivedFrom)
+  if (!derived.length) return
+  const byQuestion = new Map(answers.map((a) => [a.questionId, a]))
+  // Dinner service: a table sat between 19:00 and 20:45.
+  const start = 19 * 60 + rng.int(0, 105)
+  const at = new Map<string, number>()
+  const lastFromSame = new Map<string, number>()
+  let cursor = 0
+  for (const q of derived) {
+    const a = byQuestion.get(q.id)
+    if (!a || a.na || typeof a.value !== 'number') continue
+    const { from, to } = q.derivedFrom!
+    // Stamps are whole minutes, so the duration is too — otherwise a stored 1.4
+    // would sit between two stamps two minutes apart and the report would
+    // contradict itself.
+    let dur = Math.max(0, Math.round(a.value))
+    // Durations drawn independently can land out of order. Courses timed from the
+    // same moment arrive in the order they are asked about: starters, then the
+    // main, then the grill.
+    const prev = lastFromSame.get(from)
+    if (prev !== undefined && dur <= prev) dur = prev + rng.int(1, 4)
+    lastFromSame.set(from, dur)
+    a.value = dur
+    a.score = scoreQuestion(q, dur, a.na)
+    if (!at.has(from)) at.set(from, cursor)
+    const toMinute = at.get(from)! + dur
+    at.set(to, toMinute)
+    cursor = Math.max(cursor, toMinute)
+  }
+  const hhmm = (offset: number) => {
+    const m = Math.round(start + offset) % (24 * 60)
+    return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+  }
+  for (const q of all) {
+    if (q.type !== 'clock') continue
+    const a = byQuestion.get(q.id)
+    if (!a) continue
+    // A stamp no duration needed still happened: the last one closes the visit.
+    a.value = hhmm(at.get(q.code) ?? cursor + rng.int(2, 8))
   }
 }
 

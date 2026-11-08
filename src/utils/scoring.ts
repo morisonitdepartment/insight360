@@ -115,6 +115,7 @@ export function scoreQuestion(q: Question, value: AnswerValue, na: boolean): num
       // Linear decay: 2x threshold → 0
       return Math.max(0, 1 - (v - threshold) / threshold)
     }
+    case 'clock':
     case 'photo':
     case 'video':
     case 'text':
@@ -127,7 +128,7 @@ export function isQuestionAnswered(q: Question, a: VisitAnswer | undefined): boo
   if (!a) return false
   if (a.na && q.allowNA) return true
   if (q.type === 'photo' || q.type === 'video') return a.evidenceIds.length > 0
-  if (q.type === 'text') return typeof a.value === 'string' && a.value.trim().length > 0
+  if (q.type === 'text' || q.type === 'clock') return typeof a.value === 'string' && a.value.trim().length > 0
   return a.value !== null && a.value !== undefined && a.value !== ''
 }
 
@@ -164,7 +165,55 @@ export const TIMING_KPI_KEY: Record<TimingRole, string> = {
 }
 export const TOTAL_TIME_KEY = 'total_service_time'
 /** KPI keys that store the raw 1-10 answer rather than a 0-100 score. */
-export const SATISFACTION_KEYS = new Set(['csat', 'nps'])
+export const SATISFACTION_KEYS = new Set(['csat', 'nps', 'return_likelihood'])
+
+/**
+ * Minutes between two `HH:MM` stamps. A service that crosses midnight — a late
+ * dinner billed at 00:10 against an order at 23:40 — would otherwise read as
+ * minus 23 and a half hours, so a backwards interval is taken as the next day.
+ */
+export function minutesBetween(from: unknown, to: unknown): number | null {
+  const parse = (v: unknown): number | null => {
+    if (typeof v !== 'string') return null
+    const m = /^(\d{1,2}):(\d{2})$/.exec(v.trim())
+    if (!m) return null
+    const h = Number(m[1])
+    const min = Number(m[2])
+    if (h > 23 || min > 59) return null
+    return h * 60 + min
+  }
+  const a = parse(from)
+  const b = parse(to)
+  if (a === null || b === null) return null
+  return b >= a ? b - a : b + 24 * 60 - a
+}
+
+/**
+ * Fills in every question whose minutes are calculated from two clock stamps.
+ *
+ * The brief asks for elapsed times to be worked out automatically wherever the
+ * shopper has recorded the stamps, and one function doing it keeps the three
+ * places that need the answer — the assessment screen, the seeded data and any
+ * recomputation on load — from drifting apart. Returns only the answers it
+ * changed, so a caller can merge them without touching anything else.
+ */
+export function deriveTimedAnswers(questions: Question[], answers: VisitAnswer[], visitId: string): VisitAnswer[] {
+  const derived = questions.filter((q) => q.derivedFrom)
+  if (!derived.length) return []
+  const byCode = new Map(questions.map((q) => [q.code, q]))
+  const byQuestion = new Map(answers.map((a) => [a.questionId, a]))
+  const out: VisitAnswer[] = []
+  for (const q of derived) {
+    const from = byCode.get(q.derivedFrom!.from)
+    const to = byCode.get(q.derivedFrom!.to)
+    const value = minutesBetween(from && byQuestion.get(from.id)?.value, to && byQuestion.get(to.id)?.value)
+    const current = byQuestion.get(q.id)
+    if ((current?.value ?? null) === (value ?? null)) continue
+    const base = current ?? { id: `${visitId}-${q.id}`, visitId, questionId: q.id, value: null, na: false, comment: '', evidenceIds: [], score: null }
+    out.push({ ...base, value, score: scoreQuestion(q, value, base.na) })
+  }
+  return out
+}
 
 /**
  * The questions a visit actually asks, given the answers so far.

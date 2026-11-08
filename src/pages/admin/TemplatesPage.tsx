@@ -62,6 +62,7 @@ const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   text: 'Text',
   numeric: 'Numeric',
   time: 'Time (min)',
+  clock: 'Clock time',
   photo: 'Photo required',
   video: 'Video required',
 }
@@ -195,12 +196,23 @@ function PreviewControl({ q }: { q: Question }) {
       )
     case 'text':
       return <Textarea disabled placeholder="Shopper narrative…" aria-label={q.text} className="max-w-xl" />
+    case 'clock':
+      return (
+        <div className="flex items-center gap-2">
+          <Input disabled type="time" aria-label={q.text} className="!w-32" />
+          <span className="text-xs text-slate-500 dark:text-slate-400">24-hour clock</span>
+        </div>
+      )
     case 'numeric':
     case 'time':
       return (
         <div className="flex items-center gap-2">
-          <Input disabled type="number" placeholder="0" aria-label={q.text} className="!w-28" />
-          <span className="text-xs text-slate-500 dark:text-slate-400">{q.type === 'time' ? 'minutes' : 'value'}{q.threshold ? ` · standard ≤ ${q.threshold}` : ''}</span>
+          <Input disabled type="number" placeholder={q.derivedFrom ? '—' : '0'} aria-label={q.text} className="!w-28" />
+          <span className="text-xs text-slate-500 dark:text-slate-400">
+            {q.type === 'time' ? 'minutes' : 'value'}
+            {q.derivedFrom ? ` · calculated from ${q.derivedFrom.from} → ${q.derivedFrom.to}` : ''}
+            {q.threshold ? ` · standard ≤ ${q.threshold}` : ''}
+          </span>
         </div>
       )
     case 'photo':
@@ -482,6 +494,8 @@ export default function TemplatesPage() {
       ...(existing?.kpiKeys ? { kpiKeys: existing.kpiKeys } : {}),
       ...(existing?.timingRole ? { timingRole: existing.timingRole } : {}),
       ...(existing?.condition ? { condition: existing.condition } : {}),
+      ...(existing?.derivedFrom ? { derivedFrom: existing.derivedFrom } : {}),
+      ...(existing?.commentOnFail ? { commentOnFail: true } : {}),
     }
     await run(existing ? `Question ${question.code} updated` : `Question ${question.code} added`, (d, ctx) => upsertQuestion(d, ctx, question), () => setQuestionForm(null))
   }
@@ -536,15 +550,15 @@ export default function TemplatesPage() {
           align: 'center',
           width: '80px',
           render: (q) =>
-            q.commentRequired ? (
-              <span title="Comment required" className="inline-flex text-teal-600 dark:text-teal-400">
+            q.commentRequired || q.commentOnFail ? (
+              <span title={q.commentRequired ? 'Comment required' : 'Comment required when the answer falls below standard'} className={cn('inline-flex', q.commentRequired ? 'text-teal-600 dark:text-teal-400' : 'text-amber-600 dark:text-amber-400')}>
                 <MessageSquareText className="h-4 w-4" aria-hidden />
-                <span className="sr-only">Comment required</span>
+                <span className="sr-only">{q.commentRequired ? 'Comment required' : 'Comment required below standard'}</span>
               </span>
             ) : (
               <span className="text-slate-300 dark:text-navy-600">—</span>
             ),
-          sortValue: (q) => (q.commentRequired ? 1 : 0),
+          sortValue: (q) => (q.commentRequired ? 2 : q.commentOnFail ? 1 : 0),
         },
         {
           key: 'na',
@@ -1119,6 +1133,8 @@ export default function TemplatesPage() {
                           {q.critical && <Badge tone="red" icon={AlertOctagon} size="xs">Critical</Badge>}
                           {q.evidenceRequired && <Badge tone="teal" size="xs">Evidence</Badge>}
                           {q.commentRequired && <Badge tone="amber" size="xs">Comment</Badge>}
+                          {!q.commentRequired && q.commentOnFail && <Badge tone="slate" size="xs">Explain if below standard</Badge>}
+                          {q.derivedFrom && <Badge tone="blue" size="xs">Calculated</Badge>}
                         </div>
                       </div>
                       {q.guidance && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{q.guidance}</p>}

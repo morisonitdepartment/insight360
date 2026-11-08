@@ -3,7 +3,8 @@ import type { AuditTemplate, Question, Section } from '@/types'
 import { Badge } from '@/components/ui/Badge'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { CATEGORY_SHORT } from '@/utils/scoring'
-import { KPI_KIND_LABEL, TIMING_LABEL, stageRows } from '@/utils/sequence'
+import { KPI_KIND_LABEL, TIMING_LABEL, stageRows, weightText } from '@/utils/sequence'
+import { isConditionalSection } from '@/data/templateKit'
 import { cn } from '@/utils/cn'
 
 /**
@@ -15,8 +16,12 @@ import { cn } from '@/utils/cn'
 export function ServiceSequencePanel({ template, sections, questions }: { template: AuditTemplate; sections: Section[]; questions: Question[] }) {
   const seq = template.sequence
   if (!seq) return null
-  const rows = stageRows(sections, questions)
-  const total = rows.reduce((n, r) => n + r.weight, 0)
+  const rows = stageRows(sections, questions).map((r) => ({ ...r, conditional: isConditionalSection(r.section, questions) }))
+  // A conditional stage sits outside the hundred: it applies only to the visits
+  // that trigger it, and takes its share of a larger total on those.
+  const total = rows.reduce((n, r) => n + (r.conditional ? 0 : r.weight), 0)
+  const balanced = Math.round(total * 10) === 1000
+  const conditional = rows.filter((r) => r.conditional)
   const unweighted = sections.filter((s) => s.stageWeight === 0)
 
   return (
@@ -24,7 +29,7 @@ export function ServiceSequencePanel({ template, sections, questions }: { templa
       <CardHeader
         title="Service sequence"
         subtitle="Stages in guest order; each stage is a KPI with its share of the visit score"
-        actions={<Badge tone={total === 100 ? 'green' : 'red'}>{total === 100 ? 'Weights total 100%' : `Weights total ${total}%`}</Badge>}
+        actions={<Badge tone={balanced ? 'green' : 'red'}>{balanced ? 'Weights total 100%' : `Weights total ${weightText(total)}%`}</Badge>}
       />
       <CardBody className="space-y-5">
         <dl className="grid grid-cols-3 gap-3 text-xs">
@@ -62,7 +67,9 @@ export function ServiceSequencePanel({ template, sections, questions }: { templa
                   </td>
                   <td>{r.section.kpiName}</td>
                   <td>{CATEGORY_SHORT[r.section.category]}</td>
-                  <td className="text-right tabular-nums font-semibold">{r.weight === 0 ? <span className="font-normal">unweighted</span> : `${r.weight}%`}</td>
+                  <td className="text-right tabular-nums font-semibold">
+                    {r.weight === 0 ? <span className="font-normal">unweighted</span> : <>{weightText(r.weight)}%{r.conditional && <span className="block text-[10px] font-normal text-slate-500 dark:text-slate-400">when raised</span>}</>}
+                  </td>
                   <td className="text-right tabular-nums">{r.questions}</td>
                 </tr>
               ))}
@@ -70,15 +77,21 @@ export function ServiceSequencePanel({ template, sections, questions }: { templa
             <tfoot>
               <tr className="font-semibold">
                 <td colSpan={4}>Total</td>
-                <td className={cn('text-right tabular-nums', total === 100 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300')}>{total}%</td>
+                <td className={cn('text-right tabular-nums', balanced ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300')}>{weightText(total)}%</td>
                 <td className="text-right tabular-nums">{rows.reduce((n, r) => n + r.questions, 0)}</td>
               </tr>
             </tfoot>
           </table>
         </div>
+        {conditional.length > 0 && (
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {conditional.map((r) => r.section.title).join(', ')} {conditional.length === 1 ? 'is' : 'are'} conditional: every question is gated, so the stage is scored only on a visit that triggers it. When it is, it takes its{' '}
+            {conditional.map((r) => `${weightText(r.weight)}%`).join(' / ')} share and the other stages make up the rest; when it is not, it is left out of the calculation entirely.
+          </p>
+        )}
         {unweighted.length > 0 && (
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            {unweighted.map((s) => s.title).join(', ')} {unweighted.length === 1 ? 'is' : 'are'} not weighted: {unweighted.length === 1 ? 'its' : 'their'} answers feed the satisfaction KPIs only.
+            {unweighted.map((s) => s.title).join(', ')} {unweighted.length === 1 ? 'is' : 'are'} not weighted: {unweighted.length === 1 ? 'it carries' : 'they carry'} the visit's evidence and satisfaction measures, and {unweighted.length === 1 ? 'does' : 'do'} not move the score.
           </p>
         )}
 

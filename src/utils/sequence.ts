@@ -19,6 +19,11 @@ export const TIMING_LABEL: Record<TimingRole, string> = {
   preparation: 'Preparation',
 }
 
+/** A stage weight, written without a trailing `.0`: `14.2`, `5`, `7.6`. */
+export function weightText(weight: number): string {
+  return Number.isInteger(weight) ? String(weight) : weight.toFixed(1)
+}
+
 export interface StageRow {
   section: Section
   /** Percent of the visit score this stage carries. */

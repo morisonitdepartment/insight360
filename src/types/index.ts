@@ -246,6 +246,8 @@ export type QuestionType =
   | 'text'
   | 'numeric'
   | 'time'
+  /** A wall-clock stamp (HH:MM). Never scored; the raw material for a duration. */
+  | 'clock'
   | 'photo'
   | 'video'
 
@@ -272,6 +274,18 @@ export interface Question {
   timingRole?: TimingRole
   /** Asked only when a sibling question has a given answer. */
   condition?: QuestionCondition
+  /**
+   * A `time` question whose minutes are calculated rather than typed: the elapsed
+   * time between two `clock` questions in the same template, named by their codes.
+   * The shopper records the stamps; the duration follows.
+   */
+  derivedFrom?: { from: string; to: string }
+  /**
+   * Require a comment when the answer falls short — a No, a Fail, or a rating in
+   * the bottom half. `commentRequired` asks for one whatever the answer; this asks
+   * only where there is something to explain.
+   */
+  commentOnFail?: boolean
 }
 
 export interface Section {

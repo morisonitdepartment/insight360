@@ -65,7 +65,7 @@ export const sterling: ClientProfile = {
         name: 'Shebestan Palace',
         segment: 'F&B',
         subcategory: 'Fine Dining',
-        templateCode: 'FSR_DINE_IN',
+        templateCode: 'SHEBESTAN_FINE_DINING',
         locations: ['Al Sadd'],
       },
       {

@@ -16,7 +16,7 @@ import { benchmarksFor, monthlyTrend, outletVisitHistory, percentile } from '@/s
 import { isFollowUp, isMainAudit, isOpenFinding, isScored } from '@/services/derive'
 import { logExport } from '@/services/actions'
 import { CATEGORY_KEYS, CATEGORY_LABELS, CATEGORY_SHORT } from '@/utils/scoring'
-import { stageRows } from '@/utils/sequence'
+import { stageRows, weightText } from '@/utils/sequence'
 import { exportCsv } from '@/utils/export'
 import { exportOutletReportPdf } from '@/services/reportPdf'
 import { fmtDate, fmtDelta, fmtPct, round } from '@/utils/format'
@@ -241,7 +241,7 @@ export default function OutletDetailPage() {
                 <div className="mb-1 flex items-center justify-between gap-2 text-xs">
                   <span className="min-w-0 truncate text-slate-600 dark:text-slate-300">
                     <span className="tabular-nums text-slate-400">{i + 1}.</span> {r.section.title}
-                    <span className="ml-1 text-slate-400">· {r.weight === 0 ? 'unweighted' : `${r.weight}%`}</span>
+                    <span className="ml-1 text-slate-400">· {r.weight === 0 ? 'unweighted' : `${weightText(r.weight)}%`}</span>
                   </span>
                   <span className={cn('shrink-0 font-semibold tabular-nums', scoreTextClass(r.score))}>{fmtPct(r.score)}</span>
                 </div>

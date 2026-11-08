@@ -16,7 +16,7 @@ import type {
 } from '@/types'
 import { CATEGORY_KEYS, CATEGORY_LABELS } from '@/utils/scoring'
 import { ReportDoc, loadClientMark, scoreTone, type BarItem, type CellTone, type PdfColumn } from '@/utils/pdf'
-import { KPI_KIND_LABEL, formatKpiValue, stageRows, timingChainText } from '@/utils/sequence'
+import { KPI_KIND_LABEL, formatKpiValue, stageRows, timingChainText, weightText } from '@/utils/sequence'
 import { T } from '@/config/terms'
 
 /**
@@ -126,7 +126,7 @@ export async function exportVisitReportPdf(i: VisitPdfInput): Promise<void> {
       { header: '#', width: 0.4, align: 'center', render: (r) => String(stages.indexOf(r) + 1) },
       { header: 'Stage', width: 3, strong: true, render: (r) => r.section.title },
       { header: 'KPI', width: 3, render: (r) => r.section.kpiName ?? '—' },
-      { header: 'Weight', width: 1, align: 'right', render: (r) => (r.weight === 0 ? '—' : `${r.weight}%`) },
+      { header: 'Weight', width: 1, align: 'right', render: (r) => (r.weight === 0 ? '—' : `${weightText(r.weight)}%`) },
       { header: 'Score', width: 1, align: 'right', render: (r) => pct(r.score), tone: (r) => scoreTone(r.score) },
       { header: 'Contribution', width: 1.4, align: 'right', render: (r) => (r.contribution === null ? '—' : `${r.contribution.toFixed(1)} pts`) },
     ]
@@ -339,7 +339,7 @@ export async function exportOutletReportPdf(i: OutletPdfInput): Promise<void> {
         { size: 8 },
       )
       doc.bars(
-        stages.map((r) => ({ label: r.section.title, value: r.score, note: r.weight === 0 ? 'unweighted' : `${r.weight}%` })),
+        stages.map((r) => ({ label: r.section.title, value: r.score, note: r.weight === 0 ? 'unweighted' : `${weightText(r.weight)}%` })),
         { columns: 2 },
       )
     }

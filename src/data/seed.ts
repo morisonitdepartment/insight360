@@ -38,7 +38,7 @@ import { buildTemplates } from './templates'
 import { BRAND_DEFS, IMPROVEMENT_OBSERVATIONS, IPS, MANAGER_NAMES, MAP_BY_LOCATION, NARRATIVE_OPENERS, POSITIVE_OBSERVATIONS, REGION_BY_LOCATION, ROOT_CAUSES, SHOPPER_NAMES } from './lists'
 import { DEFAULT_KPI_CONFIG, DEFAULT_NOTIFICATION_RULES, DEFAULT_ORGANIZATION, TRAINING_MODULES } from './defaults'
 import { SCENARIOS } from './scenarios'
-import { STORYLINE_ANCHOR, shiftDemoDates } from './demoClock'
+import { DEMO_NOW, STORYLINE_ANCHOR, shiftDemoDates } from './demoClock'
 import { CLIENT } from '@/config/client'
 import { deriveOutlets } from '@/services/derive'
 import { T } from '@/config/terms'
@@ -57,7 +57,7 @@ export { DEMO_NOW } from './demoClock'
  * plan, templates). The demo repository discards a saved overlay from another
  * version instead of merging it into a seed it no longer matches.
  */
-export const SEED_VERSION = 6
+export const SEED_VERSION = 7
 
 const STORYLINE_OUTLET_KEY = CLIENT.portfolio.storylineKey
 export const STORYLINE = {
@@ -1212,11 +1212,50 @@ export function portfolioDataset(): Dataset {
   // Shoppers cover what the estate trades in, so every one can be assigned.
   const segments = [...new Set(full.outlets.map((o) => o.segment))] as Shopper['assignedCategories']
   const emailFor = (name: string) => `${name.toLowerCase().replace(/[^a-z]+/g, '.')}@insight360.demo`
+  /**
+   * The panel the client is actually sending into the field, so every module is
+   * passed and in date and all three read Certified. The generated panel randomises
+   * training to populate the training-attention views, which is right for a large
+   * estate and wrong here: a trial of three shoppers cannot show one of them
+   * uncertified and still have an assignable panel, since Assignments only treats
+   * a Certified shopper as eligible.
+   *
+   * Dates are staggered by shopper and module, so the record reads like attendance
+   * over a few months rather than a bulk import on one day, and are measured from
+   * the demo's today — the dataset this builds on has already been shifted.
+   */
+  const certifiedTraining = (i: number): ShopperTrainingRecord[] =>
+    TRAINING_MODULES.map((m, mi) => {
+      const completedAt = subDays(DEMO_NOW, 24 + i * 9 + mi * 13)
+      return {
+        moduleId: m.id,
+        status: 'Completed' as const,
+        completedAt: iso(completedAt),
+        // Every module stays in date: the shortest validity is six months and the
+        // oldest sitting here is four months old.
+        expiresAt: iso(addDays(completedAt, m.validityMonths * 30)),
+        score: 88 + ((i * 3 + mi * 5) % 11),
+      }
+    })
   const shoppers: Shopper[] = (panel ? full.shoppers.slice(0, panel.length) : full.shoppers.slice(0, 5)).map((sh, i) => {
     const def = panel?.[i]
     return {
       ...sh,
-      ...(def ? { name: def.name, gender: def.gender, nationality: def.nationality, languages: def.languages, email: emailFor(def.name), status: 'Active' as const, availability: 'Available' as const, assignedCategories: segments } : {}),
+      ...(def
+        ? {
+            name: def.name,
+            gender: def.gender,
+            nationality: def.nationality,
+            languages: def.languages,
+            email: emailFor(def.name),
+            status: 'Active' as const,
+            availability: 'Available' as const,
+            assignedCategories: segments,
+            training: certifiedTraining(i),
+            trainingStatus: 'Completed' as const,
+            certificationStatus: 'Certified' as const,
+          }
+        : {}),
       completedVisits: 0,
       onTimeSubmissionPct: 0,
     }

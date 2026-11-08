@@ -12,6 +12,22 @@ const DATA_KEY = `${APP_CONFIG.storagePrefix}.demo.data.v2`
 const SESSION_KEY = `${APP_CONFIG.storagePrefix}.session`
 const SEED_KEY = `${APP_CONFIG.storagePrefix}.demo.seed`
 
+/**
+ * The `?seed=` switch, read once at load.
+ *
+ * The dataset is not built until someone signs in, and by then the router has
+ * replaced the address with /login and the query is gone. Reading it here —
+ * before any of that — means the switch survives the redirect, so a link with
+ * `?seed=full` lands on the full demonstration portfolio the way it reads.
+ */
+const SEED_FROM_URL = (() => {
+  try {
+    return new URLSearchParams(window.location.search).get('seed')
+  } catch {
+    return null
+  }
+})()
+
 /** Collections that may be overridden by local demo mutations. */
 const PERSISTED_KEYS: (keyof Dataset)[] = [
   'visits',
@@ -93,10 +109,9 @@ export class DemoRepository implements Repository {
     const isMode = (v: string | null): v is 'full' | 'portfolio' | 'empty' => v === 'full' || v === 'portfolio' || v === 'empty'
     const fallback = CLIENT.demoSeed ?? 'full'
     try {
-      const fromUrl = new URLSearchParams(window.location.search).get('seed')
-      if (isMode(fromUrl)) {
-        localStorage.setItem(SEED_KEY, fromUrl)
-        return fromUrl
+      if (isMode(SEED_FROM_URL)) {
+        localStorage.setItem(SEED_KEY, SEED_FROM_URL)
+        return SEED_FROM_URL
       }
       const stored = localStorage.getItem(SEED_KEY)
       return isMode(stored) ? stored : fallback

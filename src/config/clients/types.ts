@@ -126,6 +126,13 @@ export interface ClientProfile {
    */
   terms?: { outlet: string; outlets: string }
 
+  /**
+   * What a demo build starts from when the URL does not say. `full` (default) is the
+   * generated demonstration history; `portfolio` keeps brands, outlets, people and
+   * configuration with no assessments; `empty` is configuration only. `?seed=` overrides.
+   */
+  demoSeed?: 'full' | 'portfolio' | 'empty'
+
   /** Sidebar icon overrides keyed by NavItem.path. Unlisted paths keep the default. */
   navIcons?: Record<string, LucideIcon>
 

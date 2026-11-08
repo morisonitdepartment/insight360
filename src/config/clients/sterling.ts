@@ -10,8 +10,9 @@ import type { ClientProfile } from './types'
  *   Bennigan's        — casual dining                    → CASUAL_DINING
  *   Pizza Hut         — quick service, counter order     → QSR_COUNTER_ORDER
  *
- * The first location of each brand is the real site named in the brief; the
- * others are illustrative Qatar locations. Every person below is fictional, and
+ * Evaluation phase: the programme is limited to one trial location per brand —
+ * Shebestan Palace – Al Sadd, Bennigan's – Qatar Tennis Federation and
+ * Pizza Hut – Doha Festival City. Every person below is fictional, and
  * the client name and marks appear on the demonstration site alone.
  */
 export const sterling: ClientProfile = {
@@ -27,14 +28,16 @@ export const sterling: ClientProfile = {
     estate: 'full-service, casual-dining and quick-service restaurants',
   },
 
-  // Matches the seeded dataset: 16 restaurants x 4 visits a year, 48 completed by
-  // the storyline date. Verified with `npm run check:seed`, not guessed.
+  // Evaluation phase: the three trial restaurants with no assessments yet. The
+  // annual plan is 3 restaurants x 4 visits; none completed. No trend is drawn
+  // until there is data behind it.
+  demoSeed: 'portfolio',
   snapshot: {
-    outlets: 16,
-    plannedVisits: 64,
-    completedVisits: 48,
+    outlets: 3,
+    plannedVisits: 12,
+    completedVisits: 0,
     visitsPerOutlet: 4,
-    trend: [82.6, 84.7, 82.4, 86.7, 84.5, 84.6, 85.4, 89.0, 89.2, 86.4, 85.2, 86.3],
+    trend: [],
   },
 
   accent: {
@@ -63,7 +66,7 @@ export const sterling: ClientProfile = {
         segment: 'F&B',
         subcategory: 'Fine Dining',
         templateCode: 'FSR_DINE_IN',
-        locations: ['Al Sadd', 'The Pearl', 'Lusail Marina'],
+        locations: ['Al Sadd'],
       },
       {
         id: 'br-02',
@@ -71,7 +74,7 @@ export const sterling: ClientProfile = {
         segment: 'F&B',
         subcategory: 'Casual Dining',
         templateCode: 'CASUAL_DINING',
-        locations: ['Qatar Tennis Federation', 'West Bay', 'Al Wakrah', 'Al Rayyan'],
+        locations: ['Qatar Tennis Federation'],
       },
       {
         id: 'br-03',
@@ -79,7 +82,7 @@ export const sterling: ClientProfile = {
         segment: 'F&B',
         subcategory: 'Fast Casual',
         templateCode: 'QSR_COUNTER_ORDER',
-        locations: ['Doha Festival City Mall', 'Villaggio Mall', 'Mall of Qatar', 'City Centre Mall', 'Al Khor', 'Al Gharrafa', 'Lusail Boulevard', 'Old Airport', 'Msheireb'],
+        locations: ['Doha Festival City'],
       },
     ],
 

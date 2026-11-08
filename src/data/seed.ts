@@ -57,7 +57,7 @@ export { DEMO_NOW } from './demoClock'
  * plan, templates). The demo repository discards a saved overlay from another
  * version instead of merging it into a seed it no longer matches.
  */
-export const SEED_VERSION = 2
+export const SEED_VERSION = 4
 
 const STORYLINE_OUTLET_KEY = CLIENT.portfolio.storylineKey
 export const STORYLINE = {
@@ -141,7 +141,8 @@ export function generateDataset(): Dataset {
         // Roughly one site refurbishing and one seasonal, wherever the portfolio
         // happens to be sized. Fixed indices of 27 and 44 never fired on a
         // portfolio smaller than 44, leaving every outlet permanently Active.
-        status: idx === RENOVATING_AT ? 'Under Renovation' : idx === SEASONAL_AT ? 'Seasonal' : 'Active',
+        // A trial portfolio of a handful of sites keeps every outlet trading.
+        status: totalLocations < 10 ? 'Active' : idx === RENOVATING_AT ? 'Under Renovation' : idx === SEASONAL_AT ? 'Seasonal' : 'Active',
         openingHours: b.segment === 'F&B' ? (sub === 'Café' ? '07:00 – 23:00' : '11:00 – 00:00') : '10:00 – 23:00',
         targetScore: sub === 'Fine Dining' ? 92 : b.segment === 'Entertainment' ? 90 : 88,
         annualVisits: 4,
@@ -182,13 +183,23 @@ export function generateDataset(): Dataset {
     safety_entertainment: 5.6 + rng.normal(0, 1.2),
   })
   let ti = 0
-  for (const b of topBases) profiles.set(tierOrder[ti++].id, { tier: 'top', base: b, catBias: mkBias(tierOrder[ti - 1].segment), k: 0 })
-  for (const b of criticalBases) profiles.set(tierOrder[ti++].id, { tier: 'critical', base: b, catBias: mkBias(tierOrder[ti - 1].segment), k: 0 })
-  for (const b of needsBases) profiles.set(tierOrder[ti++].id, { tier: 'needs', base: b, catBias: mkBias(tierOrder[ti - 1].segment), k: 0 })
-  for (let i = 0; i < midCount; i++) {
-    const o = tierOrder[ti++]
-    const base = 85.4 + (i / (midCount - 1)) * 7.4 + rng.normal(0, 0.4)
-    profiles.set(o.id, { tier: 'mid', base, catBias: mkBias(o.segment), k: 0 })
+  if (midCount >= 2) {
+    for (const b of topBases) profiles.set(tierOrder[ti++].id, { tier: 'top', base: b, catBias: mkBias(tierOrder[ti - 1].segment), k: 0 })
+    for (const b of criticalBases) profiles.set(tierOrder[ti++].id, { tier: 'critical', base: b, catBias: mkBias(tierOrder[ti - 1].segment), k: 0 })
+    for (const b of needsBases) profiles.set(tierOrder[ti++].id, { tier: 'needs', base: b, catBias: mkBias(tierOrder[ti - 1].segment), k: 0 })
+    for (let i = 0; i < midCount; i++) {
+      const o = tierOrder[ti++]
+      const base = 85.4 + (i / (midCount - 1)) * 7.4 + rng.normal(0, 0.4)
+      profiles.set(o.id, { tier: 'mid', base, catBias: mkBias(o.segment), k: 0 })
+    }
+  } else {
+    // Small (trial) portfolio: spread the few non-storyline sites across the tiers
+    // so the comparison still shows a leader, a steady middle and a site to watch.
+    const smallTiers: [Tier, number][] = [['top', 94.4], ['mid', 87.6], ['needs', 76.2], ['mid', 90.1], ['top', 95.1], ['needs', 74.1], ['mid', 85.9], ['critical', 69.4], ['mid', 88.8], ['top', 93.2], ['mid', 86.7], ['needs', 78.9]]
+    others.forEach((o, i) => {
+      const [tier, base] = smallTiers[i % smallTiers.length]
+      profiles.set(o.id, { tier, base, catBias: mkBias(o.segment), k: 0 })
+    })
   }
   profiles.set(storylineOutlet.id, { tier: 'critical', base: 68.2, catBias: mkBias('F&B'), k: 0 })
 
@@ -337,6 +348,13 @@ export function generateDataset(): Dataset {
     { k: 40, type: 'Follow-up 1', tag: 'food_safety', open: false },
   ]
 
+  // A trial portfolio carries only the storyline's critical failure, so a
+  // well-scoring site is not flagged Critical by a leftover large-estate event.
+  const smallPortfolio = outletsBase.length < 10
+  if (smallPortfolio) {
+    for (let i = criticalPlan.length - 1; i >= 0; i--) if (criticalPlan[i].k !== 0) criticalPlan.splice(i, 1)
+  }
+
   interface VisitPlan {
     outlet: Outlet
     type: VisitType
@@ -363,7 +381,11 @@ export function generateDataset(): Dataset {
     }
     let fu2: Date
     let fu2Status: VisitStatus
-    if (k < 4) {
+    if (smallPortfolio && k > 0) {
+      // Keep the live workflow visible: one follow-up in the field, one assigned.
+      fu2 = k === 1 ? addDays(new Date(2026, 8, 8), 0) : addDays(new Date(2026, 8, 14), k)
+      fu2Status = k === 1 ? 'In Progress' : 'Assigned'
+    } else if (k < 4) {
       fu2 = addDays(new Date(2026, 8, 2), k * 2)
       fu2Status = k === 0 ? 'Under Review' : 'Submitted'
     } else if (k < 16) {
@@ -1158,6 +1180,48 @@ export function generateDataset(): Dataset {
     reports,
     notificationRules: DEFAULT_NOTIFICATION_RULES,
   })
+}
+
+/**
+ * The client's portfolio with no assessment history: brands, outlets, users and the
+ * shopper panel are kept, together with the KPI model, templates and questions.
+ * Visits, scores, findings, alerts, corrective actions, evidence, reports and logs
+ * are empty, so the programme can start from day one on the real estate.
+ */
+export function portfolioDataset(): Dataset {
+  const full = generateDataset()
+  // Nothing has been assessed, so there is no storyline to tour.
+  Object.assign(STORYLINE, { outletName: '', mainAuditVisitId: '', followUpVisitId: '', mainAuditScore: 0, followUpScore: 0, findingId: '', alertId: '', actionId: '' })
+  const outletsBase: Outlet[] = full.outlets.map((o) => ({
+    ...o,
+    mainAuditsCompleted: 0,
+    followUpsCompleted: 0,
+    lastAudit: null,
+    nextAudit: null,
+    overallScore: null,
+    previousScore: null,
+    riskRating: 'Not Assessed',
+    openIssues: 0,
+    criticalFindings: 0,
+    categoryScores: null,
+    rank: null,
+  }))
+  return {
+    ...full,
+    outlets: deriveOutlets(outletsBase, [], [], full.thresholds),
+    users: full.users.map((u) => ({ ...u, lastLogin: null })),
+    shoppers: full.shoppers.map((sh) => ({ ...sh, completedVisits: 0, onTimeSubmissionPct: 0 })),
+    visits: [],
+    answers: [],
+    evidence: [],
+    findings: [],
+    alerts: [],
+    correctiveActions: [],
+    comments: [],
+    notifications: [],
+    activityLogs: [],
+    reports: [],
+  }
 }
 
 // ───────────────────────────── helpers ─────────────────────────────

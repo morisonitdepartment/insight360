@@ -116,7 +116,7 @@ export default function ExecutiveDashboardPage() {
         subtitle={`${data.organization.name} · ${data.organization.engagementName} · ${outletScope === 'all' ? `${outlets.length} ${T.outlets}` : outletName(outletScope)} · as of ${fmtDate(now)}`}
         actions={
           <>
-            {isDemoMode() && (
+            {isDemoMode() && data.visits.length > 0 && (
               <button type="button" className="btn-secondary" onClick={demo.start}>
                 <PlayCircle className="h-4 w-4" /> Launch Guided Demo
               </button>

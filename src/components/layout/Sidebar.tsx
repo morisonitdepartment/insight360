@@ -4,6 +4,7 @@ import { NAVIGATION } from '@/config/navigation'
 import { hasAnyPermission, hasPermission, ROLE_LABELS } from '@/config/permissions'
 import { useAuth } from '@/contexts/AuthContext'
 import { useGuidedDemo } from '@/contexts/GuidedDemoContext'
+import { useDataState } from '@/contexts/DataContext'
 import { APP_CONFIG, isDemoMode } from '@/config/app'
 import { CLIENT_BRAND } from '@/config/client'
 import { cn } from '@/utils/cn'
@@ -20,6 +21,8 @@ export function BrandMark({ className, size = 'md' }: { className?: string; size
 export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: { collapsed: boolean; onToggle: () => void; mobileOpen: boolean; onMobileClose: () => void }) {
   const { user, role } = useAuth()
   const demo = useGuidedDemo()
+  // The tour walks through assessment history; with none recorded there is nothing to show.
+  const hasHistory = (useDataState().data?.visits.length ?? 0) > 0
 
   const groups = NAVIGATION.map((g) => ({
     ...g,
@@ -77,7 +80,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: { co
       </nav>
 
       <div className="border-t border-navy-800 p-3 space-y-2">
-        {isDemoMode() && role !== 'shopper' && (
+        {isDemoMode() && hasHistory && role !== 'shopper' && (
           <button type="button" onClick={demo.start} className={cn('flex w-full items-center gap-2 rounded-lg bg-teal-600 px-3 py-2 text-[13px] font-semibold text-white hover:bg-teal-500 transition-colors', collapsed && 'justify-center px-2')} title="Launch Guided Demo">
             <PlayCircle className="h-4 w-4 shrink-0" aria-hidden />
             {!collapsed && 'Launch Guided Demo'}

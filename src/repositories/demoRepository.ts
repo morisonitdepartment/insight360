@@ -1,6 +1,7 @@
 import { APP_CONFIG } from '@/config/app'
 import { DEMO_ACCOUNTS } from '@/config/demoAccounts'
-import { SEED_VERSION, emptyDataset, generateDataset } from '@/data/seed'
+import { SEED_VERSION, emptyDataset, generateDataset, portfolioDataset } from '@/data/seed'
+import { CLIENT } from '@/config/client'
 import { DEMO_SHIFT_DAYS } from '@/data/demoClock'
 import type { Dataset, Evidence, User } from '@/types'
 import { hashString } from '@/utils/prng'
@@ -88,22 +89,26 @@ export class DemoRepository implements Repository {
    * Which seed the demo starts from. `?seed=empty` (sticky, stored) yields a configuration-only
    * dataset matching day-one Live Mode; anything else yields the full demonstration portfolio.
    */
-  private seedMode(): 'full' | 'empty' {
+  private seedMode(): 'full' | 'portfolio' | 'empty' {
+    const isMode = (v: string | null): v is 'full' | 'portfolio' | 'empty' => v === 'full' || v === 'portfolio' || v === 'empty'
+    const fallback = CLIENT.demoSeed ?? 'full'
     try {
       const fromUrl = new URLSearchParams(window.location.search).get('seed')
-      if (fromUrl === 'empty' || fromUrl === 'full') {
+      if (isMode(fromUrl)) {
         localStorage.setItem(SEED_KEY, fromUrl)
         return fromUrl
       }
-      return localStorage.getItem(SEED_KEY) === 'empty' ? 'empty' : 'full'
+      const stored = localStorage.getItem(SEED_KEY)
+      return isMode(stored) ? stored : fallback
     } catch {
-      return 'full'
+      return fallback
     }
   }
 
   private dataset(): Dataset {
     if (!this.cache) {
-      const seed = this.seedMode() === 'empty' ? emptyDataset() : generateDataset()
+      const mode = this.seedMode()
+      const seed = mode === 'empty' ? emptyDataset() : mode === 'portfolio' ? portfolioDataset() : generateDataset()
       this.cache = { ...seed, ...this.overlay }
     }
     return this.cache

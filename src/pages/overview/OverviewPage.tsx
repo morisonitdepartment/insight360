@@ -78,7 +78,7 @@ export default function OverviewPage() {
         badge={<Badge tone="teal">{role ? ROLE_LABELS[role] : ''}</Badge>}
         actions={
           <>
-            {isDemoMode() && (
+            {isDemoMode() && data.visits.length > 0 && (
               <button type="button" className="btn-secondary" onClick={demo.start}>
                 <PlayCircle className="h-4 w-4" /> Launch Guided Demo
               </button>

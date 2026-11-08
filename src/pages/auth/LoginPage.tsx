@@ -71,6 +71,7 @@ const PROGRAMME_YEARS = (() => {
 })()
 
 function TrendFlourish() {
+  if (TREND.length < 2) return null
   const min = Math.min(...TREND)
   const max = Math.max(...TREND)
   const range = max - min || 1

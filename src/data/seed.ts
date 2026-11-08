@@ -57,7 +57,7 @@ export { DEMO_NOW } from './demoClock'
  * plan, templates). The demo repository discards a saved overlay from another
  * version instead of merging it into a seed it no longer matches.
  */
-export const SEED_VERSION = 4
+export const SEED_VERSION = 6
 
 const STORYLINE_OUTLET_KEY = CLIENT.portfolio.storylineKey
 export const STORYLINE = {
@@ -1206,11 +1206,35 @@ export function portfolioDataset(): Dataset {
     categoryScores: null,
     rank: null,
   }))
+  // The client's own panel when it has one, otherwise the first five generated
+  // shoppers. Shopper accounts follow the panel: renamed to match, or removed.
+  const panel = CLIENT.people.trialShoppers
+  // Shoppers cover what the estate trades in, so every one can be assigned.
+  const segments = [...new Set(full.outlets.map((o) => o.segment))] as Shopper['assignedCategories']
+  const emailFor = (name: string) => `${name.toLowerCase().replace(/[^a-z]+/g, '.')}@insight360.demo`
+  const shoppers: Shopper[] = (panel ? full.shoppers.slice(0, panel.length) : full.shoppers.slice(0, 5)).map((sh, i) => {
+    const def = panel?.[i]
+    return {
+      ...sh,
+      ...(def ? { name: def.name, gender: def.gender, nationality: def.nationality, languages: def.languages, email: emailFor(def.name), status: 'Active' as const, availability: 'Available' as const, assignedCategories: segments } : {}),
+      completedVisits: 0,
+      onTimeSubmissionPct: 0,
+    }
+  })
+  const shopperById = new Map(shoppers.map((sh) => [sh.id, sh]))
+  const users: User[] = full.users
+    .filter((u) => !u.shopperId || shopperById.has(u.shopperId))
+    .map((u) => {
+      const sh = u.shopperId ? shopperById.get(u.shopperId) : undefined
+      // The shopper sign-in keeps its address; other shopper users take the shopper's.
+      const loginKept = u.id === 'usr-004'
+      return { ...u, lastLogin: null, ...(sh && panel ? { name: sh.name, ...(loginKept ? {} : { email: sh.email }) } : {}) }
+    })
   return {
     ...full,
     outlets: deriveOutlets(outletsBase, [], [], full.thresholds),
-    users: full.users.map((u) => ({ ...u, lastLogin: null })),
-    shoppers: full.shoppers.map((sh) => ({ ...sh, completedVisits: 0, onTimeSubmissionPct: 0 })),
+    users,
+    shoppers,
     visits: [],
     answers: [],
     evidence: [],

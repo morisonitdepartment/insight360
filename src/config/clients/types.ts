@@ -171,5 +171,10 @@ export interface ClientProfile {
   people: {
     managers: string[]
     shoppers: ShopperDef[]
+    /**
+     * The client's real shopper panel for a `portfolio` start. When set, these replace
+     * the generated panel; the first is linked to the shopper sign-in account.
+     */
+    trialShoppers?: ShopperDef[]
   }
 }

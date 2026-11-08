@@ -188,5 +188,12 @@ export const sterling: ClientProfile = {
   { name: 'Hanan Qasim', gender: 'Female', nationality: 'Syrian', languages: ['Arabic', 'English'] },
   { name: 'Ben Mitchell', gender: 'Male', nationality: 'South African', languages: ['English', 'Afrikaans'] },
 ],
+
+    /** Evaluation-phase panel: the three shoppers running the trial visits. */
+    trialShoppers: [
+      { name: 'Ahmed Ouf', gender: 'Male', nationality: 'Egyptian', languages: ['Arabic', 'English'] },
+      { name: 'Allaway Rashidi', gender: 'Male', nationality: 'Saudi', languages: ['Arabic', 'English'] },
+      { name: 'Roben', gender: 'Male', nationality: 'Armenian', languages: ['Armenian', 'English', 'Russian'] },
+    ],
   },
 }

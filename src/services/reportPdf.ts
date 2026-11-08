@@ -218,6 +218,7 @@ export async function exportVisitReportPdf(i: VisitPdfInput): Promise<void> {
     { label: 'Time in / out', value: `${clock(visit.visitStart)} – ${clock(visit.visitEnd)}` },
     { label: 'Mystery shopper', value: i.shopper ? `${i.shopper.code} · ${i.shopper.profileType}` : '—' },
     { label: 'Party size', value: visit.partySize ? `${visit.partySize} guest${visit.partySize === 1 ? '' : 's'}` : '—' },
+    { label: 'Occupancy on arrival', value: visit.occupancy === null ? 'Not recorded' : `${visit.occupancy}% of seats in use` },
     { label: 'Spend', value: visit.spend ? `${CLIENT.org.currency} ${visit.spend}` : '—' },
     { label: 'Submitted', value: dayTime(visit.submittedAt) },
     { label: 'Reporting SLA', value: `${visit.slaStatus}${i.turnaround !== null ? ` · ${i.turnaround}h turnaround` : ''}` },

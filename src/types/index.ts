@@ -231,6 +231,12 @@ export interface Visit {
   criticalCount: number
   spend: number | null
   partySize: number
+  /**
+   * How full the outlet was when the shopper arrived, as a percentage of the
+   * seats or service points in use. Context for every timing in the visit: four
+   * minutes to be greeted reads differently at 30% than at 90%.
+   */
+  occupancy: number | null
   /** Scenario-based assessment the shopper was briefed to execute on this visit. */
   scenarioId: string | null
   /** Percentage of mandatory questions answered (draft progress) */

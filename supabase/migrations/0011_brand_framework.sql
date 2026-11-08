@@ -35,6 +35,11 @@ begin
     check (type in ('yes_no', 'rating_5', 'rating_10', 'pass_fail', 'multiple_choice', 'text', 'numeric', 'time', 'clock', 'photo', 'video'));
 end $$;
 
+-- How full the outlet was when the shopper arrived, as a percentage of seats or
+-- service points in use. Context for every timing on the visit.
+alter table public.visits
+  add column if not exists occupancy integer check (occupancy is null or (occupancy between 0 and 100));
+
 -- A stage weight may now carry a decimal (14.2), so a client's own weighting can be
 -- scaled to 100 without rounding it into something they would not recognise.
 -- numeric(5,2) already allows this; the comment records why it matters.

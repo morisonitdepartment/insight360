@@ -57,7 +57,7 @@ export { DEMO_NOW } from './demoClock'
  * plan, templates). The demo repository discards a saved overlay from another
  * version instead of merging it into a seed it no longer matches.
  */
-export const SEED_VERSION = 8
+export const SEED_VERSION = 9
 
 const STORYLINE_OUTLET_KEY = CLIENT.portfolio.storylineKey
 export const STORYLINE = {
@@ -535,6 +535,10 @@ export function generateDataset(): Dataset {
       criticalCount: 0,
       spend: visited ? (tplId === 'tpl-social' ? null : o.segment === 'F&B' ? rng.int(85, 420) : rng.int(120, 650)) : null,
       partySize: scenarioId === 'scn-07' ? rng.int(4, 6) : rng.pick([1, 1, 2, 2, 2, 3, 4]),
+      // Derived from the visit id rather than drawn from the generator: a new draw
+      // here would shift every random value after it and rewrite the other client's
+      // whole dataset. Deterministic, in the same 30-95% range a real estate sees.
+      occupancy: visited ? 30 + (hashString(id) % 66) : null,
       scenarioId,
       progress: 0,
     }

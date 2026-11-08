@@ -432,7 +432,7 @@ export default function VisitReportPage() {
           <section>
             <h2 className="section-title mb-2">Shopper narrative</h2>
             <blockquote className="rounded-xl border-l-4 border-teal-500 bg-slate-50 dark:bg-navy-800/40 p-4 text-sm leading-relaxed text-slate-700 dark:text-slate-200">{visit.narrative ?? 'No narrative provided.'}</blockquote>
-            <p className="mt-1 text-xs text-slate-500">Shopper {shopper?.name ?? '—'} · {shopper?.profileType ?? ''} profile · party of {visit.partySize} · spend QAR {visit.spend ?? '—'}</p>
+            <p className="mt-1 text-xs text-slate-500">Shopper {shopper?.name ?? '—'} · {shopper?.profileType ?? ''} profile · party of {visit.partySize} · spend QAR {visit.spend ?? '—'} · outlet {visit.occupancy === null ? 'occupancy not recorded' : `${visit.occupancy}% full on arrival`}</p>
             {scenario && (
               <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-navy-800 dark:bg-navy-800/40">
                 <h3 className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">

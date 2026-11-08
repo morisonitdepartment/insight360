@@ -135,6 +135,7 @@ export default function ExportsPage() {
           'Critical Findings': v.criticalCount,
           Progress: v.progress,
           'Party Size': v.partySize,
+          'Occupancy %': v.occupancy ?? '',
           Spend: v.spend,
           Reviewer: v.reviewerId ? (userById.get(v.reviewerId)?.name ?? v.reviewerId) : '',
           'Reviewed At': v.reviewedAt ?? '',

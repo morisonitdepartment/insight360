@@ -116,7 +116,14 @@ export function saveDraft(data: Dataset, ctx: ActionContext, visitId: string, an
   return { visits: replace(data.visits, updated), answers: [...others, ...answers], activityLogs: withLog(data, ctx, 'Draft saved', 'Visits', v.code, `${res.progress}% complete`) }
 }
 
-export function submitVisit(data: Dataset, ctx: ActionContext, visitId: string, answers: VisitAnswer[], narrative: string): DatasetPatch {
+export function submitVisit(
+  data: Dataset,
+  ctx: ActionContext,
+  visitId: string,
+  answers: VisitAnswer[],
+  narrative: string,
+  opts: { occupancy?: number | null } = {},
+): DatasetPatch {
   const v = data.visits.find((x) => x.id === visitId)
   if (!v) return {}
   const outlet = data.outlets.find((o) => o.id === v.outletId)!
@@ -139,6 +146,7 @@ export function submitVisit(data: Dataset, ctx: ActionContext, visitId: string, 
     reportStatus: 'Pending Review',
     slaStatus: gradeSla(ctx.now, visitEnd, deadline, data.organization.reportingTargetHours),
     narrative,
+    occupancy: opts.occupancy ?? v.occupancy,
     criticalCount: res.criticalFailures.length,
     progress: 100,
     approvalHistory: [...v.approvalHistory, { at: iso(ctx.now), by: ctx.user.name, action: 'Submitted' }],
@@ -350,6 +358,7 @@ export function createVisit(data: Dataset, ctx: ActionContext, input: NewVisitIn
     criticalCount: 0,
     spend: null,
     partySize: 2,
+    occupancy: null,
     scenarioId: input.scenarioId ?? 'scn-01',
     progress: 0,
   }

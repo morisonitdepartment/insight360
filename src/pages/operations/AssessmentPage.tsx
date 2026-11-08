@@ -52,6 +52,7 @@ export default function AssessmentPage() {
   const [validation, setValidation] = useState<{ open: boolean; issues: { q: Question; reason: string }[] }>({ open: false, issues: [] })
   const [submitOpen, setSubmitOpen] = useState(false)
   const [narrative, setNarrative] = useState('')
+  const [occupancy, setOccupancy] = useState<string>('')
   const [uploadingFor, setUploadingFor] = useState<string | null>(null)
   const [briefingOpen, setBriefingOpen] = useState(false)
   const initialised = useRef<string | null>(null)
@@ -63,6 +64,7 @@ export default function AssessmentPage() {
     const existing = data.answers.filter((a) => a.visitId === visit.id)
     setAnswers(Object.fromEntries(existing.map((a) => [a.questionId, a])))
     setNarrative(visit.narrative ?? '')
+    setOccupancy(visit.occupancy === null || visit.occupancy === undefined ? '' : String(visit.occupancy))
     setBriefingOpen(visit.status === 'Assigned' || visit.status === 'In Progress')
     initialised.current = visit.id
   }, [visit, data.answers])
@@ -146,7 +148,12 @@ export default function AssessmentPage() {
     if (!visit) return
     setSaving(true)
     try {
-      await dispatch((d, ctx) => submitVisit(d, ctx, visit.id, Object.values(answers), narrative.trim() || 'No narrative provided.'))
+      const occ = occupancy.trim() === '' ? null : Math.max(0, Math.min(100, Math.round(Number(occupancy))))
+      await dispatch((d, ctx) =>
+        submitVisit(d, ctx, visit.id, Object.values(answers), narrative.trim() || 'No narrative provided.', {
+          occupancy: Number.isFinite(occ as number) ? occ : null,
+        }),
+      )
       toast.success('Assessment submitted for review')
       setSubmitOpen(false)
       navigate(`/operations/visits/${visit.id}`)
@@ -369,7 +376,7 @@ export default function AssessmentPage() {
         open={submitOpen}
         onClose={() => setSubmitOpen(false)}
         title="Submit assessment"
-        description="Add your shopper narrative. The visit end time and submission timestamp are recorded automatically."
+        description="Record how busy the outlet was and add your shopper narrative. The visit end time and submission timestamp are recorded automatically."
         size="md"
         footer={
           <>
@@ -386,6 +393,24 @@ export default function AssessmentPage() {
             <div className="rounded-lg bg-slate-50 dark:bg-navy-800 p-3"><p className="text-slate-500">Evidence attached</p><p className="text-lg font-semibold">{answerList.reduce((a, x) => a + x.evidenceIds.length, 0)}</p></div>
             <div className="rounded-lg bg-slate-50 dark:bg-navy-800 p-3"><p className="text-slate-500">Critical failures</p><p className={cn('text-lg font-semibold', result.criticalFailures.length ? 'text-red-600' : '')}>{result.criticalFailures.length}</p></div>
             <div className="rounded-lg bg-slate-50 dark:bg-navy-800 p-3"><p className="text-slate-500">Submission time</p><p className="text-sm font-semibold">{fmtDateTime(now)}</p></div>
+          </div>
+          <div>
+            <label className="label" htmlFor="occupancy">Occupancy on arrival (%)</label>
+            <div className="flex items-center gap-2">
+              <input
+                id="occupancy"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={100}
+                value={occupancy}
+                onChange={(e) => setOccupancy(e.target.value)}
+                className="input !w-28 text-lg font-semibold tabular-nums"
+              />
+              <p className="text-xs text-slate-500">
+                Roughly what share of seats or service points were in use when you arrived. Every timing in the visit is read against it.
+              </p>
+            </div>
           </div>
           <label className="label" htmlFor="narrative">Shopper narrative (minimum 40 characters)</label>
           <Textarea id="narrative" rows={6} value={narrative} onChange={(e) => setNarrative(e.target.value)} placeholder="Describe the journey chronologically: arrival, greeting, ordering, service, environment, departure. Mention timings and any notable positive or negative observations." />

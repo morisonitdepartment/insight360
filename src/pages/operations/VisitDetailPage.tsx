@@ -197,6 +197,7 @@ export default function VisitDetailPage() {
                   { label: 'Visit date', value: fmtDate(visit.visitDate) },
                   { label: 'Visit window', value: visit.visitStart ? `${fmtDateTime(visit.visitStart)} → ${visit.visitEnd ? fmtDate(visit.visitEnd, 'HH:mm') : '…'}` : '—' },
                   { label: 'Party size', value: visit.partySize },
+                  { label: 'Occupancy on arrival', value: visit.occupancy === null ? '—' : `${visit.occupancy}%` },
                   { label: 'Spend', value: fmtCurrency(visit.spend, data.organization.currency) },
                   { label: 'Critical failures', value: visit.criticalCount ? <span className="font-semibold text-red-700 dark:text-red-300">{visit.criticalCount}</span> : '0' },
                 ]}

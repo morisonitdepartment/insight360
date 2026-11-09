@@ -35,6 +35,13 @@ export interface ShopperDef {
   gender: 'Female' | 'Male'
   nationality: string
   languages: string[]
+  /**
+   * The brand (BrandDef.id) this shopper carries. On a client with no assessment
+   * history the seed opens the programme by assigning this shopper the first main
+   * audit at that brand's trial outlet, so the panel arrives on the demonstration
+   * already holding work rather than idle. Omit it and the shopper starts unassigned.
+   */
+  assignedBrandId?: string
 }
 
 export interface ClientProfile {

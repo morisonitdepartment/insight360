@@ -190,10 +190,13 @@ export const sterling: ClientProfile = {
 ],
 
     /** Evaluation-phase panel: the three shoppers running the trial visits. */
+    // One shopper per concept for the trial, so each learns one service model
+    // rather than three: Allaway on the fine-dining sequence, Ahmed on casual
+    // dining, Roben on the counter-order sequence.
     trialShoppers: [
-      { name: 'Ahmed Ouf', gender: 'Male', nationality: 'Egyptian', languages: ['Arabic', 'English'] },
-      { name: 'Allaway Rashidi', gender: 'Male', nationality: 'Saudi', languages: ['Arabic', 'English'] },
-      { name: 'Roben', gender: 'Male', nationality: 'Armenian', languages: ['Armenian', 'English', 'Russian'] },
+      { name: 'Ahmed Ouf', gender: 'Male', nationality: 'Egyptian', languages: ['Arabic', 'English'], assignedBrandId: 'br-02' },
+      { name: 'Allaway Rashidi', gender: 'Male', nationality: 'Saudi', languages: ['Arabic', 'English'], assignedBrandId: 'br-01' },
+      { name: 'Roben', gender: 'Male', nationality: 'Armenian', languages: ['Armenian', 'English', 'Russian'], assignedBrandId: 'br-03' },
     ],
   },
 }

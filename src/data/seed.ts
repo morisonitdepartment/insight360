@@ -57,7 +57,7 @@ export { DEMO_NOW } from './demoClock'
  * plan, templates). The demo repository discards a saved overlay from another
  * version instead of merging it into a seed it no longer matches.
  */
-export const SEED_VERSION = 10
+export const SEED_VERSION = 11
 
 const STORYLINE_OUTLET_KEY = CLIENT.portfolio.storylineKey
 export const STORYLINE = {
@@ -1267,6 +1267,96 @@ export function portfolioDataset(): Dataset {
     }
   })
   const shopperById = new Map(shoppers.map((sh) => [sh.id, sh]))
+  /**
+   * The programme opens with one assigned visit per concept. Each trial shopper
+   * carries the brand named on their panel entry and nothing else, so each learns
+   * one service model properly rather than three badly, and every visit runs on
+   * that brand's own sequence template.
+   *
+   * These are first main audits: scheduled, assigned, not yet walked. They give
+   * Assignments, the calendar and the shopper's own board something real to show
+   * on an estate with no assessment history, and the first submission is a live
+   * one made on the demonstration rather than a seeded result.
+   */
+  const templateByBrand = new Map(
+    BRAND_DEFS.flatMap((b) => {
+      const t = b.templateCode ? full.templates.find((x) => x.code === b.templateCode) : undefined
+      return t ? [[b.id, t] as const] : []
+    }),
+  )
+  const assignedVisits: Visit[] = shoppers.flatMap((sh, i) => {
+    const brandId = panel?.[i]?.assignedBrandId
+    if (!brandId) return []
+    const outlet = outletsBase.find((o) => o.brandId === brandId)
+    const tpl = templateByBrand.get(brandId)
+    if (!outlet || !tpl) return []
+    // Sequenced by brand, not by panel order, so the codes and the diary read
+    // down the portfolio: Shebestan first, a few days between each visit.
+    const n = BRAND_DEFS.findIndex((b) => b.id === brandId) + 1
+    const scheduled = addDays(DEMO_NOW, 1 + n * 3)
+    return [
+      {
+        id: `vis-${String(n).padStart(4, '0')}`,
+        code: `MS-${format(scheduled, 'yy')}-${String(n).padStart(4, '0')}`,
+        outletId: outlet.id,
+        type: 'Main Audit 1' as const,
+        journey: tpl.journey,
+        templateId: tpl.id,
+        shopperId: sh.id,
+        scheduledDate: dayIso(scheduled),
+        visitDate: null,
+        visitStart: null,
+        visitEnd: null,
+        // Both are set from the visit itself: a 48-hour clock cannot start before
+        // the shopper has been.
+        submissionDeadline: null,
+        submittedAt: null,
+        status: 'Assigned' as const,
+        score: null,
+        categoryScores: null,
+        risk: null,
+        reportStatus: 'Not Started' as const,
+        slaStatus: 'Pending' as const,
+        reviewerId: null,
+        reviewedAt: null,
+        reviewerComment: null,
+        approvalHistory: [],
+        narrative: null,
+        criticalCount: 0,
+        spend: null,
+        partySize: 2,
+        occupancy: null,
+        // A baseline journey with no deliberate intervention: the first visit to
+        // an outlet records its everyday service level before anything is tested.
+        scenarioId: 'scn-01',
+        progress: 0,
+      },
+    ]
+  })
+  assignedVisits.sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate))
+  const assignmentLogs: ActivityLog[] = assignedVisits.map((v, i) => ({
+    id: `log-${String(i + 1).padStart(4, '0')}`,
+    timestamp: iso(subDays(DEMO_NOW, assignedVisits.length - i)),
+    userId: 'usr-002',
+    userName: full.users.find((u) => u.id === 'usr-002')?.name ?? 'Operations Manager',
+    action: 'Shopper assigned',
+    module: 'Assignments',
+    recordId: v.code,
+    ip: IPS[i % IPS.length],
+    result: 'Success' as const,
+    details: `${shopperById.get(v.shopperId!)?.name ?? ''} · ${outletsBase.find((o) => o.id === v.outletId)?.name ?? ''} · ${v.scheduledDate}`,
+  }))
+  const assignmentNotifications: Notification[] = assignedVisits.map((v, i) => ({
+    id: `ntf-${String(i + 1).padStart(4, '0')}`,
+    type: 'assignment' as const,
+    title: 'New visit assigned',
+    message: `${v.code} · ${outletsBase.find((o) => o.id === v.outletId)?.name ?? ''} · ${v.scheduledDate}`,
+    createdAt: iso(subDays(DEMO_NOW, assignedVisits.length - i)),
+    read: false,
+    link: `/operations/visits/${v.id}`,
+    severity: 'Info' as const,
+    audience: ['shopper'] as Notification['audience'],
+  }))
   const users: User[] = full.users
     .filter((u) => !u.shopperId || shopperById.has(u.shopperId))
     .map((u) => {
@@ -1277,18 +1367,19 @@ export function portfolioDataset(): Dataset {
     })
   return {
     ...full,
-    outlets: deriveOutlets(outletsBase, [], [], full.thresholds),
+    // The assignments are the only history: they set each outlet's next audit date.
+    outlets: deriveOutlets(outletsBase, assignedVisits, [], full.thresholds),
     users,
     shoppers,
-    visits: [],
+    visits: assignedVisits,
     answers: [],
     evidence: [],
     findings: [],
     alerts: [],
     correctiveActions: [],
     comments: [],
-    notifications: [],
-    activityLogs: [],
+    notifications: assignmentNotifications,
+    activityLogs: assignmentLogs,
     reports: [],
   }
 }

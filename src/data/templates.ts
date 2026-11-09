@@ -2,6 +2,7 @@ import type { AuditTemplate, Question, Section, Segment, ServiceSequence } from 
 import { CLIENT } from '@/config/client'
 import { CRITICAL_FAILURES_DINING, PROBLEM_SOLVING_OPTIONS, type SectionBlueprint, type TemplateBlueprint, isConditionalStage, stage } from './templateKit'
 import { BENNIGANS_TEMPLATE } from './bennigans'
+import { PIZZAHUT_TEMPLATE } from './pizzahut'
 import { SHEBESTAN_TEMPLATE } from './shebestan'
 
 /**
@@ -658,6 +659,7 @@ const TEMPLATE_BLUEPRINTS: TemplateBlueprint[] = [
   // A brand framework: the client's own document, not a reusable sequence.
   SHEBESTAN_TEMPLATE,
   BENNIGANS_TEMPLATE,
+  PIZZAHUT_TEMPLATE,
   {
     id: 'tpl-fsr-dine-in',
     code: 'FSR_DINE_IN',

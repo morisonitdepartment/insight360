@@ -83,7 +83,7 @@ export const sterling: ClientProfile = {
         name: 'Pizza Hut',
         segment: 'F&B',
         subcategory: 'Fast Casual',
-        templateCode: 'QSR_COUNTER_ORDER',
+        templateCode: 'PIZZAHUT_FOOD_COURT',
         logoFile: 'brands/concepts/pizza-hut.svg',
         locations: ['Doha Festival City'],
       },

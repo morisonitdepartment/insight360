@@ -57,7 +57,7 @@ export { DEMO_NOW } from './demoClock'
  * plan, templates). The demo repository discards a saved overlay from another
  * version instead of merging it into a seed it no longer matches.
  */
-export const SEED_VERSION = 11
+export const SEED_VERSION = 12
 
 const STORYLINE_OUTLET_KEY = CLIENT.portfolio.storylineKey
 export const STORYLINE = {
@@ -1293,7 +1293,11 @@ export function portfolioDataset(): Dataset {
     // Sequenced by brand, not by panel order, so the codes and the diary read
     // down the portfolio: Shebestan first, a few days between each visit.
     const n = BRAND_DEFS.findIndex((b) => b.id === brandId) + 1
-    const scheduled = addDays(DEMO_NOW, 1 + n * 3)
+    // A booked date is a commitment to the outlet, so it is taken as written and
+    // never shifted with the demo clock. Without one the visit is put a few days
+    // out, which keeps a client who has not booked yet from opening on a backlog.
+    const booked = panel?.[i]?.assignedVisitDate
+    const scheduled = booked ? new Date(`${booked}T00:00:00`) : addDays(DEMO_NOW, 1 + n * 3)
     return [
       {
         id: `vis-${String(n).padStart(4, '0')}`,

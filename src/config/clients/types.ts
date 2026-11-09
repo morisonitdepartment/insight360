@@ -48,6 +48,13 @@ export interface ShopperDef {
    * already holding work rather than idle. Omit it and the shopper starts unassigned.
    */
   assignedBrandId?: string
+  /**
+   * The date this shopper's opening visit is booked for (yyyy-mm-dd). A real
+   * booking, so it is fixed rather than measured from the demo's today: the
+   * outlet expects a guest on that day whatever day the demonstration is opened.
+   * Omit it and the seed schedules the visit a few days out instead.
+   */
+  assignedVisitDate?: string
 }
 
 export interface ClientProfile {

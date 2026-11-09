@@ -197,9 +197,9 @@ export const sterling: ClientProfile = {
     // rather than three: Allaway on the fine-dining sequence, Ahmed on casual
     // dining, Roben on the counter-order sequence.
     trialShoppers: [
-      { name: 'Ahmed Ouf', gender: 'Male', nationality: 'Egyptian', languages: ['Arabic', 'English'], assignedBrandId: 'br-02' },
-      { name: 'Allaway Rashidi', gender: 'Male', nationality: 'Saudi', languages: ['Arabic', 'English'], assignedBrandId: 'br-01' },
-      { name: 'Roben', gender: 'Male', nationality: 'Armenian', languages: ['Armenian', 'English', 'Russian'], assignedBrandId: 'br-03' },
+      { name: 'Ahmed Ouf', gender: 'Male', nationality: 'Egyptian', languages: ['Arabic', 'English'], assignedBrandId: 'br-02', assignedVisitDate: '2026-11-11' },
+      { name: 'Allaway Rashidi', gender: 'Male', nationality: 'Saudi', languages: ['Arabic', 'English'], assignedBrandId: 'br-01', assignedVisitDate: '2026-11-10' },
+      { name: 'Roben', gender: 'Male', nationality: 'Armenian', languages: ['Armenian', 'English', 'Russian'], assignedBrandId: 'br-03', assignedVisitDate: '2026-11-13' },
     ],
   },
 }

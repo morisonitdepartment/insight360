@@ -28,6 +28,12 @@ export interface BrandDef {
    * questionnaire library is exactly the sequence templates its brands name.
    */
   templateCode?: string
+  /**
+   * Square mark for this brand, relative to `public/` — see
+   * `public/brands/concepts/README.md`. Shown beside the outlet name wherever a
+   * visit is listed. Omit it and the brand falls back to its initials.
+   */
+  logoFile?: string
 }
 
 export interface ShopperDef {

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Shebestan Palace">
+  <rect width="64" height="64" rx="14" fill="#0B4F52"/>
+  <rect x="4.5" y="4.5" width="55" height="55" rx="10.5" fill="none" stroke="#CFA253" stroke-opacity="0.55" stroke-width="1"/>
+  <path d="M32 13.5c6.4 0 11.5 5.1 11.5 11.4V46h-23V24.9c0-6.3 5.1-11.4 11.5-11.4z" fill="none" stroke="#CFA253" stroke-width="2.2"/>
+  <path d="M32 21.5c2.8 0 5 2.2 5 5V46h-10V26.5c0-2.8 2.2-5 5-5z" fill="#CFA253" fill-opacity="0.9"/>
+  <rect x="17" y="46" width="30" height="3.2" rx="1.6" fill="#CFA253"/>
+</svg>

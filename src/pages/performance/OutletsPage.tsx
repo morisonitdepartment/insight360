@@ -14,6 +14,7 @@ import { cn } from '@/utils/cn'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { KpiCard } from '@/components/ui/KpiCard'
 import { Badge, RiskBadge, ScoreBadge, SegmentBadge, scoreTextClass } from '@/components/ui/Badge'
+import { BrandMark } from '@/components/ui/BrandMark'
 import { DataTable, type Column } from '@/components/ui/DataTable'
 import { SegmentedControl } from '@/components/ui/Form'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -172,11 +173,14 @@ export default function OutletsPage() {
       header: T.Outlet,
       sortValue: (o) => o.name,
       render: (o) => (
-        <div className="min-w-[180px]">
-          <p className="font-medium text-slate-900 dark:text-white">{o.name}</p>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">
-            <span className="font-mono">{o.code}</span> · {o.brand}
-          </p>
+        <div className="flex min-w-[180px] items-center gap-2.5">
+          <BrandMark brandName={o.brand} />
+          <div className="min-w-0">
+            <p className="font-medium text-slate-900 dark:text-white">{o.name}</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              <span className="font-mono">{o.code}</span> · {o.brand}
+            </p>
+          </div>
         </div>
       ),
     },

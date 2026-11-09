@@ -11,6 +11,7 @@ import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { DataTable, type Column } from '@/components/ui/DataTable'
 import { FilterBar, applyFilters, type FilterDef } from '@/components/ui/FilterBar'
 import { Badge, ScoreBadge, SegmentBadge, StatusBadge } from '@/components/ui/Badge'
+import { BrandMark } from '@/components/ui/BrandMark'
 import { SegmentedControl } from '@/components/ui/Form'
 import { ProgressBar } from '@/components/ui/Misc'
 import { fmtDate } from '@/utils/format'
@@ -108,9 +109,12 @@ export default function CalendarPage() {
       header: T.Outlet,
       sortValue: (v) => outletById.get(v.outletId)?.name,
       render: (v) => (
-        <div>
-          <p className="font-medium text-slate-800 dark:text-slate-100">{outletById.get(v.outletId)?.name}</p>
-          <p className="text-[11px] text-slate-500">{outletById.get(v.outletId)?.brand}</p>
+        <div className="flex items-center gap-2.5">
+          <BrandMark brandName={outletById.get(v.outletId)?.brand ?? ''} />
+          <div className="min-w-0">
+            <p className="font-medium text-slate-800 dark:text-slate-100">{outletById.get(v.outletId)?.name}</p>
+            <p className="text-[11px] text-slate-500">{outletById.get(v.outletId)?.brand}</p>
+          </div>
         </div>
       ),
     },

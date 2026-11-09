@@ -16,6 +16,7 @@ import { Card } from '@/components/ui/Card'
 import { DataTable, type Column } from '@/components/ui/DataTable'
 import { FilterBar, applyFilters, matchesSearch, type FilterDef } from '@/components/ui/FilterBar'
 import { RiskBadge, ScoreBadge, SegmentBadge, StatusBadge } from '@/components/ui/Badge'
+import { BrandMark } from '@/components/ui/BrandMark'
 import { ConfirmDialog, Modal } from '@/components/ui/Modal'
 import { Field, Input, Select, Textarea } from '@/components/ui/Form'
 import { exportCsv } from '@/utils/export'
@@ -356,9 +357,12 @@ export default function VisitsPage() {
         render: (v) => {
           const o = outletById.get(v.outletId)
           return (
-            <div className="min-w-[160px]">
-              <p className="font-medium text-slate-800 dark:text-slate-100">{o?.name ?? '—'}</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">{o?.code} · {o?.brand}</p>
+            <div className="flex min-w-[160px] items-center gap-2.5">
+              <BrandMark brandName={o?.brand ?? ''} />
+              <div className="min-w-0">
+                <p className="font-medium text-slate-800 dark:text-slate-100">{o?.name ?? '—'}</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">{o?.code} · {o?.brand}</p>
+              </div>
             </div>
           )
         },

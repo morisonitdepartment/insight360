@@ -66,6 +66,7 @@ export const sterling: ClientProfile = {
         segment: 'F&B',
         subcategory: 'Fine Dining',
         templateCode: 'SHEBESTAN_FINE_DINING',
+        logoFile: 'brands/concepts/shebestan-palace.svg',
         locations: ['Al Sadd'],
       },
       {
@@ -74,6 +75,7 @@ export const sterling: ClientProfile = {
         segment: 'F&B',
         subcategory: 'Casual Dining',
         templateCode: 'CASUAL_DINING',
+        logoFile: 'brands/concepts/bennigans.svg',
         locations: ['Qatar Tennis Federation'],
       },
       {
@@ -82,6 +84,7 @@ export const sterling: ClientProfile = {
         segment: 'F&B',
         subcategory: 'Fast Casual',
         templateCode: 'QSR_COUNTER_ORDER',
+        logoFile: 'brands/concepts/pizza-hut.svg',
         locations: ['Doha Festival City'],
       },
     ],

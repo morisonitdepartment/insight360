@@ -12,6 +12,7 @@ import { CATEGORY_KEYS, CATEGORY_LABELS } from '@/utils/scoring'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { Badge, RiskBadge, ScoreBadge, SegmentBadge, SeverityBadge, StatusBadge, scoreTextClass } from '@/components/ui/Badge'
+import { BrandMark } from '@/components/ui/BrandMark'
 import { ConfirmDialog, Modal } from '@/components/ui/Modal'
 import { EmptyState } from '@/components/ui/States'
 import { Field, Select, Textarea } from '@/components/ui/Form'
@@ -161,6 +162,7 @@ export default function VisitDetailPage() {
       <PageHeader
         title={
           <span className="flex flex-wrap items-center gap-2">
+            <BrandMark brandName={outlet.brand} size="md" />
             {outlet.name}
             <span className="font-mono text-base font-medium text-slate-500 dark:text-slate-400">{visit.code}</span>
           </span>
@@ -187,7 +189,15 @@ export default function VisitDetailPage() {
                 columns={3}
                 items={[
                   { label: T.Outlet, value: <Link to={`/performance/outlets/${outlet.id}`} className="link">{outlet.name}</Link> },
-                  { label: 'Brand', value: outlet.brand },
+                  {
+                    label: 'Brand',
+                    value: (
+                      <span className="flex items-center gap-2">
+                        <BrandMark brandName={outlet.brand} size="xs" />
+                        {outlet.brand}
+                      </span>
+                    ),
+                  },
                   { label: 'Category', value: `${outlet.segment} · ${outlet.subcategory}` },
                   { label: 'Journey', value: visit.journey },
                   { label: 'Template', value: template?.name ?? '—' },

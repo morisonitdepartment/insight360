@@ -107,7 +107,7 @@ export function generateDataset(): Dataset {
   }
 
   // ───────────────────────────── Brands & Outlets ─────────────────────────────
-  const brands: Brand[] = BRAND_DEFS.map((b) => ({ id: b.id, name: b.name, segment: b.segment, outletCount: b.locations.length, ...(b.templateCode ? { templateCode: b.templateCode } : {}) }))
+  const brands: Brand[] = BRAND_DEFS.map((b) => ({ id: b.id, name: b.name, segment: b.segment, outletCount: b.locations.length, ...(b.templateCode ? { templateCode: b.templateCode } : {}), ...(b.logoFile ? { logoFile: b.logoFile } : {}) }))
   const outletsBase: Outlet[] = []
   // Portfolio size varies by client, so pick the non-trading sites proportionally.
   const totalLocations = BRAND_DEFS.reduce((n, b) => n + b.locations.length, 0)

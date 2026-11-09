@@ -52,6 +52,8 @@ export interface Brand {
   outletCount: number
   /** Service sequence template this brand is assessed against (AuditTemplate.code). */
   templateCode?: string
+  /** Square mark, relative to `public/`. Absent brands render their initials. */
+  logoFile?: string
 }
 
 /** KPI categories that drive weighted scoring */

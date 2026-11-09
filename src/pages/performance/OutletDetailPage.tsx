@@ -8,6 +8,7 @@ import { useDocumentTitle, useNow } from '@/hooks'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { Badge, RiskBadge, ScoreBadge, SegmentBadge, SeverityBadge, StatusBadge, scoreTextClass } from '@/components/ui/Badge'
+import { BrandMark } from '@/components/ui/BrandMark'
 import { DescriptionList, ProgressBar, Stat } from '@/components/ui/Misc'
 import { EmptyState } from '@/components/ui/States'
 import { EvidenceCard, EvidencePreviewModal } from '@/components/ui/EvidenceThumb'
@@ -222,7 +223,7 @@ export default function OutletDetailPage() {
           <CardHeader title="Location" subtitle={`${outlet.location} · ${outlet.region}`} actions={<MapPin className="h-4 w-4 text-slate-400" />} />
           <CardBody>
             <MiniMap x={outlet.mapX} y={outlet.mapY} score={outlet.overallScore} />
-            <DescriptionList className="mt-4" items={[{ label: 'Brand', value: outlet.brand }, { label: 'Manager', value: outlet.manager }, { label: 'Opening hours', value: outlet.openingHours }, { label: 'Annual visits', value: `${outlet.annualVisits} (2 main audits + 2 follow-ups)` }, { label: 'Last audit', value: fmtDate(outlet.lastAudit) }, { label: 'Next audit', value: fmtDate(outlet.nextAudit) }]} />
+            <DescriptionList className="mt-4" items={[{ label: 'Brand', value: (<span className="flex items-center gap-2"><BrandMark brandName={outlet.brand} size="xs" />{outlet.brand}</span>) }, { label: 'Manager', value: outlet.manager }, { label: 'Opening hours', value: outlet.openingHours }, { label: 'Annual visits', value: `${outlet.annualVisits} (2 main audits + 2 follow-ups)` }, { label: 'Last audit', value: fmtDate(outlet.lastAudit) }, { label: 'Next audit', value: fmtDate(outlet.nextAudit) }]} />
           </CardBody>
         </Card>
       </div>

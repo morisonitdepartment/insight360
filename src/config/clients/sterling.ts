@@ -74,7 +74,7 @@ export const sterling: ClientProfile = {
         name: "Bennigan's",
         segment: 'F&B',
         subcategory: 'Casual Dining',
-        templateCode: 'CASUAL_DINING',
+        templateCode: 'BENNIGANS_CASUAL_DINING',
         logoFile: 'brands/concepts/bennigans.svg',
         locations: ['Qatar Tennis Federation'],
       },

@@ -1,6 +1,7 @@
 import type { AuditTemplate, Question, Section, Segment, ServiceSequence } from '@/types'
 import { CLIENT } from '@/config/client'
 import { CRITICAL_FAILURES_DINING, PROBLEM_SOLVING_OPTIONS, type SectionBlueprint, type TemplateBlueprint, isConditionalStage, stage } from './templateKit'
+import { BENNIGANS_TEMPLATE } from './bennigans'
 import { SHEBESTAN_TEMPLATE } from './shebestan'
 
 /**
@@ -656,6 +657,7 @@ const TEMPLATE_BLUEPRINTS: TemplateBlueprint[] = [
   // ── Service sequence templates (selected by brand, see BLUEPRINTS_FOR_CLIENT) ──
   // A brand framework: the client's own document, not a reusable sequence.
   SHEBESTAN_TEMPLATE,
+  BENNIGANS_TEMPLATE,
   {
     id: 'tpl-fsr-dine-in',
     code: 'FSR_DINE_IN',

@@ -14,7 +14,8 @@
     "check:rls": "node scripts/check-rls.mjs",
     "check:roles": "node scripts/check-role-scoping.mjs",
     "check:spa": "node scripts/test-spa-fallback.mjs",
-    "check:seed": "node scripts/run-check-seed.mjs"
+    "check:seed": "node scripts/run-check-seed.mjs",
+    "emit:live-seed": "node scripts/run-emit-live-seed.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

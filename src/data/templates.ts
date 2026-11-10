@@ -137,7 +137,10 @@ const FOOD_SAFETY: SectionBlueprint = {
     { text: 'No visible food-safety hazard observed (cross-contamination, uncovered food, pests)', type: 'pass_fail', weight: 4, critical: true, evidence: true, comment: true, guidance: 'CRITICAL. Any observed hazard must be photographed and described.', tag: 'food_safety' },
     { text: 'Staff observed following hand-hygiene / glove practice', type: 'yes_no', weight: 3, na: true, tag: 'hand_hygiene' },
     { text: 'Allergen information available on request', type: 'yes_no', weight: 2 },
-    { text: 'Emergency exits visible and unobstructed', type: 'pass_fail', weight: 2, critical: true, evidence: true },
+    // commentOnFail, not comment: an obstructed exit is a critical finding and has
+    // to be described, but a clear one needs no words. (`comment` would also skip an
+    // rng.bool draw in the seed generator and shift every score after it.)
+    { text: 'Emergency exits visible and unobstructed', type: 'pass_fail', weight: 2, critical: true, evidence: true, commentOnFail: true },
   ],
 }
 
@@ -771,9 +774,18 @@ export function buildTemplates(): TemplateBundle {
     // `when` names a sibling in the same stage; `from`/`to` reach across the whole
     // template, because a duration is routinely measured from a stamp taken earlier
     // (seated in the hostess stage, order taken in the waiter stage).
-    const codeByKeyAll = new Map(
-      t.sections.flatMap((s) => s.questions.flatMap((q, qi) => (q.key ? [[q.key, `${s.code}.${qi + 1}`] as const] : []))),
-    )
+    const keyPairs = t.sections.flatMap((s) => s.questions.flatMap((q, qi) => (q.key ? [[q.key, `${s.code}.${qi + 1}`] as const] : [])))
+    // Two questions sharing a key is the one slip the Map would swallow: the later
+    // definition wins, so every gate and stamp naming that key silently binds to
+    // the wrong question — a gate that never opens, or a duration measured from the
+    // wrong stamp. Keys reach across the template, so they must be unique across it.
+    const seenKeys = new Map<string, string>()
+    for (const [key, code] of keyPairs) {
+      const first = seenKeys.get(key)
+      if (first) throw new Error(`Template ${t.code}: key '${key}' is defined twice, on ${first} and ${code}. Keys must be unique within a template.`)
+      seenKeys.set(key, code)
+    }
+    const codeByKeyAll = new Map(keyPairs)
     t.sections.forEach((s, si) => {
       const suffix = s.applicableTo === 'all' ? s.code : `${s.code}${s.applicableTo[0] === 'F&B' ? 'F' : 'E'}`
       const sid = `${t.id}-${suffix}`

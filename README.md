@@ -239,6 +239,25 @@ npm run lint      # oxlint
 
 `npm run build` fails on any type error — the build is the type gate.
 
+### Checks
+
+```bash
+npm run check:frameworks  # every question reachable and scorable, every KPI in its own unit
+npm run check:seed        # reconciliation counts for the generated demo dataset
+npm run check:rls         # the publishable key alone grants no data access
+npm run check:roles       # role scoping
+npm run check:spa         # the GitHub Pages SPA fallback
+```
+
+`check:frameworks` is the one to run after touching a questionnaire. It fails the
+build on the ways a score can break *silently* — a weighted time question with no
+threshold (dropped from the stage), a KPI holding minutes but declared as a
+percentage, a gate comparing a boolean answer to `'Yes'` (never appears), a critical
+on a type that cannot score (never fires). Run it per client:
+`VITE_CLIENT=hermanos npm run check:frameworks`. It also prints the stage-weight and
+threshold tables — see [docs/THRESHOLDS.md](docs/THRESHOLDS.md) for which thresholds
+a client actually agreed to.
+
 ### Building for one client
 
 Each demonstration is the same codebase with a different client profile from

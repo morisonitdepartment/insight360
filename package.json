@@ -15,6 +15,7 @@
     "check:roles": "node scripts/check-role-scoping.mjs",
     "check:spa": "node scripts/test-spa-fallback.mjs",
     "check:seed": "node scripts/run-check-seed.mjs",
+    "check:frameworks": "node scripts/run-check-frameworks.mjs",
     "emit:live-seed": "node scripts/run-emit-live-seed.mjs"
   },
   "dependencies": {

@@ -9,10 +9,18 @@ Written so somebody who has never seen this conversation can finish it.
 
 ## Where things stand
 
-Verified on **11 November 2026**: the live database holds **3 users and nothing
-else** — 0 brands, 0 outlets, 0 questionnaires, 0 shoppers, 0 visits, 0 answers,
-0 evidence, 0 activity logs. Migrations `0001`–`0009` are applied; `0010` and
-`0011` are **not** — none of their columns exist.
+Verified on **11 November 2026**, after loading:
+
+| | |
+|---|---|
+| Migrations | `0001`–`0011` **all applied** |
+| Brands / outlets / questionnaires | 3 / 3 / 3 |
+| Stages | 51 — each template sums to exactly **100.00** scored weight, with the conditional Complaint Handling stage (5) outside it |
+| Questions | **562** — matching each template's declared count exactly |
+| Shoppers | **0 — the remaining step** |
+| Visits / answers / evidence | 0 |
+
+Steps 1 and 2 below are **done**. What is left is Step 3 onward: the people.
 
 > **The demonstration is not this.** `…/insight360/` is the demonstration and
 > keeps everything in the browser; `…/insight360/app/` is this database. Records

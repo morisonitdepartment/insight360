@@ -51,6 +51,25 @@ const PERSISTED_KEYS: (keyof Dataset)[] = [
   'reports',
 ]
 
+/**
+ * The collections that hold work somebody did, as opposed to configuration.
+ *
+ * These are carried across a seed-version or calendar change; everything else in
+ * PERSISTED_KEYS is rebuilt from the new seed, which is what a new seed is for.
+ * See `DemoRepository.rescue`.
+ */
+const RESCUED_KEYS: (keyof Dataset)[] = [
+  'visits',
+  'answers',
+  'evidence',
+  'findings',
+  'alerts',
+  'correctiveActions',
+  'comments',
+  'notifications',
+  'activityLogs',
+]
+
 function safeGet(storage: Storage, key: string): string | null {
   try {
     return storage.getItem(key)
@@ -81,23 +100,31 @@ export class DemoRepository implements Repository {
   readonly mode = 'demo' as const
   private cache: Dataset | null = null
   private overlay: Partial<Dataset> = {}
+  /** An overlay saved against an earlier seed or week, held back for `rescue`. */
+  private salvage: Partial<Dataset> | null = null
 
   constructor() {
     const raw = safeGet(localStorage, DATA_KEY)
-    if (raw) {
-      try {
-        const stored = JSON.parse(raw) as { shift?: number; seedVersion?: number; overlay?: Partial<Dataset> }
-        // The seeded dates move with the calendar (see demoClock), so an overlay
-        // saved in an earlier week carries dates from that week. Mixed with a
-        // freshly shifted seed it produces visits whose report predates them.
-        // Likewise an overlay saved against an earlier portfolio (other brands,
-        // other outlets) would put 200 visits on a 16-outlet estate. Anything
-        // saved against a different shift or seed version is discarded, not merged.
-        const matches = stored && stored.shift === DEMO_SHIFT_DAYS && stored.seedVersion === SEED_VERSION
-        this.overlay = matches && stored.overlay ? stored.overlay : {}
-      } catch {
-        this.overlay = {}
-      }
+    if (!raw) return
+    try {
+      const stored = JSON.parse(raw) as { shift?: number; seedVersion?: number; overlay?: Partial<Dataset> }
+      // The seeded dates move with the calendar (see demoClock), so an overlay
+      // saved in an earlier week carries dates from that week. Mixed with a
+      // freshly shifted seed it produces visits whose report predates them.
+      // Likewise an overlay saved against an earlier portfolio (other brands,
+      // other outlets) would put 200 visits on a 16-outlet estate. So an overlay
+      // from a different shift or seed version cannot be merged over the seed.
+      //
+      // It must not be thrown away either. Somebody's own completed visit lives
+      // in there, and losing it because the questionnaire gained a question is
+      // indefensible — it has happened twice. The configuration is rebuilt from
+      // the new seed; the work somebody actually did is carried across by
+      // `rescue`, which runs once and then stores the result under this version.
+      const matches = stored && stored.shift === DEMO_SHIFT_DAYS && stored.seedVersion === SEED_VERSION
+      if (matches && stored.overlay) this.overlay = stored.overlay
+      else this.salvage = stored?.overlay ?? null
+    } catch {
+      /* unreadable overlay — start from the seed */
     }
   }
 
@@ -124,9 +151,61 @@ export class DemoRepository implements Repository {
     if (!this.cache) {
       const mode = this.seedMode()
       const seed = mode === 'empty' ? emptyDataset() : mode === 'portfolio' ? portfolioDataset() : generateDataset()
-      this.cache = { ...seed, ...this.overlay }
+      this.cache = this.salvage ? this.rescue(seed) : { ...seed, ...this.overlay }
     }
     return this.cache
+  }
+
+  /**
+   * Carries somebody's own work across a seed-version or calendar change.
+   *
+   * For each operational collection the stored record wins over the seeded record
+   * of the same id, and stored-only records are appended. Both halves matter: a
+   * seeded visit that was filled in stays filled in, and a visit created in the
+   * browser survives. Order follows the seed, with anything new at the end.
+   *
+   * Rescued records keep their own timestamps. After a calendar shift that leaves
+   * them in the previous week — which is right: they record when the work was
+   * actually done, not where the storyline has since moved to.
+   *
+   * Configuration (templates, sections, questions, users, KPI setup) is NOT
+   * rescued. That is precisely what the new seed exists to replace, and an old
+   * question list merged over a new one is how the scores stop meaning anything.
+   * A rescued visit is therefore scored against the new questionnaire: questions
+   * added since read as unanswered, which is honest — nobody answered them.
+   */
+  private rescue(seed: Dataset): Dataset {
+    const salvage = this.salvage
+    this.salvage = null
+    if (!salvage) return seed
+    const out = { ...seed } as unknown as Record<string, unknown>
+    const next: Record<string, unknown> = {}
+    let carried = 0
+    for (const key of RESCUED_KEYS) {
+      const stored = (salvage as Record<string, unknown>)[key]
+      const seeded = (seed as unknown as Record<string, unknown>)[key]
+      if (!Array.isArray(stored) || !Array.isArray(seeded)) continue
+      const byId = new Map<string, { id: string }>()
+      for (const row of seeded as { id: string }[]) byId.set(row.id, row)
+      for (const row of stored as { id: string }[]) {
+        if (!row || typeof row.id !== 'string') continue
+        const seededRow = byId.get(row.id)
+        // Map.set keeps an existing key's position, so replacing a seeded record
+        // leaves it where the seed put it.
+        if (!seededRow || JSON.stringify(seededRow) !== JSON.stringify(row)) carried += 1
+        byId.set(row.id, row)
+      }
+      const merged = [...byId.values()]
+      out[key] = merged
+      next[key] = merged
+    }
+    if (!carried) return seed
+    this.overlay = next as Partial<Dataset>
+    // Stored under the current version, so the rescue runs once and the next save
+    // writes the rescued picture rather than the pre-rescue one.
+    safeSet(localStorage, DATA_KEY, JSON.stringify({ shift: DEMO_SHIFT_DAYS, seedVersion: SEED_VERSION, overlay: this.overlay }))
+    console.info(`[demo] carried ${carried} saved record(s) across a seed change`)
+    return out as unknown as Dataset
   }
 
   async signIn(email: string, password: string, remember: boolean): Promise<User> {
@@ -207,6 +286,9 @@ export class DemoRepository implements Repository {
   async reset(): Promise<void> {
     safeRemove(localStorage, DATA_KEY)
     this.overlay = {}
+    // Also drop anything held for rescue: a reset means the seed, not the seed
+    // plus the records the reset was meant to clear.
+    this.salvage = null
     this.cache = null
   }
 }

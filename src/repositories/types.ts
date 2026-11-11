@@ -27,6 +27,14 @@ export interface Repository {
   /** Persist changed collections. Demo: localStorage overlay. Live: table upserts (RLS-protected). */
   persist(patch: DatasetPatch): Promise<void>
   uploadEvidence(file: File | null, meta: EvidenceUploadMeta): Promise<Evidence>
+  /**
+   * Delete one piece of evidence, and in live mode the stored file with it.
+   *
+   * This cannot go through `persist`: that upserts changed collections and never
+   * deletes, so a patch that merely drops the row from the array would vanish in
+   * the demo overlay and quietly survive in Postgres, reappearing on the next load.
+   */
+  deleteEvidence(id: string): Promise<void>
   /** Demo only: wipe local overrides and regenerate seed data */
   reset(): Promise<void>
 }

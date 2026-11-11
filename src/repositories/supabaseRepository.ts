@@ -155,6 +155,21 @@ export class SupabaseRepository implements Repository {
     return evidence
   }
 
+  async deleteEvidence(id: string): Promise<void> {
+    const sb = getSupabase()
+    // fileName carries the storage path in live mode — see uploadEvidence.
+    const { data: row } = await sb.from('evidence').select('file_name').eq('id', id).maybeSingle()
+    const path = (row as { file_name?: string } | null)?.file_name
+    if (path) {
+      const { error } = await sb.storage.from('evidence').remove([path])
+      // A file already gone must not strand the row: that would leave a piece of
+      // evidence nobody can delete and no photograph behind it.
+      if (error) console.warn(`Evidence file could not be removed: ${error.message}`)
+    }
+    const { error: dbError } = await sb.from('evidence').delete().eq('id', id)
+    if (dbError) throw new Error(`Failed to delete evidence: ${dbError.message}`)
+  }
+
   async reset(): Promise<void> {
     throw new Error('Reset is only available in demo mode.')
   }

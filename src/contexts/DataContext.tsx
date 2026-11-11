@@ -17,6 +17,8 @@ interface DataContextValue {
   /** Run a pure action reducer, apply its patch in memory and persist it. */
   dispatch: (recipe: ActionRecipe) => Promise<void>
   uploadEvidence: (file: File | null, meta: EvidenceUploadMeta) => Promise<Evidence>
+  /** Delete the stored file, then drop the row via a removeEvidence patch. */
+  deleteEvidenceFile: (id: string) => Promise<void>
   resetDemo: () => Promise<void>
   /**
    * Outlets the user may see AND that match the top-bar outlet selector.
@@ -93,6 +95,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   )
 
   const uploadEvidence = useCallback((file: File | null, meta: EvidenceUploadMeta) => repo.uploadEvidence(file, meta), [repo])
+  const deleteEvidenceFile = useCallback((id: string) => repo.deleteEvidence(id), [repo])
 
   const resetDemo = useCallback(async () => {
     await repo.reset()
@@ -126,6 +129,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       reload,
       dispatch,
       uploadEvidence,
+      deleteEvidenceFile,
       resetDemo,
       scopedOutlets: scoped.outlets,
       scopedVisits: scoped.visits,
@@ -134,7 +138,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       authorizedVisits: scoped.authorizedVisits,
       isOutletFiltered: scoped.filtered,
     }),
-    [data, loading, error, reload, dispatch, uploadEvidence, resetDemo, scoped],
+    [data, loading, error, reload, dispatch, uploadEvidence, deleteEvidenceFile, resetDemo, scoped],
   )
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
 }

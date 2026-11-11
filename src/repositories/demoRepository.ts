@@ -199,6 +199,11 @@ export class DemoRepository implements Repository {
     }
   }
 
+  /** The overlay is rewritten wholesale by the patch, so there is nothing else to undo. */
+  async deleteEvidence(_id: string): Promise<void> {
+    await delay(150)
+  }
+
   async reset(): Promise<void> {
     safeRemove(localStorage, DATA_KEY)
     this.overlay = {}

@@ -376,6 +376,34 @@ export function addEvidence(data: Dataset, ctx: ActionContext, ev: Evidence, ans
   return patch
 }
 
+/**
+ * Unlink and forget one piece of evidence.
+ *
+ * The repository deletes the stored file separately: `persist` only upserts, so
+ * dropping the row from this array is what removes it from the demo overlay and
+ * from the screen, never from Postgres.
+ */
+export function removeEvidence(data: Dataset, ctx: ActionContext, evidenceId: string): DatasetPatch {
+  const ev = data.evidence.find((e) => e.id === evidenceId)
+  if (!ev) return {}
+  return {
+    evidence: data.evidence.filter((e) => e.id !== evidenceId),
+    answers: data.answers.map((a) => (a.evidenceIds.includes(evidenceId) ? { ...a, evidenceIds: a.evidenceIds.filter((x) => x !== evidenceId) } : a)),
+    activityLogs: withLog(data, ctx, 'Evidence deleted', 'Evidence', ev.id, ev.title),
+  }
+}
+
+/** Give a photograph a name a reader will understand: "Bill", "Main course as served". */
+export function renameEvidence(data: Dataset, ctx: ActionContext, evidenceId: string, title: string): DatasetPatch {
+  const ev = data.evidence.find((e) => e.id === evidenceId)
+  const next = title.trim()
+  if (!ev || !next || next === ev.title) return {}
+  return {
+    evidence: replace(data.evidence, { ...ev, title: next }),
+    activityLogs: withLog(data, ctx, 'Evidence renamed', 'Evidence', ev.id, next),
+  }
+}
+
 // ───────────────────────────── Alerts ─────────────────────────────
 
 export function updateAlert(data: Dataset, ctx: ActionContext, alertId: string, status: AlertStatus, note?: string): DatasetPatch {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
-import { AlertOctagon, AlertTriangle, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, ClipboardList, Info, Lock, MessageSquare, Save, Send, Target, Upload, Video, X } from 'lucide-react'
+import { AlertOctagon, AlertTriangle, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, ClipboardList, Info, Lock, MessageSquare, Save, Send, Target, Trash2, Upload, Video, X } from 'lucide-react'
 import { useData } from '@/contexts/DataContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { useDocumentTitle, useNow } from '@/hooks'
@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/Form'
 import { ProgressBar } from '@/components/ui/Misc'
 import { EmptyState } from '@/components/ui/States'
 import { EvidenceVisual } from '@/components/ui/EvidenceThumb'
-import { addEvidence, getVisitQuestions, getVisitSections, saveDraft, startVisit, submitVisit } from '@/services/actions'
+import { addEvidence, getVisitQuestions, getVisitSections, removeEvidence, renameEvidence, saveDraft, startVisit, submitVisit } from '@/services/actions'
 import { computeVisitScores, deriveTimedAnswers, isQuestionAnswered, scoreQuestion, visibleQuestions } from '@/utils/scoring'
 import { timingChainText } from '@/utils/sequence'
 import { fmtDateTime } from '@/utils/format'
@@ -40,7 +40,7 @@ const TYPE_LABEL: Record<Question['type'], string> = {
 
 export default function AssessmentPage() {
   const { id } = useParams()
-  const { data, dispatch, uploadEvidence } = useData()
+  const { data, dispatch, uploadEvidence, deleteEvidenceFile } = useData()
   const { user, role } = useAuth()
   const now = useNow()
   const navigate = useNavigate()
@@ -124,6 +124,31 @@ export default function AssessmentPage() {
       toast.error(e instanceof Error ? e.message : 'Could not save draft')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const removeAttachment = async (evidenceId: string) => {
+    try {
+      // The file first: if that fails the record stays, pointing at something real,
+      // rather than leaving an orphaned photograph nobody can see or remove.
+      await deleteEvidenceFile(evidenceId)
+      await dispatch((d, ctx) => removeEvidence(d, ctx, evidenceId))
+      setAnswers((prev) => {
+        const next: Record<string, VisitAnswer> = {}
+        for (const [qid, a] of Object.entries(prev)) next[qid] = a.evidenceIds.includes(evidenceId) ? { ...a, evidenceIds: a.evidenceIds.filter((x) => x !== evidenceId) } : a
+        return next
+      })
+      toast.success('Photo deleted')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not delete the photo')
+    }
+  }
+
+  const renameAttachment = async (evidenceId: string, title: string) => {
+    try {
+      await dispatch((d, ctx) => renameEvidence(d, ctx, evidenceId, title))
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not rename the photo')
     }
   }
 
@@ -352,7 +377,7 @@ export default function AssessmentPage() {
           </div>
           <ol className="space-y-3">
             {sectionQuestions.map((q, qi) => (
-              <QuestionCard key={q.id} index={qi + 1} q={q} answer={answers[q.id]} locked={locked} onChange={(patch) => setAnswer(q, patch)} onAttach={(file) => void attachEvidence(q, file)} uploading={uploadingFor === q.id} evidence={data.evidence.filter((e) => answers[q.id]?.evidenceIds.includes(e.id))} />
+              <QuestionCard key={q.id} index={qi + 1} q={q} answer={answers[q.id]} locked={locked} onChange={(patch) => setAnswer(q, patch)} onAttach={(file) => void attachEvidence(q, file)} uploading={uploadingFor === q.id} evidence={data.evidence.filter((e) => answers[q.id]?.evidenceIds.includes(e.id))} onRename={(id, title) => void renameAttachment(id, title)} onDelete={(id) => void removeAttachment(id)} />
             ))}
           </ol>
         </section>
@@ -477,7 +502,9 @@ export default function AssessmentPage() {
   )
 }
 
-function QuestionCard({ index, q, answer, locked, onChange, onAttach, uploading, evidence }: { index: number; q: Question; answer: VisitAnswer | undefined; locked: boolean; onChange: (patch: Partial<VisitAnswer>) => void; onAttach: (file: File | null) => void; uploading: boolean; evidence: { id: string; type: 'Photo' | 'Video' | 'Receipt' | 'Screenshot' | 'Document'; visualSeed: number; title: string }[] }) {
+type Attached = { id: string; type: 'Photo' | 'Video' | 'Receipt' | 'Screenshot' | 'Document'; visualSeed: number; title: string }
+
+function QuestionCard({ index, q, answer, locked, onChange, onAttach, uploading, evidence, onRename, onDelete }: { index: number; q: Question; answer: VisitAnswer | undefined; locked: boolean; onChange: (patch: Partial<VisitAnswer>) => void; onAttach: (file: File | null) => void; uploading: boolean; evidence: Attached[]; onRename: (id: string, title: string) => void; onDelete: (id: string) => void }) {
   const cameraRef = useRef<HTMLInputElement>(null)
   const uploadRef = useRef<HTMLInputElement>(null)
   const isVideo = q.type === 'video'
@@ -607,10 +634,7 @@ function QuestionCard({ index, q, answer, locked, onChange, onAttach, uploading,
               </>
             )}
             {evidence.map((e) => (
-              <span key={e.id} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 dark:border-navy-700 p-0.5 pr-2 text-[11px] text-slate-600 dark:text-slate-300">
-                <EvidenceVisual type={e.type} seed={e.visualSeed} className="h-7 w-10 rounded" />
-                {e.type}
-              </span>
+              <Attachment key={e.id} ev={e} locked={locked} onRename={(title) => onRename(e.id, title)} onDelete={() => onDelete(e.id)} />
             ))}
           </div>
           <div className="mt-3">
@@ -623,5 +647,77 @@ function QuestionCard({ index, q, answer, locked, onChange, onAttach, uploading,
         </div>
       </div>
     </li>
+  )
+}
+
+/**
+ * One attached photograph: its picture, its name and a way to remove it.
+ *
+ * The name matters more than it looks. Until now a photograph was titled after
+ * the question it hung from, so a visit arrived at the reviewer carrying four
+ * files called "Exterior arrival photograph" and nothing to tell them apart. A
+ * shopper can now say what it actually shows — "Bill", "Main course as served",
+ * "Cracked plate" — and that is the caption the report and the evidence library
+ * both read.
+ */
+function Attachment({ ev, locked, onRename, onDelete }: { ev: Attached; locked: boolean; onRename: (title: string) => void; onDelete: () => void }) {
+  const [name, setName] = useState(ev.title)
+  const [confirming, setConfirming] = useState(false)
+  // Follow the stored title when it changes under us — a rename that came back
+  // from the repository, or a different photograph reusing this row.
+  const committed = useRef(ev.title)
+  useEffect(() => {
+    committed.current = ev.title
+    setName(ev.title)
+  }, [ev.title])
+
+  const commit = () => {
+    const next = name.trim()
+    if (!next || next === committed.current) {
+      setName(committed.current)
+      return
+    }
+    committed.current = next
+    onRename(next)
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 dark:border-navy-700 p-0.5 pr-1 text-[11px] text-slate-600 dark:text-slate-300">
+      <EvidenceVisual type={ev.type} seed={ev.visualSeed} className="h-7 w-10 rounded" />
+      {locked ? (
+        <span className="max-w-[10rem] truncate px-1" title={ev.title}>{ev.title}</span>
+      ) : (
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur()
+            if (e.key === 'Escape') {
+              setName(committed.current)
+              e.currentTarget.blur()
+            }
+          }}
+          aria-label="Photo name"
+          placeholder="Name this photo"
+          className="w-28 rounded border border-transparent bg-transparent px-1 py-0.5 text-[11px] hover:border-slate-300 focus:border-teal-500 focus:bg-white focus:outline-none dark:hover:border-navy-600 dark:focus:bg-navy-900"
+        />
+      )}
+      {!locked &&
+        (confirming ? (
+          <>
+            <button type="button" className="rounded px-1 font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950" onClick={onDelete}>
+              Delete
+            </button>
+            <button type="button" className="rounded px-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-navy-800" onClick={() => setConfirming(false)}>
+              Keep
+            </button>
+          </>
+        ) : (
+          <button type="button" aria-label={`Delete ${ev.title}`} title="Delete this photo" className="rounded p-0.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950" onClick={() => setConfirming(true)}>
+            <Trash2 className="h-3 w-3" aria-hidden />
+          </button>
+        ))}
+    </span>
   )
 }

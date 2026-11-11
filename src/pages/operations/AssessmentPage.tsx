@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
-import { AlertOctagon, AlertTriangle, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, ClipboardList, Info, Lock, MessageSquare, Save, Send, Target, Video, X } from 'lucide-react'
+import { AlertOctagon, AlertTriangle, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, ClipboardList, Info, Lock, MessageSquare, Save, Send, Target, Upload, Video, X } from 'lucide-react'
 import { useData } from '@/contexts/DataContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { useDocumentTitle, useNow } from '@/hooks'
@@ -478,7 +478,9 @@ export default function AssessmentPage() {
 }
 
 function QuestionCard({ index, q, answer, locked, onChange, onAttach, uploading, evidence }: { index: number; q: Question; answer: VisitAnswer | undefined; locked: boolean; onChange: (patch: Partial<VisitAnswer>) => void; onAttach: (file: File | null) => void; uploading: boolean; evidence: { id: string; type: 'Photo' | 'Video' | 'Receipt' | 'Screenshot' | 'Document'; visualSeed: number; title: string }[] }) {
-  const fileRef = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
+  const uploadRef = useRef<HTMLInputElement>(null)
+  const isVideo = q.type === 'video'
   const value = answer?.value ?? null
   const na = answer?.na ?? false
   const score = answer?.score ?? null
@@ -582,7 +584,7 @@ function QuestionCard({ index, q, answer, locked, onChange, onAttach, uploading,
             )}
             {q.type === 'text' && <Textarea disabled={disabled} rows={3} value={typeof value === 'string' ? value : ''} onChange={(e) => set(e.target.value)} placeholder="Enter your observation…" />}
             {(q.type === 'photo' || q.type === 'video') && !locked && (
-              <p className="text-xs text-slate-500">{q.type === 'photo' ? 'Capture or upload a photo' : 'Record or upload a short video'} using the button below.</p>
+              <p className="text-xs text-slate-500">{isVideo ? 'Record a short video, or upload one you have already taken' : 'Take a photo, or upload one you have already taken'}, using the buttons below.</p>
             )}
           </div>
 
@@ -590,12 +592,17 @@ function QuestionCard({ index, q, answer, locked, onChange, onAttach, uploading,
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {!locked && (
               <>
-                <input ref={fileRef} type="file" accept={q.type === 'video' ? 'video/*' : 'image/*'} capture="environment" className="hidden" onChange={(e) => { onAttach(e.target.files?.[0] ?? null); e.target.value = '' }} />
-                <button type="button" className="btn-secondary btn-sm" disabled={uploading} onClick={() => fileRef.current?.click()}>
-                  {q.type === 'video' ? <Video className="h-3.5 w-3.5" /> : <Camera className="h-3.5 w-3.5" />} {uploading ? 'Attaching…' : q.type === 'video' ? 'Add video' : 'Add photo'}
+                {/* Two ways in, and only two. `capture` opens the camera straight
+                    away on a phone; the same input without it offers the gallery
+                    and the files, which is the one a shopper needs when the photo
+                    was taken earlier or is being filed from a laptop. */}
+                <input ref={cameraRef} type="file" accept={isVideo ? 'video/*' : 'image/*'} capture="environment" className="hidden" onChange={(e) => { onAttach(e.target.files?.[0] ?? null); e.target.value = '' }} />
+                <input ref={uploadRef} type="file" accept={isVideo ? 'video/*' : 'image/*'} className="hidden" onChange={(e) => { onAttach(e.target.files?.[0] ?? null); e.target.value = '' }} />
+                <button type="button" className="btn-secondary btn-sm" disabled={uploading} onClick={() => cameraRef.current?.click()}>
+                  {isVideo ? <Video className="h-3.5 w-3.5" aria-hidden /> : <Camera className="h-3.5 w-3.5" aria-hidden />} {uploading ? 'Attaching…' : isVideo ? 'Record video' : 'Take photo'}
                 </button>
-                <button type="button" className="btn-ghost btn-sm" disabled={uploading} onClick={() => onAttach(null)} title="Demo: attach a sample capture without a file">
-                  Attach sample
+                <button type="button" className="btn-secondary btn-sm" disabled={uploading} onClick={() => uploadRef.current?.click()}>
+                  <Upload className="h-3.5 w-3.5" aria-hidden /> {isVideo ? 'Upload video' : 'Upload photo'}
                 </button>
               </>
             )}

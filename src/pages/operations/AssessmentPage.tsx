@@ -24,7 +24,9 @@ const TYPE_LABEL: Record<Question['type'], string> = {
   rating_10: '1–10 rating',
   pass_fail: 'Pass / Fail',
   multiple_choice: 'Multiple choice',
-  text: 'Comment',
+  // Not "Comment": every question already has a comment box, and a text question
+  // whose own answer is the record ("Items ordered") read as if it were optional.
+  text: 'Written answer',
   numeric: 'Numeric',
   time: 'Time (minutes)',
   clock: 'Clock time',

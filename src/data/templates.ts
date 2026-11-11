@@ -811,6 +811,11 @@ export function buildTemplates(): TemplateBundle {
         const fromCode = q.from ? codeByKeyAll.get(q.from) : undefined
         const toCode = q.to ? codeByKeyAll.get(q.to) : undefined
         if ((q.from && !fromCode) || (q.to && !toCode)) throw new Error(`Template ${t.code}: question ${s.code}.${qi + 1} times against an unknown stamp (${q.from} → ${q.to})`)
+        // A numeric or time question with no threshold can never produce a score
+        // (scoreQuestion returns null), so commentOnFail could never fire on it.
+        // Setting it anyway would badge an informational field — party size, bill
+        // total — with a rule the shopper can never trigger.
+        const canFallShort = SCOREABLE.has(q.type) && !((q.type === 'numeric' || q.type === 'time') && !(q.threshold && q.threshold > 0))
         questions.push({
           id: qid,
           sectionId: sid,
@@ -821,7 +826,7 @@ export function buildTemplates(): TemplateBundle {
           critical: q.critical ?? false,
           evidenceRequired: q.evidence ?? false,
           commentRequired: q.comment ?? false,
-          ...((q.commentOnFail ?? t.commentOnFail) && SCOREABLE.has(q.type) ? { commentOnFail: true } : {}),
+          ...((q.commentOnFail ?? t.commentOnFail) && canFallShort ? { commentOnFail: true } : {}),
           allowNA: q.na ?? false,
           guidance: q.guidance ?? '',
           options: q.options,

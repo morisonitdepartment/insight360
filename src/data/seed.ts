@@ -57,7 +57,7 @@ export { DEMO_NOW } from './demoClock'
  * plan, templates). The demo repository discards a saved overlay from another
  * version instead of merging it into a seed it no longer matches.
  */
-export const SEED_VERSION = 14
+export const SEED_VERSION = 15
 
 const STORYLINE_OUTLET_KEY = CLIENT.portfolio.storylineKey
 export const STORYLINE = {

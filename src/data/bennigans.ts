@@ -62,6 +62,21 @@ const PROOF: SectionBlueprint = stage(
     },
     { text: 'Exterior departure photograph', type: 'photo', weight: 0, guidance: 'Taken on leaving, with the same date, time and location stamp.' },
     { text: 'Confirm the branch assessed', type: 'yes_no', weight: 0, guidance: 'Bennigan’s, Qatar Tennis Federation, Doha.' },
+    { text: 'Number of guests in your party', type: 'numeric', weight: 0 },
+    {
+      text: 'Items ordered',
+      type: 'text',
+      weight: 0,
+      guidance: 'List every item ordered for the whole party — appetizers, mains with how they were requested, sides, drinks and desserts. This is the record every accuracy, timing and food-quality answer below is read against.',
+    },
+    { text: 'Total bill amount (QAR)', type: 'numeric', weight: 0 },
+    {
+      text: 'Photograph of the bill',
+      type: 'photo',
+      weight: 0,
+      na: true,
+      guidance: 'Attach the itemised bill or receipt. Mark N/A only if the restaurant issued none — the billing stage scores that failure separately.',
+    },
   ],
 )
 

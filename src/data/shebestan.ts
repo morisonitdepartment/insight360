@@ -58,6 +58,21 @@ const PROOF: SectionBlueprint = stage(
     },
     { text: 'Exterior departure photograph', type: 'photo', weight: 0, guidance: 'Taken on leaving, with the same date, time and location stamp.' },
     { text: 'Confirm the branch assessed', type: 'yes_no', weight: 0, guidance: 'Shebestan Palace, Building 17, Al Sadd Street, Doha.' },
+    { text: 'Number of guests in your party', type: 'numeric', weight: 0 },
+    {
+      text: 'Items ordered',
+      type: 'text',
+      weight: 0,
+      guidance: 'List every course and drink ordered for the whole party, and how each grilled item was requested. This is the record every accuracy, timing and food-quality answer below is read against.',
+    },
+    { text: 'Total bill amount (QAR)', type: 'numeric', weight: 0 },
+    {
+      text: 'Photograph of the bill',
+      type: 'photo',
+      weight: 0,
+      na: true,
+      guidance: 'Attach the itemised bill or receipt. Mark N/A only if the restaurant issued none — the billing stage scores that failure separately.',
+    },
   ],
 )
 
@@ -147,6 +162,14 @@ const AMBIENCE: SectionBlueprint = stage(
     { text: 'Was the restaurant temperature comfortable — neither too cold nor too hot?', type: 'yes_no', weight: 2 },
     { text: 'Were all lights in the guest seating area operational?', type: 'yes_no', weight: 2 },
     { text: 'Was the dining-area floor clean and free from visible dirt?', type: 'yes_no', weight: 3, tag: 'cleanliness' },
+    {
+      text: 'Were the surrounding tables cleared, wiped and reset ready for the next guest?',
+      type: 'yes_no',
+      weight: 2,
+      na: true,
+      tag: 'cleanliness',
+      guidance: 'Watch the tables around you through the meal. A finished table left uncleared, or re-laid without being wiped, fails this. N/A if no other table was vacated while you were there.',
+    },
     { text: 'Was the restaurant free from unpleasant odours?', type: 'yes_no', weight: 3, tag: 'hygiene' },
     { text: 'Was the overall atmosphere appropriate for a fine-dining restaurant?', type: 'rating_5', weight: 3 },
     { text: 'Was the insect killer operational, where applicable?', type: 'yes_no', weight: 1, na: true },

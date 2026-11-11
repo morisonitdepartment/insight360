@@ -3,7 +3,7 @@
  *
  * The demo builds its brands, outlets, templates, sections, questions, shoppers
  * and opening visits in code. Live Mode needs the same rows in Postgres. Rather
- * than transcribe 552 questions by hand, this reads the app's own dataset and
+ * than transcribe 562 questions by hand, this reads the app's own dataset and
  * writes the INSERTs, so the live database and the demonstration cannot drift.
  *
  *   VITE_APP_MODE=demo VITE_CLIENT=sterling npm run emit:live-seed

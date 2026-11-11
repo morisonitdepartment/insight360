@@ -46,8 +46,8 @@ SQL editor. Do not reorder them.
 ## Step 2 — Load the questionnaires
 
 `supabase/seed_sterling.sql` — 3 brands, 3 outlets, 3 questionnaires, 51 stages,
-**552 questions**. Paste it into the SQL editor and run it. It ends with a count
-query; the questions row should read 552.
+**562 questions**. Paste it into the SQL editor and run it. It ends with a count
+query; the questions row should read 562.
 
 Every insert is `on conflict (id) do update`, so it is safe to re-run after a
 questionnaire change. It deliberately creates **no shoppers and no visits** —

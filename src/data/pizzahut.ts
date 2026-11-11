@@ -76,7 +76,13 @@ const PROOF: SectionBlueprint = stage(
     { text: 'Cashier name', type: 'text', weight: 0, guidance: 'Read it from the name badge. If no badge is visible, give a brief description instead so the branch can identify them.' },
     { text: 'Order number / receipt number', type: 'text', weight: 0 },
     { text: 'Photograph of the Pizza Hut counter and signage', type: 'photo', weight: 0, guidance: 'Proof of visit, with the date, exact time and location stamp visible where the client requires it.' },
-    { text: 'Photograph of the receipt', type: 'photo', weight: 0 },
+    {
+      text: 'Photograph of the receipt',
+      type: 'photo',
+      weight: 0,
+      na: true,
+      guidance: 'Mark N/A only if no receipt was issued — the payment stage scores that failure separately. Without this, a shopper handed no receipt could not submit the visit at all.',
+    },
     { text: 'Photographs of the food before eating', type: 'photo', weight: 0, guidance: 'Both the closed packaging as handed over and the food with the box opened.' },
   ],
 )
@@ -420,7 +426,7 @@ const CLEANLINESS: SectionBlueprint = stage(
   'Counter Cleanliness',
   2,
   'safety_entertainment',
-  'The counter, the POS and the visible preparation area — Pizza Hut’s own footprint, not the shared food court.',
+  'The counter, the POS and the visible preparation area — Pizza Hut’s own footprint — plus any seating Pizza Hut clears itself.',
   [
     { text: 'Was the Pizza Hut counter clean?', type: 'yes_no', weight: 3, evidence: true, tag: 'cleanliness', kpi: ['cleanliness'] },
     { text: 'Was the cashier and POS area clean and free from unnecessary clutter?', type: 'yes_no', weight: 2, kpi: ['cleanliness'] },
@@ -429,6 +435,15 @@ const CLEANLINESS: SectionBlueprint = stage(
     { text: 'Was the visible preparation area clean and organised?', type: 'yes_no', weight: 3, tag: 'hygiene', kpi: ['cleanliness'] },
     { text: 'Were the staff uniforms clean and presentable?', type: 'yes_no', weight: 2, kpi: ['cleanliness'] },
     { text: 'Was the immediate counter area free from visible waste or spills?', type: 'yes_no', weight: 2, kpi: ['cleanliness'] },
+    {
+      text: 'Were the seating tables cleared, wiped and ready for the next customer?',
+      type: 'yes_no',
+      weight: 2,
+      na: true,
+      tag: 'cleanliness',
+      kpi: ['cleanliness'],
+      guidance: 'Judge only the seating Pizza Hut is responsible for clearing. Mark N/A where the tables are shared food-court seating cleared by the mall.',
+    },
     {
       text: 'Was the outlet free from any serious food-safety or hygiene issue?',
       type: 'yes_no',

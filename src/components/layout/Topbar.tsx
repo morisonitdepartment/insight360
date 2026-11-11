@@ -311,6 +311,16 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
         <Menu className="h-5 w-5" />
       </button>
       <GlobalSearch />
+      {/* The notice in AppLayout scrolls away under this header, so the warning
+          has to live here too — this is the one strip that is always on screen. */}
+      {isDemoMode() && (
+        <span
+          className="hidden shrink-0 items-center rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300 sm:inline-flex"
+          title="Sample data — anything entered here is kept in this browser only and is never sent to a server."
+        >
+          Demo data
+        </span>
+      )}
       <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
         <OutletSelector />
         <PeriodSelector />

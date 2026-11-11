@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import { format } from 'date-fns'
 import { AlertOctagon, AlertTriangle, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, ClipboardList, Info, Lock, MessageSquare, Save, Send, Target, Video, X } from 'lucide-react'
 import { useData } from '@/contexts/DataContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -17,6 +18,9 @@ import { timingChainText } from '@/utils/sequence'
 import { fmtDateTime } from '@/utils/format'
 import type { AnswerValue, Question, VisitAnswer } from '@/types'
 import { cn } from '@/utils/cn'
+
+/** Idle time before a draft saves itself. Short enough to survive a dropped page. */
+const AUTOSAVE_MS = 2500
 
 const TYPE_LABEL: Record<Question['type'], string> = {
   yes_no: 'Yes / No',
@@ -105,6 +109,8 @@ export default function AssessmentPage() {
     [locked, visit, questions],
   )
 
+  const [savedAt, setSavedAt] = useState<Date | null>(null)
+
   const persistDraft = async (silent = false) => {
     if (!visit) return
     setSaving(true)
@@ -112,6 +118,7 @@ export default function AssessmentPage() {
       if (visit.status === 'Assigned' || visit.status === 'Planned') await dispatch((d, ctx) => startVisit(d, ctx, visit.id))
       await dispatch((d, ctx) => saveDraft(d, ctx, visit.id, Object.values(answers)))
       setDirty(false)
+      setSavedAt(new Date())
       if (!silent) toast.success('Draft saved')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not save draft')
@@ -119,6 +126,41 @@ export default function AssessmentPage() {
       setSaving(false)
     }
   }
+
+  /**
+   * Autosave, and a warning before the tab closes with work in it.
+   *
+   * persistDraft has carried a `silent` flag since it was written, but nothing
+   * ever passed it: a draft was only ever written when the shopper pressed Save
+   * Draft. Answers live in React state until then, so closing the tab, following
+   * a link or letting a phone drop the page discarded them — and the only hint
+   * anything was unsaved was a six-pixel amber dot on the button. A shopper
+   * filling in 150 to 260 questions over a two-hour meal cannot be asked to
+   * remember a button.
+   *
+   * The ref keeps the timer pointed at the current answers without making the
+   * effect depend on a function that is rebuilt on every render.
+   */
+  const draftRef = useRef(persistDraft)
+  // Updated after each render rather than during it, so the timer always calls the
+  // latest closure (and its latest answers) without the effect depending on it.
+  useEffect(() => {
+    draftRef.current = persistDraft
+  })
+  useEffect(() => {
+    if (!dirty || locked || !ownVisit || !visit) return
+    const t = setTimeout(() => void draftRef.current(true), AUTOSAVE_MS)
+    return () => clearTimeout(t)
+  }, [dirty, locked, ownVisit, visit, answers])
+
+  useEffect(() => {
+    if (!dirty) return
+    // preventDefault is what asks the browser to confirm; the message is the
+    // browser's own and cannot be set.
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty])
 
   const validate = () => {
     const issues: { q: Question; reason: string }[] = []
@@ -327,6 +369,13 @@ export default function AssessmentPage() {
               <Save className="h-4 w-4" aria-hidden /> <span className="hidden sm:inline">{saving ? 'Saving…' : 'Save Draft'}</span>
               {dirty && <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-label="Unsaved changes" />}
             </button>
+          )}
+          {/* Say it in words. The dot alone left a shopper unable to tell whether
+              two hours of answers were safely written down. */}
+          {!locked && (
+            <span className={cn('text-xs font-medium whitespace-nowrap', saving ? 'text-slate-500' : dirty ? 'text-amber-600' : 'text-emerald-600')} aria-live="polite">
+              {saving ? 'Saving…' : dirty ? 'Unsaved' : savedAt ? `Saved ${format(savedAt, 'HH:mm')}` : 'Saved'}
+            </span>
           )}
           <span className="ml-auto text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
             Section {step + 1} of {sections.length}

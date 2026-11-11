@@ -9,9 +9,17 @@ Written so somebody who has never seen this conversation can finish it.
 
 ## Where things stand
 
-As of 10 November 2026 the live database holds **3 users and nothing else** — no
-brands, outlets, questionnaires, shoppers or visits. Migrations `0010` and `0011`
-are written but **not applied**. Check the current position before you start:
+Verified on **11 November 2026**: the live database holds **3 users and nothing
+else** — 0 brands, 0 outlets, 0 questionnaires, 0 shoppers, 0 visits, 0 answers,
+0 evidence, 0 activity logs. Migrations `0001`–`0009` are applied; `0010` and
+`0011` are **not** — none of their columns exist.
+
+> **The demonstration is not this.** `…/insight360/` is the demonstration and
+> keeps everything in the browser; `…/insight360/app/` is this database. Records
+> entered on the first address never reach the second one. Two evenings of real
+> outlets and visits were lost to exactly that in November 2026.
+
+Check the current position before you start:
 
 ```sql
 select 'brands' t, count(*) n from public.brands
@@ -29,31 +37,47 @@ And which migrations are tracked:
 select version, name from supabase_migrations.schema_migrations order by version;
 ```
 
-## Step 1 — Apply the two migrations
+## Steps 1 and 2 — Schema and questionnaires, in one run
 
-In order. `0010` adds the service-sequence columns, `0011` the brand-framework ones.
-Both are additive and nullable, so they are safe on a populated database — but
-nothing below works without them, and the seed fails on a missing column.
+Paste **`supabase/GO_LIVE.sql`** into the Supabase SQL editor and run it. That one
+file is the two migrations and the seed in the only order that works:
 
+| Part | What it does |
+|---|---|
+| 1 | Migration `0010` — the service-sequence columns |
+| 2 | Migration `0011` — the brand-framework columns |
+| 3 | 3 brands, 3 outlets, 3 questionnaires, 51 stages, **562 questions** |
+
+It ends with a check that prints `OK` or `FAIL` per row. **Every row must read
+`OK`,** and questions must read 562.
+
+Three files pasted by hand is three chances to paste them in the wrong order, and
+a half-applied schema announces itself as `column does not exist` from somewhere
+deep in the seed. One file cannot be mis-ordered. If the base schema is missing
+it stops immediately with a readable message instead of a wall of errors.
+
+**Safe to re-run.** Every column is added `if not exists`, every insert is
+`on conflict (id) do update`. A second run changes nothing, so a run that failed
+halfway is fixed by running it again. It touches no visits, answers or evidence —
+only the questionnaire and the outlets. It deliberately creates **no shoppers and
+no visits**: people and schedules are not reference data.
+
+The three source files are still there and still apply in order
+(`0010`, `0011`, `seed_sterling.sql`) if you would rather run them separately.
+
+### Rebuilding it
+
+`GO_LIVE.sql` is generated. After regenerating the seed (below), run:
+
+```bash
+bash scripts/build-go-live.sh
 ```
-supabase/migrations/0010_service_sequence.sql
-supabase/migrations/0011_brand_framework.sql
-```
 
-Apply with the Supabase CLI (`supabase db push`) or by pasting each file into the
-SQL editor. Do not reorder them.
+It counts the expected rows out of the seed rather than trusting the numbers
+written here, so a questionnaire that gains a question cannot leave the closing
+check asserting the old total.
 
-## Step 2 — Load the questionnaires
-
-`supabase/seed_sterling.sql` — 3 brands, 3 outlets, 3 questionnaires, 51 stages,
-**562 questions**. Paste it into the SQL editor and run it. It ends with a count
-query; the questions row should read 562.
-
-Every insert is `on conflict (id) do update`, so it is safe to re-run after a
-questionnaire change. It deliberately creates **no shoppers and no visits** —
-people and schedules are not reference data.
-
-### Regenerating it
+### Regenerating the seed
 
 Never hand-edit the SQL. It is generated from the app's own dataset so the live
 database cannot drift from what the client was shown:
@@ -66,7 +90,8 @@ VITE_APP_MODE=demo VITE_CLIENT=sterling npm run emit:live-seed
 and in live mode the generator reads an empty dataset and would emit an empty seed.
 
 Run `npm run check:frameworks` first — if a questionnaire cannot be scored, there is
-no point loading it.
+no point loading it. Then rebuild `GO_LIVE.sql` with `bash scripts/build-go-live.sh`,
+or the one-file route will still carry the old questionnaire.
 
 ## Step 3 — Create the three shopper accounts
 

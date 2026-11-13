@@ -5,6 +5,7 @@ import { CLIENT } from '@/config/client'
 import { DEMO_SHIFT_DAYS } from '@/data/demoClock'
 import type { Dataset, Evidence, User } from '@/types'
 import { hashString } from '@/utils/prng'
+import { deriveOutlets } from '@/services/derive'
 import type { DatasetPatch, EvidenceUploadMeta, Repository, SwitchOrigin } from './types'
 
 /** The administrator a demo session was switched from (see switchAccount). */
@@ -253,7 +254,12 @@ export class DemoRepository implements Repository {
 
   async loadDataset(): Promise<Dataset> {
     await delay(120)
-    return this.dataset()
+    // Outlet scores are derived from visits and findings. `outlets` is not part
+    // of the saved overlay, so without this a visit approved in this browser
+    // vanished from every dashboard on the next reload: the outlets came back
+    // exactly as the seed derived them. Live Mode derives on load the same way.
+    const ds = this.dataset()
+    return { ...ds, outlets: deriveOutlets(ds.outlets, ds.visits, ds.findings, ds.thresholds) }
   }
 
   async persist(patch: DatasetPatch): Promise<void> {

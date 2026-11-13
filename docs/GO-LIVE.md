@@ -13,7 +13,7 @@ Verified on **11 November 2026**, after loading:
 
 | | |
 |---|---|
-| Migrations | `0001`–`0011` **all applied**; `0012` (workflow and photos) — apply before the app update that needs it |
+| Migrations | `0001`–`0012` **all applied** (0012 on 13 November 2026) |
 | Brands / outlets / questionnaires | 3 / 3 / 3 |
 | Stages | 51 — each template sums to exactly **100.00** scored weight, with the conditional Complaint Handling stage (5) outside it |
 | Questions | **562** — matching each template's declared count exactly |

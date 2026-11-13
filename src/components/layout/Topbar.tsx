@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, Bell, Building2, CalendarRange, ChevronDown, ClipboardList, FileText, LogOut, Menu, Moon, Search, Store, Sun, User as UserIcon, Wrench, BellRing, UserCog } from 'lucide-react'
+import { AlertTriangle, ArrowLeftRight, Bell, Building2, CalendarRange, ChevronDown, ClipboardList, FileText, LogOut, Menu, Moon, Search, Store, Sun, Undo2, User as UserIcon, Wrench, BellRing, UserCog } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useDataState } from '@/contexts/DataContext'
 import { useTheme } from '@/contexts/ThemeContext'
@@ -14,6 +14,7 @@ import { cn } from '@/utils/cn'
 import { relativeTime } from '@/utils/format'
 import { useNow } from '@/hooks'
 import { T } from '@/config/terms'
+import { SwitchAccountModal, useReopenSwitcher } from './SwitchAccount'
 
 function useClickOutside(ref: React.RefObject<HTMLElement | null>, onClose: () => void, active: boolean) {
   useEffect(() => {
@@ -153,14 +154,22 @@ function GlobalSearch() {
 
 function NotificationCenter() {
   const { data, dispatch } = useDataState()
-  const { role } = useAuth()
+  const { role, user } = useAuth()
   const now = useNow()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useClickOutside(ref, () => setOpen(false), open)
 
-  const list = useMemo(() => (data?.notifications ?? []).filter((n) => !role || n.audience.includes(role)).slice(0, 30), [data, role])
+  // A notification addressed to one person reaches only them; the rest go to
+  // everyone holding one of their roles. Mirrors notifications_select.
+  const list = useMemo(
+    () =>
+      (data?.notifications ?? [])
+        .filter((n) => (n.recipientId ? n.recipientId === user?.id : !role || n.audience.includes(role)))
+        .slice(0, 30),
+    [data, role, user],
+  )
   const unread = list.filter((n) => !n.read).length
 
   return (
@@ -211,11 +220,13 @@ function NotificationCenter() {
 }
 
 function ProfileMenu() {
-  const { user, signOut } = useAuth()
+  const { user, signOut, canSwitch, switchOrigin, returnToOrigin } = useAuth()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  const [switching, setSwitching] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useClickOutside(ref, () => setOpen(false), open)
+  useReopenSwitcher(setSwitching)
   if (!user) return null
   return (
     <div ref={ref} className="relative">
@@ -253,12 +264,39 @@ function ProfileMenu() {
             >
               <UserIcon className="h-4 w-4 text-slate-400" /> My profile
             </button>
+            {canSwitch && (
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-navy-800"
+                onClick={() => {
+                  setOpen(false)
+                  setSwitching(true)
+                }}
+              >
+                <ArrowLeftRight className="h-4 w-4 text-slate-400" /> Switch account
+              </button>
+            )}
+            {switchOrigin && (
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-teal-700 hover:bg-teal-50 dark:text-teal-300 dark:hover:bg-teal-500/10"
+                onClick={() => {
+                  setOpen(false)
+                  void returnToOrigin()
+                }}
+              >
+                <Undo2 className="h-4 w-4" /> Back to {switchOrigin.name}
+              </button>
+            )}
             <button type="button" role="menuitem" className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10" onClick={() => void signOut().then(() => navigate('/login'))}>
               <LogOut className="h-4 w-4" /> Sign out
             </button>
           </div>
         </div>
       )}
+      <SwitchAccountModal open={switching} onClose={() => setSwitching(false)} />
     </div>
   )
 }
@@ -303,6 +341,22 @@ function PeriodSelector() {
   )
 }
 
+/** Always on screen while an administrator works as somebody else; the banner above scrolls away. */
+function SwitchedChip() {
+  const { switchOrigin, returnToOrigin } = useAuth()
+  if (!switchOrigin) return null
+  return (
+    <button
+      type="button"
+      onClick={() => void returnToOrigin()}
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-teal-300 bg-teal-50 px-2.5 py-1 text-[11px] font-semibold text-teal-800 hover:bg-teal-100 dark:border-teal-500/40 dark:bg-teal-500/10 dark:text-teal-200"
+      title={`Return to ${switchOrigin.name}'s account`}
+    >
+      <Undo2 className="h-3.5 w-3.5" aria-hidden /> <span className="hidden sm:inline">Back to</span> {switchOrigin.name.split(' ')[0]}
+    </button>
+  )
+}
+
 export function Topbar({ onMenu }: { onMenu: () => void }) {
   const { theme, toggleTheme } = useTheme()
   return (
@@ -322,6 +376,7 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
         </span>
       )}
       <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+        <SwitchedChip />
         <OutletSelector />
         <PeriodSelector />
         <button type="button" onClick={toggleTheme} className="btn-ghost !px-2" aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title="Toggle theme">

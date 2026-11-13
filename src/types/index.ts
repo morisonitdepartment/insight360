@@ -197,7 +197,7 @@ export interface Scenario {
 export interface ApprovalEvent {
   at: string
   by: string
-  action: 'Submitted' | 'Review Started' | 'Approved' | 'Rejected' | 'Reopened' | 'Closed'
+  action: 'Booked' | 'Booked and assigned' | 'Reviewer set' | 'Submitted' | 'Review Started' | 'Approved' | 'Rejected' | 'Reopened' | 'Closed'
   comment?: string
 }
 
@@ -513,6 +513,11 @@ export interface Notification {
   severity: Severity | 'Info'
   /** Roles who should see this notification */
   audience: Role[]
+  /**
+   * One named person. When set, only they see it and `audience` is ignored —
+   * "New visit assigned" goes to that shopper, not to every shopper.
+   */
+  recipientId?: string | null
 }
 
 export interface ActivityLog {

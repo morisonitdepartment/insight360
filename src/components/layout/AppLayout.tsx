@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { Info } from 'lucide-react'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
+import { SwitchedBanner } from './SwitchAccount'
 import { Breadcrumbs } from './Breadcrumbs'
 import { GuidedDemoOverlay } from '@/components/guided/GuidedDemoOverlay'
 import { useLocalStorage } from '@/hooks'
@@ -53,6 +54,7 @@ export function AppLayout() {
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
       <div className={cn('flex min-h-screen flex-col transition-[padding] duration-200', collapsed ? 'lg:pl-[68px]' : 'lg:pl-64')}>
         {isDemoMode() && <DemoNotice />}
+        <SwitchedBanner />
         <Topbar onMenu={() => setMobileOpen(true)} />
         <main id="main" className="flex-1 px-4 py-5 md:px-6 lg:px-8 max-w-[1680px] w-full mx-auto">
           <div className="mb-4">

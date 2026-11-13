@@ -13,4 +13,4 @@ export function getRepository(): Repository {
   return instance
 }
 
-export type { Repository, DatasetPatch, EvidenceUploadMeta } from './types'
+export type { Repository, DatasetPatch, EvidenceUploadMeta, SwitchOrigin } from './types'

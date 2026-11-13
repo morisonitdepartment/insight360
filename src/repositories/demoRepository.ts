@@ -5,7 +5,17 @@ import { CLIENT } from '@/config/client'
 import { DEMO_SHIFT_DAYS } from '@/data/demoClock'
 import type { Dataset, Evidence, User } from '@/types'
 import { hashString } from '@/utils/prng'
-import type { DatasetPatch, EvidenceUploadMeta, Repository } from './types'
+import type { DatasetPatch, EvidenceUploadMeta, Repository, SwitchOrigin } from './types'
+
+/** The administrator a demo session was switched from (see switchAccount). */
+const ORIGIN_KEY = `${APP_CONFIG.storagePrefix}.switch.origin`
+
+/**
+ * Photos attached in this browser tab, by evidence id. The demonstration has no
+ * file store, so the picture lives as an object URL for as long as the tab does;
+ * after a reload the record falls back to its drawn placeholder.
+ */
+const localFiles = new Map<string, string>()
 
 // Bumped when the seeded data model changes, so returning visitors are not served a stale overlay.
 const DATA_KEY = `${APP_CONFIG.storagePrefix}.demo.data.v2`
@@ -223,6 +233,7 @@ export class DemoRepository implements Repository {
   }
 
   async signOut(): Promise<void> {
+    safeRemove(localStorage, ORIGIN_KEY)
     safeRemove(localStorage, SESSION_KEY)
     safeRemove(sessionStorage, SESSION_KEY)
   }
@@ -260,6 +271,7 @@ export class DemoRepository implements Repository {
     await delay(500)
     const id = `ev-u-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4)}`
     const now = new Date().toISOString().slice(0, 19)
+    if (file) localFiles.set(id, URL.createObjectURL(file))
     return {
       id,
       visitId: meta.visitId,
@@ -281,6 +293,46 @@ export class DemoRepository implements Repository {
   /** The overlay is rewritten wholesale by the patch, so there is nothing else to undo. */
   async deleteEvidence(_id: string): Promise<void> {
     await delay(150)
+  }
+
+  switchOrigin(): SwitchOrigin | null {
+    const raw = safeGet(sessionStorage, ORIGIN_KEY) ?? safeGet(localStorage, ORIGIN_KEY)
+    if (!raw) return null
+    try {
+      const o = JSON.parse(raw) as SwitchOrigin
+      return o?.userId ? o : null
+    } catch {
+      return null
+    }
+  }
+
+  /** Mirrors the live rule: only a super admin may switch, and never into another super admin. */
+  async switchAccount(targetUserId: string): Promise<void> {
+    await delay(200)
+    const raw = safeGet(sessionStorage, SESSION_KEY) ?? safeGet(localStorage, SESSION_KEY)
+    const currentId = raw ? (JSON.parse(raw) as { userId: string }).userId : null
+    const users = this.dataset().users
+    const origin = this.switchOrigin()
+    const admin = users.find((u) => u.id === (origin?.userId ?? currentId))
+    if (!admin || admin.role !== 'super_admin') throw new Error('Only a super admin can switch accounts.')
+    const target = users.find((u) => u.id === targetUserId)
+    if (!target || target.status !== 'active') throw new Error('That account is not active.')
+    if (target.role === 'super_admin') throw new Error('Switching into another super admin is not allowed.')
+    if (!origin) safeSet(localStorage, ORIGIN_KEY, JSON.stringify({ userId: admin.id, name: admin.name }))
+    safeRemove(sessionStorage, SESSION_KEY)
+    safeSet(localStorage, SESSION_KEY, JSON.stringify({ userId: target.id, at: new Date().toISOString() }))
+  }
+
+  async returnToOrigin(): Promise<void> {
+    const origin = this.switchOrigin()
+    if (!origin) return
+    safeRemove(localStorage, ORIGIN_KEY)
+    safeRemove(sessionStorage, SESSION_KEY)
+    safeSet(localStorage, SESSION_KEY, JSON.stringify({ userId: origin.userId, at: new Date().toISOString() }))
+  }
+
+  async evidenceUrl(evidence: Pick<Evidence, 'id' | 'fileName'>): Promise<string | null> {
+    return localFiles.get(evidence.id) ?? null
   }
 
   async reset(): Promise<void> {

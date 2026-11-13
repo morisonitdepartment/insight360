@@ -11,12 +11,12 @@ import { Modal } from '@/components/ui/Modal'
 import { Textarea } from '@/components/ui/Form'
 import { ProgressBar } from '@/components/ui/Misc'
 import { EmptyState } from '@/components/ui/States'
-import { EvidenceVisual } from '@/components/ui/EvidenceThumb'
+import { EvidencePreviewModal, EvidenceVisual } from '@/components/ui/EvidenceThumb'
 import { addEvidence, getVisitQuestions, getVisitSections, removeEvidence, renameEvidence, saveDraft, startVisit, submitVisit } from '@/services/actions'
 import { computeVisitScores, deriveTimedAnswers, isQuestionAnswered, scoreQuestion, visibleQuestions } from '@/utils/scoring'
 import { timingChainText } from '@/utils/sequence'
 import { fmtDateTime } from '@/utils/format'
-import type { AnswerValue, Question, VisitAnswer } from '@/types'
+import type { AnswerValue, Evidence, Question, VisitAnswer } from '@/types'
 import { cn } from '@/utils/cn'
 
 /** Idle time before a draft saves itself. Short enough to survive a dropped page. */
@@ -502,7 +502,7 @@ export default function AssessmentPage() {
   )
 }
 
-type Attached = { id: string; type: 'Photo' | 'Video' | 'Receipt' | 'Screenshot' | 'Document'; visualSeed: number; title: string }
+type Attached = Evidence
 
 function QuestionCard({ index, q, answer, locked, onChange, onAttach, uploading, evidence, onRename, onDelete }: { index: number; q: Question; answer: VisitAnswer | undefined; locked: boolean; onChange: (patch: Partial<VisitAnswer>) => void; onAttach: (file: File | null) => void; uploading: boolean; evidence: Attached[]; onRename: (id: string, title: string) => void; onDelete: (id: string) => void }) {
   const cameraRef = useRef<HTMLInputElement>(null)
@@ -663,6 +663,7 @@ function QuestionCard({ index, q, answer, locked, onChange, onAttach, uploading,
 function Attachment({ ev, locked, onRename, onDelete }: { ev: Attached; locked: boolean; onRename: (title: string) => void; onDelete: () => void }) {
   const [name, setName] = useState(ev.title)
   const [confirming, setConfirming] = useState(false)
+  const [viewing, setViewing] = useState(false)
   // Follow the stored title when it changes under us — a rename that came back
   // from the repository, or a different photograph reusing this row.
   const committed = useRef(ev.title)
@@ -683,7 +684,12 @@ function Attachment({ ev, locked, onRename, onDelete }: { ev: Attached; locked: 
 
   return (
     <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 dark:border-navy-700 p-0.5 pr-1 text-[11px] text-slate-600 dark:text-slate-300">
-      <EvidenceVisual type={ev.type} seed={ev.visualSeed} className="h-7 w-10 rounded" />
+      {/* The photograph itself, large enough on a phone to see it is the right
+          one, and a tap away from full size. */}
+      <button type="button" onClick={() => setViewing(true)} className="shrink-0 rounded focus-visible:ring-2 focus-visible:ring-teal-500" aria-label={`View ${ev.title}`} title="View full size">
+        <EvidenceVisual type={ev.type} seed={ev.visualSeed} label={ev.title} className="h-12 w-16 rounded" compact evidence={ev} />
+      </button>
+      <EvidencePreviewModal evidence={viewing ? ev : null} onClose={() => setViewing(false)} />
       {locked ? (
         <span className="max-w-[10rem] truncate px-1" title={ev.title}>{ev.title}</span>
       ) : (

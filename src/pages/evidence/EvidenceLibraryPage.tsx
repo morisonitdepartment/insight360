@@ -435,7 +435,7 @@ export default function EvidenceLibraryPage() {
                           preview?.id === e.id && 'border-teal-300 bg-teal-50/60 dark:border-teal-500/40 dark:bg-teal-500/10',
                         )}
                       >
-                        <EvidenceVisual type={e.type} seed={e.visualSeed} label={e.title} className="h-16 w-24 shrink-0 rounded" />
+                        <EvidenceVisual type={e.type} seed={e.visualSeed} label={e.title} className="h-16 w-24 shrink-0 rounded" evidence={e} />
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{e.title}</p>

@@ -5,6 +5,7 @@ import { fmtDateTime } from '@/utils/format'
 import { Modal } from './Modal'
 import { Badge } from './Badge'
 import { T } from '@/config/terms'
+import { useEvidenceUrl } from '@/hooks/useEvidenceUrl'
 
 /**
  * Neutral, internally generated SVG placeholders for demo evidence. No external images are
@@ -44,7 +45,59 @@ export function evidenceIcon(type: EvidenceType) {
   }
 }
 
-export function EvidenceVisual({ type, seed, label, className, large = false }: { type: EvidenceType; seed: number; label?: string; className?: string; large?: boolean }) {
+/**
+ * The evidence itself when there is a file behind the record, otherwise a drawn
+ * placeholder.
+ *
+ * Every view used to draw the placeholder unconditionally — including in Live
+ * Mode, where a shopper had just uploaded a real photograph. The upload worked,
+ * but what came back on screen was a pattern of coloured rectangles, which reads
+ * exactly like "the photo did not attach".
+ */
+export function EvidenceVisual({
+  type,
+  seed,
+  label,
+  className,
+  large = false,
+  compact = false,
+  evidence,
+}: {
+  type: EvidenceType
+  seed: number
+  label?: string
+  className?: string
+  large?: boolean
+  /** A thumbnail too small for the type badge. */
+  compact?: boolean
+  /** Pass the record to show its real file when one exists. */
+  evidence?: Pick<Evidence, 'id' | 'fileName'>
+}) {
+  const url = useEvidenceUrl(evidence)
+  const Icon = evidenceIcon(type)
+  const isPdf = !!evidence?.fileName?.toLowerCase().endsWith('.pdf')
+  if (url && !isPdf) {
+    return (
+      <div className={cn('relative overflow-hidden bg-navy-950', className)}>
+        {type === 'Video' ? (
+          // `#t=0.1` makes mobile browsers paint the first frame instead of black.
+          <video src={`${url}#t=0.1`} className="h-full w-full object-cover" preload="metadata" muted playsInline controls={large} aria-label={label ? `Video evidence: ${label}` : 'Video evidence'} />
+        ) : (
+          <img src={url} alt={label ? `${type} evidence: ${label}` : `${type} evidence`} className={cn('h-full w-full', large ? 'object-contain' : 'object-cover')} loading="lazy" decoding="async" />
+        )}
+        {!compact && (
+          <span className="pointer-events-none absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded bg-navy-950/70 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur">
+            <Icon className="h-3 w-3" aria-hidden />
+            {type}
+          </span>
+        )}
+      </div>
+    )
+  }
+  return <PlaceholderVisual type={type} seed={seed} label={label} className={className} large={large} sample={!evidence || !evidence.fileName?.includes('/')} />
+}
+
+function PlaceholderVisual({ type, seed, label, className, large = false, sample }: { type: EvidenceType; seed: number; label?: string; className?: string; large?: boolean; sample: boolean }) {
   const rnd = seeded(seed)
   const pal = PALETTES[seed % PALETTES.length]
   const shapes = Array.from({ length: large ? 9 : 6 }, () => ({ x: rnd() * 100, y: rnd() * 100, w: 14 + rnd() * 40, h: 10 + rnd() * 30, o: 0.25 + rnd() * 0.5 }))
@@ -98,7 +151,7 @@ export function EvidenceVisual({ type, seed, label, className, large = false }: 
         <Icon className="h-3 w-3" aria-hidden />
         {type}
       </span>
-      <span className="absolute bottom-1.5 right-1.5 rounded bg-navy-950/60 px-1 py-0.5 text-[9px] text-slate-200">SAMPLE</span>
+      {sample && <span className="absolute bottom-1.5 right-1.5 rounded bg-navy-950/60 px-1 py-0.5 text-[9px] text-slate-200">SAMPLE</span>}
     </div>
   )
 }
@@ -106,7 +159,7 @@ export function EvidenceVisual({ type, seed, label, className, large = false }: 
 export function EvidenceCard({ evidence, onClick, selected, meta }: { evidence: Evidence; onClick?: () => void; selected?: boolean; meta?: string }) {
   return (
     <button type="button" onClick={onClick} className={cn('card overflow-hidden text-left transition-shadow hover:shadow-card-hover focus-visible:ring-2', selected && 'ring-2 ring-teal-500')}>
-      <EvidenceVisual type={evidence.type} seed={evidence.visualSeed} label={evidence.title} className="aspect-[4/3]" />
+      <EvidenceVisual type={evidence.type} seed={evidence.visualSeed} label={evidence.title} className="aspect-[4/3]" evidence={evidence} />
       <div className="p-2.5">
         <p className="truncate text-xs font-medium text-slate-800 dark:text-slate-100">{evidence.title}</p>
         <p className="mt-0.5 truncate text-[11px] text-slate-500 dark:text-slate-400">{meta ?? fmtDateTime(evidence.capturedAt)}</p>
@@ -120,7 +173,8 @@ export function EvidencePreviewModal({ evidence, onClose, context }: { evidence:
     <Modal open={!!evidence} onClose={onClose} title={evidence?.title ?? ''} description={evidence ? `${evidence.type} · ${evidence.fileName} · ${evidence.sizeKb.toLocaleString()} KB` : undefined} size="lg">
       {evidence && (
         <div className="space-y-4">
-          <EvidenceVisual type={evidence.type} seed={evidence.visualSeed} label={evidence.title} className="aspect-video rounded-lg" large />
+          <EvidenceVisual type={evidence.type} seed={evidence.visualSeed} label={evidence.title} className="aspect-video rounded-lg" large evidence={evidence} />
+          <OpenOriginal evidence={evidence} />
           <div className="grid gap-3 text-sm sm:grid-cols-2">
             <div>
               <p className="label">Description</p>
@@ -151,9 +205,19 @@ export function EvidencePreviewModal({ evidence, onClose, context }: { evidence:
               <Badge tone="slate">ID {evidence.id}</Badge>
             </div>
           </div>
-          <p className="text-[11px] text-slate-400">Demo mode renders neutral placeholder visuals. In live mode the original file is served from Supabase Storage with signed URLs.</p>
         </div>
       )}
     </Modal>
+  )
+}
+
+/** A link to the full-size original — the only way to read a PDF, and handy for a photo on a phone. */
+function OpenOriginal({ evidence }: { evidence: Evidence }) {
+  const url = useEvidenceUrl(evidence)
+  if (!url) return null
+  return (
+    <a href={url} target="_blank" rel="noreferrer" className="btn-secondary btn-sm inline-flex">
+      Open original
+    </a>
   )
 }

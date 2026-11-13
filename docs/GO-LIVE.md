@@ -13,7 +13,7 @@ Verified on **11 November 2026**, after loading:
 
 | | |
 |---|---|
-| Migrations | `0001`–`0011` **all applied** |
+| Migrations | `0001`–`0011` **all applied**; `0012` (workflow and photos) — apply before the app update that needs it |
 | Brands / outlets / questionnaires | 3 / 3 / 3 |
 | Stages | 51 — each template sums to exactly **100.00** scored weight, with the conditional Complaint Handling stage (5) outside it |
 | Questions | **562** — matching each template's declared count exactly |
@@ -139,11 +139,39 @@ select name, email, role, can_sign_in from public.user_access_review
 where role = 'shopper' order by name;
 ```
 
+### Working as each person — Switch account
+
+Once the shoppers and reviewers exist, a super admin does not need their passwords to
+key in their work: **profile menu → Switch account** opens any non-admin account in one
+click, and a teal bar with **Back to …** returns to the administrator. Every switch is
+written to the activity log under the administrator's name, and anything saved while
+switched is recorded under the borrowed account — exactly as if that person had done it.
+It needs the `switch-account` Edge Function (see `supabase/functions/README.md`).
+
 ## Step 4 — Book the three visits
 
 Operations → Visits → New visit. Choosing the outlet selects its questionnaire
 automatically, because the brand names it. Assign each shopper the visit in the table
-above. Only a super_admin holds `visits.assign`.
+above, and pick the **Reviewer** — the person who approves it. Only a super_admin holds
+`visits.assign`.
+
+### The workflow each visit follows
+
+| Step | Who | What they see |
+|---|---|---|
+| Booked / Assigned | Super admin | Books the visit, names shopper and reviewer. The shopper is notified. |
+| In progress | Shopper | **Start visit**, answers stage by stage, takes photos on the phone. |
+| Submitted | Shopper | **Submit visit**. The named reviewer is notified. |
+| Under review | Reviewer | **Visits → Show my approvals**. Approve, or reject with a reason. |
+| Approved | — | Report released; the shopper is notified. A rejected visit goes back to the shopper. |
+
+Only the named reviewer (or a super admin) can approve — enforced by the database, not
+just the screen. A visit booked with no reviewer can be approved by anyone holding
+`visits.review`.
+
+Migration `0012_workflow_and_photos.sql` must be applied for this: it lets a shopper's
+submission raise its notification, finding and alert, addresses notifications to one
+person, restricts approval to the named reviewer, and accepts phone videos (.mov).
 
 ## Step 5 — Walk one visit end to end before anyone travels
 

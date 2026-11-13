@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { shopperCovers } from '@/services/workflow'
 import { Link, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { AlertTriangle, CalendarClock, CheckCircle2, Sparkles, Target, UserCheck, UserPlus, Users } from 'lucide-react'
@@ -107,7 +108,7 @@ export default function AssignmentsPage() {
     if (!selected || !selectedOutlet) return []
     const segment = selectedOutlet.segment
     return workload
-      .filter((w) => w.shopper.assignedCategories.includes(segment))
+      .filter((w) => shopperCovers(w.shopper, segment))
       .map((w) => {
         const reasons: string[] = []
         let score = 0

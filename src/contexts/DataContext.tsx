@@ -6,6 +6,7 @@ import type { ActionContext } from '@/services/actions'
 import { useAuth } from './AuthContext'
 import { useFilters } from './FilterContext'
 import { useNow } from '@/hooks'
+import { prepareUpload } from '@/utils/prepareUpload'
 
 export type ActionRecipe = (data: Dataset, ctx: ActionContext) => DatasetPatch
 
@@ -89,12 +90,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
       dataRef.current = next
       setData(next)
-      await repo.persist(patch)
+      await repo.persist(patch, current)
     },
     [repo, user, now],
   )
 
-  const uploadEvidence = useCallback((file: File | null, meta: EvidenceUploadMeta) => repo.uploadEvidence(file, meta), [repo])
+  // Every upload passes through prepareUpload: phone photos are shrunk and
+  // converted to JPEG, and a file with no type gets one from its extension.
+  const uploadEvidence = useCallback(
+    async (file: File | null, meta: EvidenceUploadMeta) => repo.uploadEvidence(file ? await prepareUpload(file) : null, meta),
+    [repo],
+  )
   const deleteEvidenceFile = useCallback((id: string) => repo.deleteEvidence(id), [repo])
 
   const resetDemo = useCallback(async () => {

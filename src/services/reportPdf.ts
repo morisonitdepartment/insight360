@@ -21,6 +21,45 @@ import { ReportDoc, bandColor, loadClientMark, scoreTone, type CellTone, type Pd
 import { CLIENT } from '@/config/client'
 import { KPI_KIND_LABEL, formatKpiValue, stageRows, timingChainText, weightText } from '@/utils/sequence'
 import { T } from '@/config/terms'
+import { getRepository } from '@/repositories'
+
+/**
+ * The photograph behind a piece of evidence, cropped to the report's frame and
+ * encoded as JPEG for the PDF — or null for a video, a PDF attachment, seeded
+ * sample evidence, or a file that cannot be fetched (the frame then reads
+ * "CAPTURE ON FILE", as before).
+ *
+ * Cropped rather than squeezed: the grid's frames are a fixed landscape shape,
+ * and jsPDF stretches whatever it is given to fill one, which turns a portrait
+ * phone photo into a smear.
+ */
+async function evidenceImage(e: Evidence, ratio: number): Promise<string | null> {
+  if (e.type === 'Video' || e.fileName?.toLowerCase().endsWith('.pdf')) return null
+  const url = await getRepository().evidenceUrl(e).catch(() => null)
+  if (!url) return null
+  try {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.src = url
+    await img.decode()
+    const W = 1000
+    const H = Math.round(W / ratio)
+    const canvas = document.createElement('canvas')
+    canvas.width = W
+    canvas.height = H
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+    const scale = Math.max(W / img.naturalWidth, H / img.naturalHeight)
+    const dw = img.naturalWidth * scale
+    const dh = img.naturalHeight * scale
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, W, H)
+    ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh)
+    return canvas.toDataURL('image/jpeg', 0.8)
+  } catch {
+    return null
+  }
+}
 
 /**
  * The documents the programme issues.
@@ -332,9 +371,13 @@ export async function exportVisitReportPdf(i: VisitPdfInput): Promise<void> {
   // ── Evidence ──
   if (i.evidence?.length) {
     doc.section('Evidence', 'Visual documentation captured during the visit')
+    const shown = i.evidence.slice(0, 24)
+    // The grid's frame: two columns on the A4 content width, 56 mm tall (pdf.ts photoGrid).
+    const frameRatio = ((210 - 28 - 5) / 2 - 4) / 56
+    const images = await Promise.all(shown.map((e) => evidenceImage(e, frameRatio)))
     doc.photoGrid(
-      i.evidence.slice(0, 24).map((e) => ({
-        image: null,
+      shown.map((e, n) => ({
+        image: images[n],
         title: e.title,
         caption: `${e.type} · ${dayTime(e.capturedAt)}${e.questionId ? ` · ${i.questions.find((q) => q.id === e.questionId)?.code ?? ''}` : ''}`,
       })),

@@ -6,7 +6,9 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useData } from '@/contexts/DataContext'
 import { useDocumentTitle, useNow } from '@/hooks'
 import type { Evidence } from '@/types'
-import { addComment, approveVisit, assignShopper, rejectVisit, startReview, startVisit } from '@/services/actions'
+import { addComment, approveVisit, assignShopper, rejectVisit, setReviewer, startReview, startVisit } from '@/services/actions'
+import { canReviewVisit, reviewerCandidates, shopperCovers } from '@/services/workflow'
+import { WorkflowTracker } from '@/components/workflow/WorkflowTracker'
 import { isAwaitingApproval, isCompleted } from '@/services/derive'
 import { CATEGORY_KEYS, CATEGORY_LABELS } from '@/utils/scoring'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -26,7 +28,7 @@ export default function VisitDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const now = useNow()
-  const { role, can } = useAuth()
+  const { user, role, can } = useAuth()
   const { data, dispatch } = useData()
 
   const visit = data.visits.find((v) => v.id === id) ?? null
@@ -42,6 +44,8 @@ export default function VisitDetailPage() {
 
   const [assignOpen, setAssignOpen] = useState(false)
   const [assignId, setAssignId] = useState('')
+  const [reviewerOpen, setReviewerOpen] = useState(false)
+  const [reviewerPick, setReviewerPick] = useState('')
   const [decision, setDecision] = useState<'approve' | 'reject' | null>(null)
   const [comment, setComment] = useState('')
   const [newComment, setNewComment] = useState('')
@@ -77,10 +81,14 @@ export default function VisitDetailPage() {
   }
 
   const isShopper = role === 'shopper'
-  const canReview = can('visits.review')
+  // Only the named reviewer (or a super admin) decides; see services/workflow.
+  const canReview = canReviewVisit(user, visit)
+  const reviewer = visit.reviewerId ? data.users.find((u) => u.id === visit.reviewerId) ?? null : null
+  const canSetReviewer = can('visits.assign') && !isCompleted(visit)
+  const waitingOnSomeoneElse = can('visits.review') && !canReview && isAwaitingApproval(visit)
   const canAssign = can('visits.assign') && !isCompleted(visit) && !isAwaitingApproval(visit)
   const canComment = can('findings.comment') || role === 'super_admin' || role === 'client_admin'
-  const eligibleShoppers = data.shoppers.filter((s) => s.status === 'Active' && s.assignedCategories.includes(outlet.segment)).sort((a, b) => a.name.localeCompare(b.name))
+  const eligibleShoppers = data.shoppers.filter((s) => s.status === 'Active' && shopperCovers(s, outlet.segment)).sort((a, b) => a.name.localeCompare(b.name))
   const turnaround = hoursBetween(visit.visitEnd, visit.submittedAt)
   const dueIn = visit.submissionDeadline && !visit.submittedAt ? relativeTime(visit.submissionDeadline, now) : null
 
@@ -125,6 +133,11 @@ export default function VisitDetailPage() {
         <button type="button" className="btn-secondary" onClick={() => { setAssignId(visit.shopperId ?? ''); setAssignOpen(true) }}>
           <UserPlus className="h-4 w-4" aria-hidden /> {visit.shopperId ? 'Reassign shopper' : 'Assign shopper'}
         </button>
+      )}
+      {waitingOnSomeoneElse && (
+        <span className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-500 dark:border-navy-700 dark:text-slate-400">
+          Waiting for {reviewer?.name ?? 'the named reviewer'} to approve
+        </span>
       )}
       {canReview && visit.status === 'Submitted' && (
         <button type="button" className="btn-secondary" disabled={busy} onClick={() => void run(`Review started for ${visit.code}`, (d, ctx) => startReview(d, ctx, visit.id))}>
@@ -179,6 +192,8 @@ export default function VisitDetailPage() {
         actions={actions}
       />
 
+      <WorkflowTracker visit={visit} shopperName={shopper?.name ?? null} reviewerName={reviewer?.name ?? null} />
+
       <div className="grid gap-5 lg:grid-cols-[1.35fr_1fr]">
         {/* Left column */}
         <div className="space-y-5 min-w-0">
@@ -203,6 +218,19 @@ export default function VisitDetailPage() {
                   { label: 'Template', value: template?.name ?? '—' },
                   { label: 'Scenario', value: scenario ? `${scenario.code} · ${scenario.name}` : '—' },
                   { label: 'Shopper', value: shopper ? <Link to={`/operations/shoppers/${shopper.id}`} className="link">{shopper.name}</Link> : <span className="italic text-slate-400">Unassigned</span> },
+                  {
+                    label: 'Reviewer',
+                    value: (
+                      <span className="flex flex-wrap items-center gap-2">
+                        {reviewer ? reviewer.name : visit.reviewerId ? 'Named reviewer' : <span className="italic text-slate-400">Anyone who can review</span>}
+                        {canSetReviewer && (
+                          <button type="button" className="text-xs link no-print" onClick={() => { setReviewerPick(visit.reviewerId ?? ''); setReviewerOpen(true) }}>
+                            Change
+                          </button>
+                        )}
+                      </span>
+                    ),
+                  },
                   { label: 'Scheduled', value: fmtDate(visit.scheduledDate) },
                   { label: 'Visit date', value: fmtDate(visit.visitDate) },
                   { label: 'Visit window', value: visit.visitStart ? `${fmtDateTime(visit.visitStart)} → ${visit.visitEnd ? fmtDate(visit.visitEnd, 'HH:mm') : '…'}` : '—' },
@@ -413,6 +441,41 @@ export default function VisitDetailPage() {
             {eligibleShoppers.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name} · {s.availability} · {s.certificationStatus}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </Modal>
+
+      {/* Reviewer modal */}
+      <Modal
+        open={reviewerOpen}
+        onClose={() => setReviewerOpen(false)}
+        title={`Reviewer · ${visit.code}`}
+        description="The person who approves this visit, or returns it to the shopper. They are notified when it is submitted."
+        size="sm"
+        footer={
+          <>
+            <button type="button" className="btn-secondary" onClick={() => setReviewerOpen(false)} disabled={busy}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={busy || reviewerPick === (visit.reviewerId ?? '')}
+              onClick={() => void run('Reviewer updated', (d, ctx) => setReviewer(d, ctx, visit.id, reviewerPick || null), () => setReviewerOpen(false))}
+            >
+              {busy ? 'Saving…' : 'Save'}
+            </button>
+          </>
+        }
+      >
+        <Field label="Reviewer" htmlFor="detail-reviewer">
+          <Select id="detail-reviewer" value={reviewerPick} onChange={(e) => setReviewerPick(e.target.value)}>
+            <option value="">Anyone who can review</option>
+            {reviewerCandidates(data.users).map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name} · {u.title || u.role}
               </option>
             ))}
           </Select>

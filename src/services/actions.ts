@@ -31,6 +31,7 @@ import type {
 import type { DatasetPatch } from '@/repositories/types'
 import { CATEGORY_KEYS, computeVisitScores, roundScoreMap } from '@/utils/scoring'
 import { T } from '@/config/terms'
+import { userIdForShopper } from './workflow'
 
 /**
  * Pure action reducers. Each returns a DatasetPatch (only the collections that changed) so the
@@ -43,6 +44,23 @@ export interface ActionContext {
 }
 
 const iso = (d: Date) => format(d, "yyyy-MM-dd'T'HH:mm:ss")
+
+/**
+ * Who owns an alert raised on this visit: the outlet's operations manager, else
+ * the visit's reviewer.
+ *
+ * The fallback used to be the literal id 'usr-002' — a seeded demo user. In Live
+ * Mode no such user exists, `alerts.owner_id` is a foreign key, and every visit
+ * with a critical failure therefore failed to submit. A shopper cannot read the
+ * user list at all, so the reviewer named on the visit is the one owner always
+ * known to be real.
+ */
+function alertOwner(data: Dataset, v: Visit): string | null {
+  const ops = data.users.find((u) => u.role === 'ops_manager' && u.status === 'active' && u.outletIds.includes(v.outletId))
+  if (ops) return ops.id
+  if (v.reviewerId) return v.reviewerId
+  return data.users.find((u) => u.id === 'usr-002')?.id ?? null
+}
 const uid = (prefix: string) => `${prefix}-${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`
 
 /** Reports are due within 24 to 48 hours, so grade the 24h target band separately. */
@@ -190,7 +208,7 @@ export function submitVisit(
       description: a?.comment || q.text,
       createdAt: iso(ctx.now),
       escalationDue: iso(addHours(ctx.now, 12)),
-      ownerId: data.users.find((u) => u.role === 'ops_manager' && u.outletIds.includes(v.outletId))?.id ?? 'usr-002',
+      ownerId: alertOwner(data, v),
       status: 'New',
       acknowledgedAt: null,
       resolvedAt: null,
@@ -211,13 +229,14 @@ export function submitVisit(
   notifications.unshift({
     id: uid('ntf'),
     type: 'approval_required',
-    title: 'Report awaiting approval',
-    message: `${v.code} · ${outlet.name} · ${v.type}`,
+    title: v.reviewerId ? 'Visit awaiting your approval' : 'Report awaiting approval',
+    message: `${v.code} · ${outlet.name} · ${v.type} · submitted by ${ctx.user.name}`,
     createdAt: iso(ctx.now),
     read: false,
     link: `/operations/visits/${v.id}`,
     severity: 'Info',
     audience: ['super_admin', 'client_admin'],
+    recipientId: v.reviewerId ?? null,
   })
   return {
     visits: replace(data.visits, updated),
@@ -232,7 +251,9 @@ export function submitVisit(
 export function startReview(data: Dataset, ctx: ActionContext, visitId: string): DatasetPatch {
   const v = data.visits.find((x) => x.id === visitId)
   if (!v) return {}
-  const updated: Visit = { ...v, status: 'Under Review', reviewerId: ctx.user.id, approvalHistory: [...v.approvalHistory, { at: iso(ctx.now), by: ctx.user.name, action: 'Review Started' }] }
+  // A named reviewer stays named; a super admin stepping in to open the visit
+  // does not take it over.
+  const updated: Visit = { ...v, status: 'Under Review', reviewerId: v.reviewerId ?? ctx.user.id, approvalHistory: [...v.approvalHistory, { at: iso(ctx.now), by: ctx.user.name, action: 'Review Started' }] }
   return { visits: replace(data.visits, updated), activityLogs: withLog(data, ctx, 'Review started', 'Reviews', v.code) }
 }
 
@@ -265,7 +286,7 @@ export function approveVisit(data: Dataset, ctx: ActionContext, visitId: string,
       description: `${v.type} approved with a score of ${updated.score.toFixed(1)}%, below the 70% critical threshold.`,
       createdAt: iso(ctx.now),
       escalationDue: iso(addHours(ctx.now, 24)),
-      ownerId: data.users.find((u) => u.role === 'ops_manager' && u.outletIds.includes(v.outletId))?.id ?? 'usr-002',
+      ownerId: alertOwner(data, v),
       status: 'New',
       acknowledgedAt: null,
       resolvedAt: null,
@@ -281,8 +302,23 @@ export function approveVisit(data: Dataset, ctx: ActionContext, visitId: string,
     read: false,
     link: `/reports/visits/${v.id}`,
     severity: 'Info',
-    audience: ['shopper', 'ops_manager', 'analyst'],
+    audience: ['ops_manager', 'analyst', 'client_admin', 'executive'],
   })
+  const shopperUser = userIdForShopper(data, v.shopperId)
+  if (shopperUser) {
+    notifications.unshift({
+      id: uid('ntf'),
+      type: 'report_submitted',
+      title: 'Your visit was approved',
+      message: `${v.code} · ${outlet?.name ?? ''} · approved by ${ctx.user.name}`,
+      createdAt: iso(ctx.now),
+      read: false,
+      link: `/operations/visits/${v.id}`,
+      severity: 'Info',
+      audience: ['shopper'],
+      recipientId: shopperUser,
+    })
+  }
   return { visits: replace(data.visits, updated), alerts, notifications, activityLogs: withLog(data, ctx, 'Reviewer approved', 'Reviews', v.code, `Score ${updated.score?.toFixed(1)}%`) }
 }
 
@@ -299,7 +335,7 @@ export function rejectVisit(data: Dataset, ctx: ActionContext, visitId: string, 
     approvalHistory: [...v.approvalHistory, { at: iso(ctx.now), by: ctx.user.name, action: 'Rejected', comment: reason }],
   }
   const notifications: Notification[] = [
-    { id: uid('ntf'), type: 'report_submitted', title: 'Report returned for revision', message: `${v.code} · ${reason}`, createdAt: iso(ctx.now), read: false, link: `/operations/visits/${v.id}`, severity: 'Medium', audience: ['shopper'] },
+    { id: uid('ntf'), type: 'report_submitted', title: 'Visit returned for revision', message: `${v.code} · ${reason}`, createdAt: iso(ctx.now), read: false, link: `/operations/visits/${v.id}`, severity: 'Medium', audience: ['shopper'], recipientId: userIdForShopper(data, v.shopperId) },
     ...data.notifications,
   ]
   return { visits: replace(data.visits, updated), notifications, activityLogs: withLog(data, ctx, 'Reviewer rejected', 'Reviews', v.code, reason) }
@@ -311,7 +347,7 @@ export function assignShopper(data: Dataset, ctx: ActionContext, visitId: string
   const shopper = data.shoppers.find((s) => s.id === shopperId)
   const updated: Visit = { ...v, shopperId, status: v.status === 'Planned' ? 'Assigned' : v.status }
   const notifications: Notification[] = [
-    { id: uid('ntf'), type: 'assignment', title: 'New visit assigned', message: `${v.code} · ${data.outlets.find((o) => o.id === v.outletId)?.name ?? ''} · ${v.scheduledDate}`, createdAt: iso(ctx.now), read: false, link: `/operations/visits/${v.id}`, severity: 'Info', audience: ['shopper'] },
+    { id: uid('ntf'), type: 'assignment', title: 'New visit assigned', message: `${v.code} · ${data.outlets.find((o) => o.id === v.outletId)?.name ?? ''} · ${v.scheduledDate}`, createdAt: iso(ctx.now), read: false, link: `/operations/visits/${v.id}`, severity: 'Info', audience: ['shopper'], recipientId: userIdForShopper(data, shopperId) },
     ...data.notifications,
   ]
   return { visits: replace(data.visits, updated), notifications, activityLogs: withLog(data, ctx, v.shopperId ? 'Shopper reassigned' : 'Shopper assigned', 'Assignments', v.code, shopper?.name) }
@@ -325,6 +361,8 @@ export interface NewVisitInput {
   scheduledDate: string
   shopperId: string | null
   scenarioId?: string | null
+  /** The person who approves the submitted visit. */
+  reviewerId?: string | null
 }
 
 export function createVisit(data: Dataset, ctx: ActionContext, input: NewVisitInput): DatasetPatch {
@@ -350,10 +388,10 @@ export function createVisit(data: Dataset, ctx: ActionContext, input: NewVisitIn
     risk: null,
     reportStatus: 'Not Started',
     slaStatus: 'Pending',
-    reviewerId: null,
+    reviewerId: input.reviewerId ?? null,
     reviewedAt: null,
     reviewerComment: null,
-    approvalHistory: [],
+    approvalHistory: [{ at: iso(ctx.now), by: ctx.user.name, action: input.shopperId ? 'Booked and assigned' : 'Booked' }],
     narrative: null,
     criticalCount: 0,
     spend: null,
@@ -362,7 +400,38 @@ export function createVisit(data: Dataset, ctx: ActionContext, input: NewVisitIn
     scenarioId: input.scenarioId ?? 'scn-01',
     progress: 0,
   }
-  return { visits: [visit, ...data.visits], activityLogs: withLog(data, ctx, 'Audit created', 'Visits', visit.code, `${input.type} · ${input.scheduledDate}`) }
+  const outletName = data.outlets.find((o) => o.id === input.outletId)?.name ?? ''
+  const shopperUser = userIdForShopper(data, input.shopperId)
+  const notifications: Notification[] = shopperUser
+    ? [{ id: uid('ntf'), type: 'assignment', title: 'New visit assigned', message: `${visit.code} · ${outletName} · ${input.scheduledDate}`, createdAt: iso(ctx.now), read: false, link: `/operations/visits/${id}`, severity: 'Info', audience: ['shopper'], recipientId: shopperUser }, ...data.notifications]
+    : data.notifications
+  return {
+    visits: [visit, ...data.visits],
+    ...(shopperUser ? { notifications } : {}),
+    activityLogs: withLog(data, ctx, 'Audit created', 'Visits', visit.code, `${input.type} · ${input.scheduledDate}`),
+  }
+}
+
+/** Name (or change) the person who approves a visit. */
+export function setReviewer(data: Dataset, ctx: ActionContext, visitId: string, reviewerId: string | null): DatasetPatch {
+  const v = data.visits.find((x) => x.id === visitId)
+  if (!v || v.reviewerId === reviewerId) return {}
+  const reviewer = data.users.find((u) => u.id === reviewerId)
+  const updated: Visit = {
+    ...v,
+    reviewerId,
+    approvalHistory: [...v.approvalHistory, { at: iso(ctx.now), by: ctx.user.name, action: 'Reviewer set', comment: reviewer?.name ?? 'Anyone who can review' }],
+  }
+  const waiting = v.status === 'Submitted' || v.status === 'Under Review'
+  const notifications: Notification[] =
+    reviewerId && waiting
+      ? [{ id: uid('ntf'), type: 'approval_required', title: 'Visit awaiting your approval', message: `${v.code} · ${data.outlets.find((o) => o.id === v.outletId)?.name ?? ''}`, createdAt: iso(ctx.now), read: false, link: `/operations/visits/${v.id}`, severity: 'Info', audience: ['super_admin', 'client_admin'], recipientId: reviewerId }, ...data.notifications]
+      : data.notifications
+  return {
+    visits: replace(data.visits, updated),
+    ...(notifications !== data.notifications ? { notifications } : {}),
+    activityLogs: withLog(data, ctx, 'Reviewer set', 'Reviews', v.code, reviewer?.name ?? 'unassigned'),
+  }
 }
 
 // ───────────────────────────── Evidence ─────────────────────────────

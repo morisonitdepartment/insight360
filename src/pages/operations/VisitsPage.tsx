@@ -10,6 +10,7 @@ import type { JourneyType, Shopper, Visit, VisitType } from '@/types'
 import { approveVisit, assignShopper, createVisit, logExport, rejectVisit, startReview, startVisit, type NewVisitInput } from '@/services/actions'
 import { slaStats } from '@/services/analytics'
 import { isAwaitingApproval, isCompleted, isInProgress } from '@/services/derive'
+import { awaitingMyApproval, canReviewVisit, reviewerCandidates, shopperCovers } from '@/services/workflow'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { KpiCard } from '@/components/ui/KpiCard'
 import { Card } from '@/components/ui/Card'
@@ -143,11 +144,20 @@ export default function VisitsPage() {
   useDocumentTitle('Visits')
   const navigate = useNavigate()
   const now = useNow()
-  const { role, can } = useAuth()
+  const { user, role, can } = useAuth()
   const { data, dispatch, scopedOutlets, scopedVisits } = useData()
   const [params, setParams] = useSearchParams()
 
   const isShopper = role === 'shopper'
+  // "My approvals": the visits waiting for this user's decision.
+  const myQueue = useMemo(() => awaitingMyApproval(user, scopedVisits), [user, scopedVisits])
+  const queueMine = params.get('queue') === 'mine'
+  const setQueueMine = (on: boolean) => {
+    const next = new URLSearchParams(params)
+    if (on) next.set('queue', 'mine')
+    else next.delete('queue')
+    setParams(next, { replace: true })
+  }
   const outletById = useMemo(() => new Map(data.outlets.map((o) => [o.id, o])), [data.outlets])
   const shopperById = useMemo(() => new Map(data.shoppers.map((s) => [s.id, s])), [data.shoppers])
   const scenarioById = useMemo(() => new Map(data.scenarios.map((s) => [s.id, s])), [data.scenarios])
@@ -213,7 +223,7 @@ export default function VisitsPage() {
   }, [scopedOutlets, shoppersInScope, isShopper, data.scenarios])
 
   const rows = useMemo(() => {
-    let list = applyFilters(scopedVisits, filters, {
+    let list = applyFilters(queueMine ? myQueue : scopedVisits, filters, {
       outlet: (v) => v.outletId,
       segment: (v) => outletById.get(v.outletId)?.segment,
       type: (v) => v.type,
@@ -227,7 +237,7 @@ export default function VisitsPage() {
     if (to) list = list.filter((v) => v.scheduledDate <= to)
     list = matchesSearch(list, search, (v) => [v.code, outletById.get(v.outletId)?.name, outletById.get(v.outletId)?.code, shopperById.get(v.shopperId ?? '')?.name])
     return [...list].sort((a, b) => b.scheduledDate.localeCompare(a.scheduledDate))
-  }, [scopedVisits, filters, from, to, search, outletById, shopperById])
+  }, [scopedVisits, myQueue, queueMine, filters, from, to, search, outletById, shopperById])
 
   // ── KPIs ──
   const kpi = useMemo(() => {
@@ -312,8 +322,8 @@ export default function VisitsPage() {
     const items: MenuItem[] = []
     const open = !isCompleted(v) && v.status !== 'Submitted' && v.status !== 'Under Review'
     if (can('visits.assign') && open) items.push({ label: v.shopperId ? 'Reassign shopper' : 'Assign shopper', icon: <UserPlus className="h-3.5 w-3.5" aria-hidden />, onSelect: () => setAssignFor(v) })
-    if (can('visits.review') && v.status === 'Submitted') items.push({ label: 'Start review', icon: <Eye className="h-3.5 w-3.5" aria-hidden />, onSelect: () => void onStartReview(v) })
-    if (can('visits.review') && isAwaitingApproval(v)) {
+    if (canReviewVisit(user, v) && v.status === 'Submitted') items.push({ label: 'Start review', icon: <Eye className="h-3.5 w-3.5" aria-hidden />, onSelect: () => void onStartReview(v) })
+    if (canReviewVisit(user, v) && isAwaitingApproval(v)) {
       items.push({ label: 'Approve report', icon: <ThumbsUp className="h-3.5 w-3.5" aria-hidden />, onSelect: () => { setComment(''); setDecision({ visit: v, kind: 'approve' }) } })
       items.push({ label: 'Reject report', icon: <XCircle className="h-3.5 w-3.5" aria-hidden />, tone: 'danger', onSelect: () => { setComment(''); setDecision({ visit: v, kind: 'reject' }) } })
     }
@@ -440,6 +450,18 @@ export default function VisitsPage() {
         }
       />
 
+      {(myQueue.length > 0 || queueMine) && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-teal-300 bg-teal-50 px-4 py-3 dark:border-teal-500/40 dark:bg-teal-500/10">
+          <ThumbsUp className="h-5 w-5 shrink-0 text-teal-700 dark:text-teal-300" aria-hidden />
+          <p className="min-w-0 flex-1 text-sm text-teal-900 dark:text-teal-100">
+            <span className="font-semibold">{myQueue.length === 0 ? 'Nothing' : myQueue.length === 1 ? '1 visit' : `${myQueue.length} visits`}</span> waiting for your approval
+          </p>
+          <button type="button" className={queueMine ? 'btn-secondary btn-sm' : 'btn-primary btn-sm'} onClick={() => setQueueMine(!queueMine)}>
+            {queueMine ? 'Show all visits' : 'Show my approvals'}
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         <KpiCard compact label="Completed" value={kpi.completed} sub={`of ${scopedVisits.length}`} icon={CheckCircle2} tone="good" onClick={() => setFilter('status', 'Approved')} />
         <KpiCard compact label="In progress" value={kpi.inProgress} sub="Draft or active" icon={PlayCircle} tone="accent" onClick={() => setFilter('status', 'In Progress')} />
@@ -538,7 +560,12 @@ export default function VisitsPage() {
 
 function NewVisitModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data, dispatch, scopedOutlets } = useData()
+  const { user } = useAuth()
   const now = useNow()
+  const reviewers = useMemo(() => reviewerCandidates(data.users), [data.users])
+  // The person booking is the natural reviewer when they are allowed to be one.
+  const defaultReviewer = user && reviewers.some((r) => r.id === user.id) ? user.id : ''
+  const [reviewerId, setReviewerId] = useState(defaultReviewer)
   const [outletId, setOutletId] = useState('')
   const [type, setType] = useState<VisitType>('Main Audit 1')
   const [journey, setJourney] = useState<JourneyType>('In-store / Dine-in')
@@ -570,13 +597,14 @@ function NewVisitModal({ open, onClose }: { open: boolean; onClose: () => void }
     }
   }, [outlet, templates, sequenceTemplate])
 
-  const eligibleShoppers = useMemo(() => data.shoppers.filter((s) => s.status === 'Active' && (!outlet || s.assignedCategories.includes(outlet.segment))).sort((a, b) => a.name.localeCompare(b.name)), [data.shoppers, outlet])
+  const eligibleShoppers = useMemo(() => data.shoppers.filter((s) => s.status === 'Active' && (!outlet || shopperCovers(s, outlet.segment))).sort((a, b) => a.name.localeCompare(b.name)), [data.shoppers, outlet])
 
   const reset = () => {
     setOutletId('')
     setType('Main Audit 1')
     setTemplateId('')
     setShopperId('')
+    setReviewerId(defaultReviewer)
     setScheduled(fmtDate(now, 'yyyy-MM-dd'))
     setError(null)
   }
@@ -587,7 +615,7 @@ function NewVisitModal({ open, onClose }: { open: boolean; onClose: () => void }
       setError(`${T.Outlet}, template and scheduled date are required.`)
       return
     }
-    const input: NewVisitInput = { outletId, type, journey, templateId, scheduledDate: scheduled, shopperId: shopperId || null }
+    const input: NewVisitInput = { outletId, type, journey, templateId, scheduledDate: scheduled, shopperId: shopperId || null, reviewerId: reviewerId || null }
     setBusy(true)
     try {
       await dispatch((d, ctx) => createVisit(d, ctx, input))
@@ -606,7 +634,7 @@ function NewVisitModal({ open, onClose }: { open: boolean; onClose: () => void }
       open={open}
       onClose={onClose}
       title="Schedule a new visit"
-      description="Creates a planned visit. Assigning a shopper now moves it straight to Assigned."
+      description="Book the visit, choose who carries it out and who approves it. Assigning a shopper now moves it straight to Assigned; both are notified."
       footer={
         <>
           <button type="button" className="btn-secondary" onClick={onClose} disabled={busy}>
@@ -670,6 +698,17 @@ function NewVisitModal({ open, onClose }: { open: boolean; onClose: () => void }
             ))}
           </Select>
         </Field>
+        <Field label="Reviewer" htmlFor="nv-reviewer" hint="Approves the visit once the shopper submits it" className="sm:col-span-2">
+          <Select id="nv-reviewer" value={reviewerId} onChange={(e) => setReviewerId(e.target.value)}>
+            <option value="">Anyone who can review</option>
+            {reviewers.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name}
+                {u.title ? ` · ${u.title}` : ''}
+              </option>
+            ))}
+          </Select>
+        </Field>
         {error && (
           <p role="alert" className="sm:col-span-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
             {error}
@@ -684,7 +723,7 @@ function NewVisitModal({ open, onClose }: { open: boolean; onClose: () => void }
 
 function AssignShopperModal({ visit, shoppers, segment, busy, onClose, onAssign }: { visit: Visit; shoppers: Shopper[]; segment: 'F&B' | 'Entertainment'; busy: boolean; onClose: () => void; onAssign: (shopperId: string) => void }) {
   const [shopperId, setShopperId] = useState(visit.shopperId ?? '')
-  const eligible = useMemo(() => shoppers.filter((s) => s.status === 'Active' && s.assignedCategories.includes(segment)).sort((a, b) => (a.availability === 'Available' ? -1 : 1) - (b.availability === 'Available' ? -1 : 1) || a.name.localeCompare(b.name)), [shoppers, segment])
+  const eligible = useMemo(() => shoppers.filter((s) => s.status === 'Active' && shopperCovers(s, segment)).sort((a, b) => (a.availability === 'Available' ? -1 : 1) - (b.availability === 'Available' ? -1 : 1) || a.name.localeCompare(b.name)), [shoppers, segment])
   const chosen = shoppers.find((s) => s.id === shopperId)
   return (
     <Modal

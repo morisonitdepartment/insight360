@@ -69,3 +69,34 @@ name is exactly `provision-user` under **Edge Functions**, and that its status i
 `supabase/create_user.sql` does the same job directly in SQL, and does not depend on this
 function being deployed. It remains the way to create the first administrator, who by
 definition has no one to create them from inside the app.
+
+## `switch-account`
+
+Lets a super admin open any other account in one click — **Switch account** in the
+profile menu — so one person can key in work as each shopper or reviewer without holding
+their passwords.
+
+It is deliberately **not** a button on the sign-in page. The app is served from a public
+address; a one-click login there would open the client's outlets, scores and reports to
+anyone who found the link. Here, the administrator has already signed in with a password.
+
+### What it guarantees
+
+* **Only an active super admin can call it.** The caller is resolved from their own JWT and
+  their role read from `public.users`.
+* **No switching into another super admin**, an inactive account, or a profile with no login.
+* **Every switch is in the activity log**, under the administrator's own name. If the log
+  entry cannot be written the switch is refused.
+* **No email is sent.** It issues a one-time sign-in token (`generateLink`), which the
+  browser exchanges for a session with `verifyOtp`. The administrator's own session is kept
+  in the browser, so **Back to …** returns to it without a password.
+* Signing out of a borrowed account ends it in this browser only — the person's own
+  session on their phone is untouched.
+
+### Deploy it
+
+Same as `provision-user`: name it exactly `switch-account`, keep **Verify JWT** on.
+
+```bash
+supabase functions deploy switch-account
+```

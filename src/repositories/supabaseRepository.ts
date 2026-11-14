@@ -224,7 +224,7 @@ export class SupabaseRepository implements Repository {
    *  - An upsert must also pass the table's SELECT rule, which a shopper raising
    *    a critical finding, or any notification, does not.
    *
-   * So rows the patch created are INSERTed, rows it replaced are upserted, and
+   * So rows the patch created are INSERTed, rows it replaced are UPDATEd, and
    * untouched rows are not sent. Reducers keep unchanged rows by reference, so
    * "changed" is an identity check against the dataset the patch came from.
    *
@@ -258,9 +258,40 @@ export class SupabaseRepository implements Repository {
       if (plan.inserts.length || plan.updates.length) plans.push(plan)
     }
 
+    // Without the dataset the patch came from there is no telling new from
+    // changed, so fall back to upserting the lot.
+    const write = (table: string, rows: object[]) => (previous ? this.updateRows(table, rows) : this.upsertRows(table, rows))
     for (const p of plans) await this.insertRows(p.table, p.inserts)
-    for (const p of plans) if (p.key !== 'visits') await this.upsertRows(p.table, p.updates)
-    for (const p of plans) if (p.key === 'visits') await this.upsertRows(p.table, p.updates)
+    for (const p of plans) if (p.key !== 'visits') await write(p.table, p.updates)
+    for (const p of plans) if (p.key === 'visits') await write(p.table, p.updates)
+  }
+
+  /**
+   * Changed rows are written with UPDATE, not upsert. Postgres checks an upsert
+   * against the table's INSERT rule as well as its UPDATE rule — even when the
+   * row already exists — and a shopper may update their visit but never create
+   * one. Every shopper save of a visit was refused with "new row violates
+   * row-level security policy for table visits" until this changed.
+   *
+   * An UPDATE that matches nothing is not an error, so each one asks for the id
+   * back. No row back means the row is missing on the server (an earlier insert
+   * failed); that row alone is upserted, which reports a real refusal if there
+   * is one rather than dropping the change silently.
+   */
+  private async updateRows(table: string, rows: object[]) {
+    const sb = getSupabase()
+    for (let i = 0; i < rows.length; i += 8) {
+      const missing: object[] = []
+      await Promise.all(
+        rows.slice(i, i + 8).map(async (row) => {
+          const { id } = row as { id: string }
+          const { data, error } = await sb.from(table).update(modelToRow(row)).eq('id', id).select('id')
+          if (error) throw new Error(`Failed to save ${table}: ${error.message}`)
+          if (!data?.length) missing.push(row)
+        }),
+      )
+      if (missing.length) await this.upsertRows(table, missing)
+    }
   }
 
   private async insertRows(table: string, rows: object[]) {
@@ -271,7 +302,7 @@ export class SupabaseRepository implements Repository {
       // Already there — evidence is written by the upload itself, before the
       // patch that links it to its answer arrives. Update the same rows instead.
       if (error.code === UNIQUE_VIOLATION) {
-        await this.upsertRows(table, chunk)
+        await this.updateRows(table, chunk)
         continue
       }
       throw new Error(`Failed to save ${table}: ${error.message}`)

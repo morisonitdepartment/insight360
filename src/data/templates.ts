@@ -804,6 +804,7 @@ export function buildTemplates(): TemplateBundle {
       // A gating question is named by its local key; the condition stores the sibling's code.
       const codeByKey = new Map(s.questions.flatMap((q, qi) => (q.key ? [[q.key, `${s.code}.${qi + 1}`] as const] : [])))
       s.questions.forEach((q, qi) => {
+        if (q.retired) return // keeps its number so later ids do not move
         const qid = `${sid}-${String(qi + 1).padStart(2, '0')}`
         qCount++
         const parentCode = q.when ? codeByKey.get(q.when.key) : undefined

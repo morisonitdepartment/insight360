@@ -565,8 +565,8 @@ export default function TemplatesPage() {
           header: 'N/A',
           align: 'center',
           width: '72px',
-          render: (q) => (q.allowNA ? <Badge tone="slate" size="xs">Allowed</Badge> : <span className="text-slate-300 dark:text-navy-600">—</span>),
-          sortValue: (q) => (q.allowNA ? 1 : 0),
+          render: (q) => (q.allowNA ? <Badge tone="slate" size="xs">Allowed</Badge> : q.critical ? <span className="text-slate-300 dark:text-navy-600">—</span> : <Badge tone="slate" size="xs">With reason</Badge>),
+          sortValue: (q) => (q.allowNA ? 2 : q.critical ? 0 : 1),
         },
         {
           key: 'guidance',
@@ -1078,7 +1078,7 @@ export default function TemplatesPage() {
               <Toggle checked={questionForm.critical} onChange={(v) => setQuestionForm((f) => (f ? { ...f, critical: v } : f))} label="Critical question" description="Failure forces Critical risk and raises an immediate alert." />
               <Toggle checked={questionForm.evidenceRequired} onChange={(v) => setQuestionForm((f) => (f ? { ...f, evidenceRequired: v } : f))} label="Evidence required" description="Shopper must attach a photo, receipt or document." />
               <Toggle checked={questionForm.commentRequired} onChange={(v) => setQuestionForm((f) => (f ? { ...f, commentRequired: v } : f))} label="Comment required" description="A written observation must accompany the answer." />
-              <Toggle checked={questionForm.allowNA} onChange={(v) => setQuestionForm((f) => (f ? { ...f, allowNA: v } : f))} label="Allow N/A" description="Excluded from scoring when marked not applicable." />
+              <Toggle checked={questionForm.allowNA} onChange={(v) => setQuestionForm((f) => (f ? { ...f, allowNA: v } : f))} label="Allow N/A without a reason" description="Shoppers may mark any non-critical question N/A, which leaves it out of the score. Off: they must say why in the comment. Critical questions can be N/A only when this is on." />
             </div>
           </form>
         )}

@@ -35,6 +35,14 @@ export interface QuestionBlueprint {
   /** Minutes calculated from two `clock` questions, named by their local keys. */
   from?: string
   to?: string
+  /**
+   * Taken out of the questionnaire, with the reason. A retired question is not
+   * built, but it keeps its place: question ids and codes are positional
+   * (`ORD.3`), and answers already saved on the live system point at those ids,
+   * so deleting the line would shift every later question onto someone else's
+   * answer.
+   */
+  retired?: string
 }
 
 export interface SectionBlueprint {
@@ -102,8 +110,8 @@ export const CRITICAL_FAILURES_DINING = [
  * were actually scored and it takes its share. One definition, used by the
  * authoring guard and by every screen that draws the stage table.
  */
-export function isConditionalStage(section: { questions: { weight?: number; when?: unknown }[] }): boolean {
-  const scored = section.questions.filter((q) => (q.weight ?? 1) > 0)
+export function isConditionalStage(section: { questions: { weight?: number; when?: unknown; retired?: string }[] }): boolean {
+  const scored = section.questions.filter((q) => !q.retired && (q.weight ?? 1) > 0)
   return scored.length > 0 && scored.every((q) => q.when)
 }
 

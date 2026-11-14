@@ -247,7 +247,13 @@ const ORDER_ACCURACY: SectionBlueprint = stage(
   'operational_compliance',
   'What was ordered, whether it was confirmed back, and whether it arrived as placed.',
   [
-    { text: 'What did you order?', type: 'text', weight: 0, guidance: 'Record every item by category: appetizer, main course, beverage, and any sides or desserts.' },
+    {
+      text: 'What did you order?',
+      type: 'text',
+      weight: 0,
+      guidance: 'Record every item by category: appetizer, main course, beverage, and any sides or desserts.',
+      retired: 'Repeated "Items ordered" in Visit Reference & Proof of Visit, which is the single record of the order (14 Nov 2026).',
+    },
     { text: 'Did the order taker repeat the complete order back to you?', type: 'yes_no', weight: 3, tag: 'order_accuracy', kpi: ['order_accuracy'] },
     { text: 'Did you make a modification or special request?', type: 'yes_no', weight: 0, key: 'ord_special', guidance: 'Informational — gates the next question.' },
     { text: 'Did the order taker confirm the modification or special request?', type: 'yes_no', weight: 3, when: { key: 'ord_special', equals: true }, kpi: ['order_accuracy'] },

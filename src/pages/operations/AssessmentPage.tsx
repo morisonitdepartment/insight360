@@ -13,7 +13,7 @@ import { ProgressBar } from '@/components/ui/Misc'
 import { EmptyState } from '@/components/ui/States'
 import { EvidencePreviewModal, EvidenceVisual } from '@/components/ui/EvidenceThumb'
 import { addEvidence, getVisitQuestions, getVisitSections, removeEvidence, renameEvidence, saveDraft, startVisit, submitVisit } from '@/services/actions'
-import { clockOrderProblem, computeVisitScores, deriveTimedAnswers, isQuestionAnswered, scoreQuestion, visibleQuestions } from '@/utils/scoring'
+import { clockOrderProblem, computeVisitScores, deriveTimedAnswers, isQuestionAnswered, naAllowed, naNeedsReason, naSelectable, scoreQuestion, visibleQuestions } from '@/utils/scoring'
 import { timingChainText } from '@/utils/sequence'
 import { fmtDateTime } from '@/utils/format'
 import type { AnswerValue, Evidence, Question, VisitAnswer } from '@/types'
@@ -201,7 +201,10 @@ export default function AssessmentPage() {
     for (const q of visible) {
       const a = answers[q.id]
       const scorable = q.weight > 0 && q.type !== 'text' && q.type !== 'photo' && q.type !== 'video'
-      if (a?.na && q.allowNA) continue
+      if (a?.na && naAllowed(q)) {
+        if (naNeedsReason(q) && !(a.comment?.trim())) issues.push({ q, reason: 'Say in the comment why this is N/A' })
+        continue
+      }
       if (scorable && !isQuestionAnswered(q, a)) issues.push({ q, reason: clockProblems[q.id] ?? (q.derivedFrom ? 'Record both clock times this duration is measured between' : 'Answer required') })
       if ((q.type === 'photo' || q.type === 'video') && !(a?.evidenceIds.length)) issues.push({ q, reason: `${q.type === 'photo' ? 'Photo' : 'Video'} evidence required` })
       if (q.evidenceRequired && q.type !== 'photo' && q.type !== 'video' && a && a.score !== null && a.score < 0.5 && !a.evidenceIds.length) issues.push({ q, reason: 'Evidence required for a failed standard' })
@@ -299,6 +302,11 @@ export default function AssessmentPage() {
           <p className="mt-3 flex items-center gap-2 rounded-lg bg-slate-100 dark:bg-navy-800 px-3 py-2 text-xs text-slate-600 dark:text-slate-300">
             <Lock className="h-3.5 w-3.5" /> This assessment has been {visit.status === 'Approved' || visit.status === 'Closed' ? 'approved and can no longer be modified' : 'submitted and is awaiting review'}.
             {visit.score !== null && role !== 'shopper' && <Link to={`/reports/visits/${visit.id}`} className="link ml-auto">Open report</Link>}
+          </p>
+        )}
+        {(visit.status === 'Draft' || visit.status === 'In Progress') && visit.approvalHistory.at(-1)?.action === 'Reopened' && (
+          <p className="mt-3 flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" /> Reopened by {visit.approvalHistory.at(-1)!.by} for changes: {visit.approvalHistory.at(-1)!.comment}
           </p>
         )}
         {visit.status === 'Rejected' && visit.reviewerComment && (
@@ -551,11 +559,12 @@ function QuestionCard({ index, q, answer, clockProblem, locked, onChange, onAtta
             {q.evidenceRequired && <Badge tone="blue" size="xs" icon={Camera}>Evidence required</Badge>}
             {q.commentRequired && <Badge tone="blue" size="xs" icon={MessageSquare}>Comment required</Badge>}
             {!q.commentRequired && q.commentOnFail && <Badge tone="slate" size="xs" icon={MessageSquare}>Explain if below standard</Badge>}
-            {q.allowNA && !locked && (
-              <label className="ml-auto inline-flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer">
-                <input type="checkbox" checked={na} onChange={(e) => onChange({ na: e.target.checked, value: e.target.checked ? null : value })} className="h-3.5 w-3.5 rounded border-slate-300 text-teal-600" /> N/A
+            {naSelectable(q) && !locked && (
+              <label className={cn('ml-auto inline-flex min-h-[32px] cursor-pointer items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium', na ? 'border-amber-400 bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200' : 'border-slate-300 text-slate-600 dark:border-navy-700 dark:text-slate-300')}>
+                <input type="checkbox" checked={na} onChange={(e) => onChange({ na: e.target.checked, value: e.target.checked ? null : value })} className="h-4 w-4 rounded border-slate-300 text-teal-600" /> N/A
               </label>
             )}
+            {locked && na && <Badge tone="slate" size="xs">N/A</Badge>}
           </div>
           {q.guidance && (
             <p className="mt-2 flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400">
@@ -610,7 +619,7 @@ function QuestionCard({ index, q, answer, clockProblem, locked, onChange, onAtta
                 {clockProblem ? (
                   <span role="alert" className="basis-full text-xs font-medium text-red-600 dark:text-red-400">{clockProblem}</span>
                 ) : (
-                  <span className="text-xs text-slate-500">{value === null ? 'Calculated once both clock times are recorded' : 'Calculated from the clock times'}</span>
+                  <span className="text-xs text-slate-500">{na ? 'Not applicable — one of its clock times is N/A' : value === null ? 'Calculated once both clock times are recorded' : 'Calculated from the clock times'}</span>
                 )}
                 {q.threshold !== undefined && <span className={cn('ml-auto text-xs font-medium', failed ? 'text-red-600' : score === 1 ? 'text-emerald-600' : 'text-slate-500')}>Standard ≤ {q.threshold} min{typeof value === 'number' ? (value <= q.threshold ? ' · within standard' : ` · exceeded by ${(value - q.threshold).toFixed(0)}`) : ''}</span>}
               </div>
@@ -650,13 +659,18 @@ function QuestionCard({ index, q, answer, clockProblem, locked, onChange, onAtta
               <Attachment key={e.id} ev={e} locked={locked} onRename={(title) => onRename(e.id, title)} onDelete={() => onDelete(e.id)} />
             ))}
           </div>
-          <div className="mt-3">
-            <label className="label" htmlFor={`c-${q.id}`}>
-              Comment {(q.commentRequired || (q.commentOnFail && failed)) && <span className="text-red-600">*</span>}
-              {failed && !q.commentRequired && <span className={cn('ml-1', q.commentOnFail ? 'text-red-600' : 'text-amber-600')}>{q.commentOnFail ? '(required — this answer is below standard)' : '(recommended for a failed standard)'}</span>}
-            </label>
-            <Textarea id={`c-${q.id}`} rows={2} disabled={locked} value={answer?.comment ?? ''} onChange={(e) => onChange({ comment: e.target.value })} placeholder="Describe what you observed…" className="!min-h-[56px]" />
-          </div>
+          {/* A written-answer question is its own comment; a second box under it read as a repeated question.
+              Kept when an old visit already holds a comment there, so nothing saved disappears. */}
+          {(q.type !== 'text' || !!answer?.comment?.trim() || (na && naNeedsReason(q))) && (
+            <div className="mt-3">
+              <label className="label" htmlFor={`c-${q.id}`}>
+                Comment {(q.commentRequired || (q.commentOnFail && failed) || (na && naNeedsReason(q))) && <span className="text-red-600">*</span>}
+                {na && naNeedsReason(q) && <span className="ml-1 text-red-600">(required — say why this is N/A)</span>}
+                {failed && !q.commentRequired && <span className={cn('ml-1', q.commentOnFail ? 'text-red-600' : 'text-amber-600')}>{q.commentOnFail ? '(required — this answer is below standard)' : '(recommended for a failed standard)'}</span>}
+              </label>
+              <Textarea id={`c-${q.id}`} rows={2} disabled={locked} value={answer?.comment ?? ''} onChange={(e) => onChange({ comment: e.target.value })} placeholder={na ? 'Why is this not applicable?' : 'Describe what you observed…'} className="!min-h-[56px]" />
+            </div>
+          )}
         </div>
       </div>
     </li>

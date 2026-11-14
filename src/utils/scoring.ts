@@ -81,9 +81,32 @@ export function riskFromScore(score: number | null | undefined, thresholds: Scor
   return t?.label ?? 'Critical'
 }
 
+/**
+ * Whether the shopper may mark this question N/A.
+ *
+ * Any question may be N/A — a visit always meets situations the questionnaire
+ * did not foresee — except two kinds: a critical question, where N/A would let
+ * a food-safety failure go unrecorded, and a calculated duration, which follows
+ * its two clock times (N/A when either of them is). Where the questionnaire did not plan for N/A
+ * (`allowNA` false) the shopper must say why; see `naNeedsReason`.
+ */
+export function naAllowed(q: Question): boolean {
+  return q.allowNA || !q.critical
+}
+
+/** Whether the shopper ticks N/A themselves. A calculated duration is N/A only when one of its clock times is. */
+export function naSelectable(q: Question): boolean {
+  return naAllowed(q) && !q.derivedFrom
+}
+
+/** N/A on a question that was not written to allow it must be explained. */
+export function naNeedsReason(q: Question): boolean {
+  return !q.allowNA && naSelectable(q)
+}
+
 /** Scores a single answer to 0..1. Returns null when the question is informational or unanswered / N/A. */
 export function scoreQuestion(q: Question, value: AnswerValue, na: boolean): number | null {
-  if (na && q.allowNA) return null
+  if (na && naAllowed(q)) return null
   if (value === null || value === undefined || value === '') return null
   switch (q.type) {
     case 'yes_no':
@@ -126,7 +149,7 @@ export function scoreQuestion(q: Question, value: AnswerValue, na: boolean): num
 
 export function isQuestionAnswered(q: Question, a: VisitAnswer | undefined): boolean {
   if (!a) return false
-  if (a.na && q.allowNA) return true
+  if (a.na && naAllowed(q)) return true
   if (q.type === 'photo' || q.type === 'video') return a.evidenceIds.length > 0
   if (q.type === 'text' || q.type === 'clock') return typeof a.value === 'string' && a.value.trim().length > 0
   return a.value !== null && a.value !== undefined && a.value !== ''
@@ -235,11 +258,15 @@ export function deriveTimedAnswers(questions: Question[], answers: VisitAnswer[]
   for (const q of derived) {
     const from = byCode.get(q.derivedFrom!.from)
     const to = byCode.get(q.derivedFrom!.to)
-    const value = minutesBetween(from && byQuestion.get(from.id)?.value, to && byQuestion.get(to.id)?.value)
+    const fromAnswer = from && byQuestion.get(from.id)
+    const toAnswer = to && byQuestion.get(to.id)
+    // No appetizer, no appetizer time: a clock marked N/A makes the duration N/A.
+    const na = !!(fromAnswer?.na || toAnswer?.na)
+    const value = na ? null : minutesBetween(fromAnswer?.value, toAnswer?.value)
     const current = byQuestion.get(q.id)
-    if ((current?.value ?? null) === (value ?? null)) continue
+    if ((current?.value ?? null) === (value ?? null) && (current?.na ?? false) === na) continue
     const base = current ?? { id: `${visitId}-${q.id}`, visitId, questionId: q.id, value: null, na: false, comment: '', evidenceIds: [], score: null }
-    out.push({ ...base, value, score: scoreQuestion(q, value, base.na) })
+    out.push({ ...base, value, na, score: scoreQuestion(q, value, na) })
   }
   return out
 }

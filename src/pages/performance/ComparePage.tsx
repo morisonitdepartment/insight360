@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { ChevronDown, Download, FileText, GitCompareArrows, ListChecks, Search, X } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
-import { useData } from '@/contexts/DataContext'
+import { useReportData } from '@/contexts/DataContext'
 import { useDocumentTitle } from '@/hooks'
 import { logExport } from '@/services/actions'
 import { isOpenFinding } from '@/services/derive'
@@ -42,7 +42,7 @@ export default function ComparePage() {
   useDocumentTitle(`Compare ${T.Outlets}`)
   const navigate = useNavigate()
   const { can } = useAuth()
-  const { data, authorizedOutlets: scopedOutlets, authorizedVisits: scopedVisits, dispatch } = useData()
+  const { data, authorizedOutlets: scopedOutlets, authorizedVisits: scopedVisits, dispatch } = useReportData()
   const [params, setParams] = useSearchParams()
 
   const [search, setSearch] = useState('')

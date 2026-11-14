@@ -13,7 +13,7 @@ Verified on **11 November 2026**, after loading:
 
 | | |
 |---|---|
-| Migrations | `0001`–`0018` **all applied** (0012 on 13 November, 0013–0018 on 14 November 2026) |
+| Migrations | `0001`–`0019` **all applied** (0012 on 13 November, 0013–0019 on 14 November 2026) |
 | Brands / outlets / questionnaires | 3 / 3 / 3 |
 | Stages | 53 — each template sums to exactly **100.00** scored weight, with the conditional Complaint Handling stage outside it |
 | Questions | **616** — matching each template's declared count exactly |

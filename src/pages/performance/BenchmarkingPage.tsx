@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowDownRight, ArrowUpRight, Award, Minus, Percent, Target, TrendingDown, TrendingUp, Trophy } from 'lucide-react'
-import { useData } from '@/contexts/DataContext'
+import { useReportData } from '@/contexts/DataContext'
 import { useDocumentTitle } from '@/hooks'
 import { benchmarksFor, brandScores, mainVsFollowUp, percentile, segmentComparison } from '@/services/analytics'
 import { isCompleted, isScored } from '@/services/derive'
@@ -68,7 +68,7 @@ interface CycleRow {
 export default function BenchmarkingPage() {
   useDocumentTitle('Benchmarking')
   const navigate = useNavigate()
-  const { authorizedOutlets: scopedOutlets, authorizedVisits: scopedVisits } = useData()
+  const { authorizedOutlets: scopedOutlets, authorizedVisits: scopedVisits } = useReportData()
   const [params, setParams] = useSearchParams()
   const [tab, setTab] = useState<TabKey>('brand')
 

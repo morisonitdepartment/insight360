@@ -56,6 +56,8 @@ export interface Brand {
   logoFile?: string
   /** Uploaded logo (PNG data URL, set in Settings). Takes precedence over `logoFile`. */
   logo?: string | null
+  /** Group tags every branch of this company inherits (e.g. "QSR", "Franchise A"). */
+  tags?: string[]
 }
 
 /** KPI categories that drive weighted scoring */
@@ -87,6 +89,8 @@ export interface Outlet {
   /** Map-style coordinates for the location card (synthetic, relative 0-100 grid) */
   mapX: number
   mapY: number
+  /** Group tags for this branch alone (e.g. "Doha", "Mall"); its company's tags apply as well. */
+  tags?: string[]
   // ── Derived (computed by the data layer from visits / findings) ──
   mainAuditsCompleted: number
   followUpsCompleted: number

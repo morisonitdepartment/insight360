@@ -18,6 +18,8 @@ import { Field, Input, Select } from '@/components/ui/Form'
 import { exportCsv } from '@/utils/export'
 import { fmtDate } from '@/utils/format'
 import { T } from '@/config/terms'
+import { outletTags, parseTags } from '@/services/groups'
+import { CompanyTagsModal } from './CompanyTagsModal'
 
 const FNB_SUBCATEGORIES: FnbSubcategory[] = ['Fine Dining', 'Casual Dining', 'Café', 'Fast Casual', 'Food Court']
 const ENT_SUBCATEGORIES: EntSubcategory[] = ['Indoor Entertainment', 'Family Entertainment', 'Attraction', 'Cinema', 'Recreation']
@@ -34,6 +36,8 @@ interface OutletForm {
   status: OutletStatus
   openingHours: string
   targetScore: string
+  /** Comma-separated group tags for this branch. */
+  tags: string
 }
 
 /** Suggests the next free code for a segment, e.g. FB-031 / EN-021. */
@@ -48,11 +52,11 @@ function suggestCode(outlets: Outlet[], segment: Segment): string {
 }
 
 function emptyForm(): OutletForm {
-  return { name: '', code: '', brandId: '', subcategory: '', location: '', region: '', manager: '', status: 'Active', openingHours: '11:00 – 00:00', targetScore: '88' }
+  return { name: '', code: '', brandId: '', subcategory: '', location: '', region: '', manager: '', status: 'Active', openingHours: '11:00 – 00:00', targetScore: '88', tags: '' }
 }
 
 function formFrom(o: Outlet): OutletForm {
-  return { name: o.name, code: o.code, brandId: o.brandId, subcategory: o.subcategory, location: o.location, region: o.region, manager: o.manager, status: o.status, openingHours: o.openingHours, targetScore: String(o.targetScore) }
+  return { name: o.name, code: o.code, brandId: o.brandId, subcategory: o.subcategory, location: o.location, region: o.region, manager: o.manager, status: o.status, openingHours: o.openingHours, targetScore: String(o.targetScore), tags: (o.tags ?? []).join(', ') }
 }
 
 export default function AdminOutletsPage() {
@@ -110,7 +114,8 @@ export default function AdminOutletsPage() {
   // Brands had no creation path anywhere in the app, so a real portfolio could
   // never get its first outlet. Created here, where the need actually arises.
   const [brandModal, setBrandModal] = useState(false)
-  const [brandForm, setBrandForm] = useState<{ name: string; segment: Segment }>({ name: '', segment: 'F&B' })
+  const [brandForm, setBrandForm] = useState<{ name: string; segment: Segment; tags: string }>({ name: '', segment: 'F&B', tags: '' })
+  const [tagsOpen, setTagsOpen] = useState(false)
   const [brandError, setBrandError] = useState('')
 
   const selectedBrand = form.brandId ? brandById.get(form.brandId) : undefined
@@ -153,7 +158,7 @@ export default function AdminOutletsPage() {
       setBrandError('That brand already exists.')
       return
     }
-    const brand: Brand = { id: `brd-${Date.now().toString(36)}`, name, segment: brandForm.segment, outletCount: 0 }
+    const brand: Brand = { id: `brd-${Date.now().toString(36)}`, name, segment: brandForm.segment, outletCount: 0, tags: parseTags(brandForm.tags) }
     setBusy(true)
     try {
       await dispatch((d, ctx) => upsertBrand(d, ctx, brand))
@@ -161,7 +166,7 @@ export default function AdminOutletsPage() {
       setBrand(brand.id, brand)
       toast.success(`${name} added`)
       setBrandModal(false)
-      setBrandForm({ name: '', segment: 'F&B' })
+      setBrandForm({ name: '', segment: 'F&B', tags: '' })
       setBrandError('')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not add the brand')
@@ -209,6 +214,7 @@ export default function AdminOutletsPage() {
       annualVisits: base?.annualVisits ?? 4,
       mapX: base?.mapX ?? 50,
       mapY: base?.mapY ?? 50,
+      tags: parseTags(form.tags),
       mainAuditsCompleted: base?.mainAuditsCompleted ?? 0,
       followUpsCompleted: base?.followUpsCompleted ?? 0,
       lastAudit: base?.lastAudit ?? null,
@@ -280,6 +286,26 @@ export default function AdminOutletsPage() {
       { key: 'overallScore', header: 'Score', render: (o) => <ScoreBadge score={o.overallScore} />, sortValue: (o) => o.overallScore },
       { key: 'riskRating', header: 'Risk', render: (o) => <RiskBadge risk={o.riskRating} /> },
       {
+        key: 'tags',
+        header: 'Tags',
+        sortable: false,
+        render: (o) => {
+          const own = new Set((o.tags ?? []).map((t) => t.toLowerCase()))
+          const all = outletTags(o, data.brands)
+          return all.length ? (
+            <span className="flex flex-wrap gap-1">
+              {all.map((t) => (
+                <span key={t} title={own.has(t.toLowerCase()) ? 'Set on this branch' : `From ${o.brand}`} className={own.has(t.toLowerCase()) ? 'rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-700 dark:bg-teal-500/10 dark:text-teal-300' : 'rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-navy-800 dark:text-slate-300'}>
+                  {t}
+                </span>
+              ))}
+            </span>
+          ) : (
+            <span className="text-slate-300 dark:text-navy-600">—</span>
+          )
+        },
+      },
+      {
         key: 'actions',
         header: <span className="sr-only">Actions</span>,
         sortable: false,
@@ -299,7 +325,7 @@ export default function AdminOutletsPage() {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canManage],
+    [canManage, data.brands],
   )
 
   return (
@@ -318,6 +344,11 @@ export default function AdminOutletsPage() {
             <button type="button" className="btn-secondary" onClick={doExport}>
               <Download className="h-4 w-4" aria-hidden /> Export CSV
             </button>
+            {canManage && (
+              <button type="button" className="btn-secondary" onClick={() => setTagsOpen(true)}>
+                <Tags className="h-4 w-4" aria-hidden /> Companies &amp; tags
+              </button>
+            )}
             {canManage && (
               <button type="button" className="btn-primary" onClick={openCreate}>
                 <Plus className="h-4 w-4" aria-hidden /> New {T.outlet}
@@ -449,6 +480,18 @@ export default function AdminOutletsPage() {
           <Field label="Target score (%)" error={errors.targetScore} htmlFor="outlet-target" hint={`Brand standard the ${T.outlet} is benchmarked against.`}>
             <Input id="outlet-target" type="number" min={50} max={100} step={1} value={form.targetScore} onChange={(e) => setForm((f) => ({ ...f, targetScore: e.target.value }))} invalid={!!errors.targetScore} />
           </Field>
+          <Field
+            label="Tags"
+            htmlFor="outlet-tags"
+            className="sm:col-span-2"
+            hint={
+              selectedBrand?.tags?.length
+                ? `Also has ${selectedBrand.name}'s tags: ${selectedBrand.tags.join(', ')}. Separate several with commas.`
+                : 'Groups this branch for the selector at the top, e.g. Doha, Mall. Separate several with commas.'
+            }
+          >
+            <Input id="outlet-tags" value={form.tags} onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))} placeholder="e.g. Doha, Mall" autoComplete="off" />
+          </Field>
         </form>
       </Modal>
 
@@ -490,8 +533,13 @@ export default function AdminOutletsPage() {
               <option value="Entertainment">Entertainment</option>
             </Select>
           </Field>
+          <Field label="Tags" htmlFor="brand-tags" hint={`Every ${T.outlet} of this company inherits these, e.g. QSR, Franchise A.`}>
+            <Input id="brand-tags" value={brandForm.tags} onChange={(e) => setBrandForm((f) => ({ ...f, tags: e.target.value }))} placeholder="e.g. QSR" autoComplete="off" />
+          </Field>
         </form>
       </Modal>
+
+      <CompanyTagsModal open={tagsOpen} onClose={() => setTagsOpen(false)} />
     </div>
   )
 }

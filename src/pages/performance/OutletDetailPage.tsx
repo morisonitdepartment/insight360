@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { ArrowDownRight, ArrowUpRight, ClipboardList, Download, FileText, GitCompare, MapPin, Minus, Trophy } from 'lucide-react'
-import { useData } from '@/contexts/DataContext'
+import { useReportData } from '@/contexts/DataContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { useDocumentTitle, useNow } from '@/hooks'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -27,7 +27,7 @@ import { T } from '@/config/terms'
 
 export default function OutletDetailPage() {
   const { id } = useParams()
-  const { data, authorizedOutlets, authorizedVisits, dispatch } = useData()
+  const { data, authorizedOutlets, authorizedVisits, dispatch } = useReportData()
   const { can } = useAuth()
   const now = useNow()
   const navigate = useNavigate()

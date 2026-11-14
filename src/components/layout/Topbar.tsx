@@ -4,7 +4,9 @@ import { AlertTriangle, ArrowLeftRight, Bell, Building2, CalendarRange, ChevronD
 import { useAuth } from '@/contexts/AuthContext'
 import { useDataState } from '@/contexts/DataContext'
 import { useTheme } from '@/contexts/ThemeContext'
-import { PERIOD_OPTIONS, useFilters, type PeriodKey } from '@/contexts/FilterContext'
+import { PERIOD_OPTIONS, useFilters, type PresetPeriod } from '@/contexts/FilterContext'
+import { BRAND_SCOPE, TAG_SCOPE, tagsInUse } from '@/services/groups'
+import { fmtDate } from '@/utils/format'
 import { ROLE_LABELS } from '@/config/permissions'
 import { isDemoMode } from '@/config/app'
 import { markNotificationRead } from '@/services/actions'
@@ -302,42 +304,136 @@ function ProfileMenu() {
 }
 
 function OutletSelector() {
-  const { authorizedOutlets } = useDataState()
+  const { authorizedOutlets, data } = useDataState()
   const { outletScope, setOutletScope } = useFilters()
   const { role } = useAuth()
+  const brands = data?.brands ?? []
+  // Companies with at least one branch the user may see, and the tags in use on them.
+  const companies = brands
+    .map((b) => ({ b, n: authorizedOutlets.filter((o) => o.brandId === b.id).length }))
+    .filter((x) => x.n > 0)
+    .sort((a, b) => a.b.name.localeCompare(b.b.name))
+  const tags = tagsInUse(authorizedOutlets, brands)
   if (role === 'shopper') return null
   return (
     <label className="hidden xl:flex items-center gap-1.5">
       <Building2 className="h-4 w-4 text-slate-400" aria-hidden />
       <span className="sr-only">{T.Outlet} scope</span>
-      <select value={outletScope} onChange={(e) => setOutletScope(e.target.value)} className="select !w-48 !py-1.5 text-xs !rounded-full" aria-label={`${T.Outlet} scope`}>
+      <select value={outletScope} onChange={(e) => setOutletScope(e.target.value)} className="select !w-52 !py-1.5 text-xs !rounded-full" aria-label={`${T.Outlet} scope`}>
         <option value="all">All {T.outlets} ({authorizedOutlets.length})</option>
-        {[...authorizedOutlets]
-          .sort((a, b) => a.name.localeCompare(b.name))
-          .map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.name}
-            </option>
-          ))}
+        {companies.length > 0 && (
+          <optgroup label="Companies — all branches">
+            {companies.map(({ b, n }) => (
+              <option key={b.id} value={`${BRAND_SCOPE}${b.id}`}>
+                {b.name} ({n})
+              </option>
+            ))}
+          </optgroup>
+        )}
+        {tags.length > 0 && (
+          <optgroup label="Tags">
+            {tags.map((t) => (
+              <option key={t.tag} value={`${TAG_SCOPE}${t.tag}`}>
+                {t.tag} ({t.count})
+              </option>
+            ))}
+          </optgroup>
+        )}
+        <optgroup label={`Single ${T.outlet}`}>
+          {[...authorizedOutlets]
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+        </optgroup>
       </select>
     </label>
   )
 }
 
+/**
+ * The reporting period: a preset, or any custom range. The presets set how far
+ * back the trend charts go; a custom range also limits every dashboard, analysis
+ * and report to the visits inside it.
+ */
 function PeriodSelector() {
-  const { period, setPeriod } = useFilters()
+  const { period, setPeriod, customRange, setCustomRange } = useFilters()
+  const now = useNow()
+  const [open, setOpen] = useState(false)
+  const [from, setFrom] = useState(customRange?.from ?? fmtDate(new Date(now.getFullYear(), now.getMonth() - 2, 1), 'yyyy-MM-dd'))
+  const [to, setTo] = useState(customRange?.to ?? fmtDate(now, 'yyyy-MM-dd'))
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+  const customLabel = customRange ? `${fmtDate(customRange.from, 'dd MMM yy')} – ${fmtDate(customRange.to, 'dd MMM yy')}` : 'Custom range…'
+  const invalid = !from || !to || from > to
   return (
-    <label className="hidden lg:flex items-center gap-1.5">
+    <div ref={ref} className="relative hidden lg:flex items-center gap-1.5">
       <CalendarRange className="h-4 w-4 text-slate-400" aria-hidden />
       <span className="sr-only">Period</span>
-      <select value={period} onChange={(e) => setPeriod(e.target.value as PeriodKey)} className="select !w-40 !py-1.5 text-xs !rounded-full" aria-label="Reporting period">
+      <select
+        value={period}
+        onChange={(e) => {
+          if (e.target.value === 'custom') setOpen(true)
+          else setPeriod(e.target.value as PresetPeriod)
+        }}
+        className={cn('select !w-44 !py-1.5 text-xs !rounded-full', period === 'custom' && '!border-teal-400 !text-teal-700 dark:!text-teal-300')}
+        aria-label="Reporting period"
+      >
         {PERIOD_OPTIONS.map((p) => (
           <option key={p.key} value={p.key}>
             {p.label}
           </option>
         ))}
+        <option value="custom">{customLabel}</option>
       </select>
-    </label>
+      {period === 'custom' && (
+        <button type="button" className="text-[11px] font-medium text-teal-700 hover:underline dark:text-teal-300" onClick={() => setOpen((o) => !o)} aria-label="Change the custom date range">
+          Edit
+        </button>
+      )}
+      {open && (
+        <div role="dialog" aria-label="Custom date range" className="absolute right-0 top-full z-50 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-xl dark:border-navy-700 dark:bg-navy-900">
+          <p className="text-sm font-semibold text-slate-900 dark:text-white">Custom date range</p>
+          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Dashboards, analytics, reports and exports show only visits inside these dates.</p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <label className="text-xs text-slate-600 dark:text-slate-300">
+              From
+              <input type="date" className="input mt-1 !py-1.5 text-xs" value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
+            </label>
+            <label className="text-xs text-slate-600 dark:text-slate-300">
+              To
+              <input type="date" className="input mt-1 !py-1.5 text-xs" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
+            </label>
+          </div>
+          {invalid && <p className="mt-2 text-xs text-red-600">The start date must be on or before the end date.</p>}
+          <div className="mt-3 flex justify-end gap-2">
+            <button type="button" className="btn-secondary btn-sm" onClick={() => setOpen(false)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn-primary btn-sm"
+              disabled={invalid}
+              onClick={() => {
+                setCustomRange({ from, to })
+                setOpen(false)
+              }}
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 

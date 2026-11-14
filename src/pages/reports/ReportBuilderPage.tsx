@@ -5,6 +5,7 @@ import { format, isBefore, subMonths } from 'date-fns'
 import { AlertTriangle, BookOpenCheck, Camera, CheckCircle2, ClipboardList, Download, FileText, Lightbulb, Loader2, Printer, Save, Search, ShieldAlert, Table2, TrendingUp, X } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useData } from '@/contexts/DataContext'
+import { useFilters } from '@/contexts/FilterContext'
 import { useDocumentTitle, useNow } from '@/hooks'
 import type { CategoryKey, CorrectiveAction, Finding, Outlet, ReportType, Segment, VisitType } from '@/types'
 import { createReport, logExport } from '@/services/actions'
@@ -186,8 +187,9 @@ export default function ReportBuilderPage() {
 
   const [title, setTitle] = useState(initialVisitType ? `${initialVisitType} Report` : 'Custom Performance Report')
   const [type, setType] = useState<ReportType>(initialType)
-  const [from, setFrom] = useState(() => format(subMonths(now, 12), 'yyyy-MM-dd'))
-  const [to, setTo] = useState(() => format(now, 'yyyy-MM-dd'))
+  const { customRange } = useFilters()
+  const [from, setFrom] = useState(() => customRange?.from ?? format(subMonths(now, 12), 'yyyy-MM-dd'))
+  const [to, setTo] = useState(() => customRange?.to ?? format(now, 'yyyy-MM-dd'))
   const [outletSearch, setOutletSearch] = useState('')
   const [outletIds, setOutletIds] = useState<Set<string>>(() => new Set(scopedOutlets.map((o) => o.id)))
   const [brandIds, setBrandIds] = useState<Set<string>>(() => new Set(data.brands.map((b) => b.id)))

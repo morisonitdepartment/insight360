@@ -36,6 +36,7 @@ import { fmtDate, fmtDateTime, fmtPct, relativeTime } from '@/utils/format'
 import { isDemoMode } from '@/config/app'
 import { cn } from '@/utils/cn'
 import { T } from '@/config/terms'
+import { VisitPipeline } from '@/components/workflow/VisitPipeline'
 
 export default function OverviewPage() {
   useDocumentTitle('Overview')
@@ -65,7 +66,6 @@ export default function OverviewPage() {
   const openAlerts = alerts.filter((a) => a.status !== 'Resolved' && a.status !== 'Closed')
   const escalationOverdue = openAlerts.filter((a) => a.escalationDue < fmtDateTime(now).replace(' ', 'T') && a.status === 'New')
   const awaiting = scopedVisits.filter((v) => v.status === 'Submitted' || v.status === 'Under Review')
-  const upcoming = scopedVisits.filter((v) => !isCompleted(v) && v.scheduledDate >= fmtDate(now, 'yyyy-MM-dd')).sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate)).slice(0, 6)
   const recent = scopedVisits.filter(isCompleted).sort((a, b) => (b.reviewedAt ?? b.visitDate ?? '').localeCompare(a.reviewedAt ?? a.visitDate ?? '')).slice(0, 5)
 
   const scopeLabel = role === 'ops_manager' ? `${scopedOutlets.length} assigned ${T.outlets}` : `${scopedOutlets.length} ${T.outlets}`
@@ -135,39 +135,8 @@ export default function OverviewPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
-        {/* Upcoming */}
-        <Card className="xl:col-span-2">
-          <CardHeader title="Upcoming visits" subtitle="Next scheduled assessments" actions={can('calendar.view') ? <Link to="/operations/calendar" className="text-xs link">Calendar</Link> : undefined} />
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Scheduled</th>
-                  <th>{T.Outlet}</th>
-                  <th>Type</th>
-                  <th>Shopper</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {upcoming.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="text-center text-slate-500 py-6">No upcoming visits scheduled.</td>
-                  </tr>
-                )}
-                {upcoming.map((v) => (
-                  <tr key={v.id} className={can('visits.view') ? 'cursor-pointer' : ''} onClick={can('visits.view') ? () => navigate(`/operations/visits/${v.id}`) : undefined}>
-                    <td className="whitespace-nowrap">{fmtDate(v.scheduledDate)}</td>
-                    <td className="max-w-[200px] truncate">{outletName(v.outletId)}</td>
-                    <td className="whitespace-nowrap">{v.type}</td>
-                    <td className="whitespace-nowrap">{data.shoppers.find((s) => s.id === v.shopperId)?.name ?? <span className="text-amber-600">Unassigned</span>}</td>
-                    <td><StatusBadge status={v.status} size="xs" /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+        {/* Upcoming, ongoing, pending approval and overdue visits */}
+        <VisitPipeline />
 
         {/* Recently completed */}
         <Card>

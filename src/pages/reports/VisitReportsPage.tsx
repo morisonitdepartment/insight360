@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { AlertTriangle, CalendarClock, CheckCircle2, Clock, Download, FileText, Hourglass, ShieldCheck, Target, ThumbsUp, XCircle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
-import { useData } from '@/contexts/DataContext'
+import { useReportData } from '@/contexts/DataContext'
 import { useDocumentTitle, useNow } from '@/hooks'
 import type { ReportStatus, RiskRating, SlaStatus, Visit, VisitType } from '@/types'
 import { approveVisit, logExport, rejectVisit } from '@/services/actions'
@@ -41,7 +41,7 @@ export default function VisitReportsPage() {
   const navigate = useNavigate()
   const now = useNow()
   const { can } = useAuth()
-  const { data, dispatch, scopedOutlets, scopedVisits } = useData()
+  const { data, dispatch, scopedOutlets, scopedVisits } = useReportData()
 
   const outletById = useMemo(() => new Map(data.outlets.map((o) => [o.id, o])), [data.outlets])
   const userById = useMemo(() => new Map(data.users.map((u) => [u.id, u])), [data.users])

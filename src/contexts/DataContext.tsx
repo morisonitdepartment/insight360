@@ -4,7 +4,8 @@ import { getRepository, type DatasetPatch, type EvidenceUploadMeta } from '@/rep
 import { deriveOutlets } from '@/services/derive'
 import { removeVisit, type ActionContext } from '@/services/actions'
 import { useAuth } from './AuthContext'
-import { useFilters } from './FilterContext'
+import { inRange, useFilters, visitReportDate, type DateRange } from './FilterContext'
+import { outletsForScope } from '@/services/groups'
 import { useNow } from '@/hooks'
 import { isDemoMode } from '@/config/app'
 import { prepareUpload } from '@/utils/prepareUpload'
@@ -43,8 +44,41 @@ interface DataContextValue {
    */
   authorizedOutlets: Outlet[]
   authorizedVisits: Visit[]
-  /** True when the selector is narrowing the view to one outlet. */
+  /** True when the selector is narrowing the view (one outlet, a company or a tag). */
   isOutletFiltered: boolean
+  /**
+   * The same view limited to the custom reporting window, when one is set in the
+   * period selector: visits, findings, alerts and actions inside it, and each
+   * outlet's score recomputed from that window alone. Equal to the main view
+   * otherwise. Read it through `useReportData()`.
+   */
+  report: ScopedView | null
+}
+
+interface ScopedView {
+  data: Dataset
+  outlets: Outlet[]
+  visits: Visit[]
+  ids: Set<string>
+  authorizedOutlets: Outlet[]
+  authorizedVisits: Visit[]
+  filtered: boolean
+}
+
+/** Keep only what happened inside the window, and re-derive outlet scores from it. */
+export function withinRange(d: Dataset, r: DateRange): Dataset {
+  const visits = d.visits.filter((v) => inRange(visitReportDate(v), r))
+  const findings = d.findings.filter((f) => inRange(f.createdAt, r))
+  return {
+    ...d,
+    visits,
+    findings,
+    alerts: d.alerts.filter((a) => inRange(a.createdAt, r)),
+    correctiveActions: d.correctiveActions.filter((a) => inRange(a.createdAt, r)),
+    answers: d.answers.filter((a) => visits.some((v) => v.id === a.visitId)),
+    evidence: d.evidence.filter((e) => inRange(e.capturedAt, r)),
+    outlets: deriveOutlets(d.outlets, visits, findings, d.thresholds),
+  }
 }
 
 export const DataContext = createContext<DataContextValue | null>(null)
@@ -53,7 +87,7 @@ const DERIVE_TRIGGERS: (keyof Dataset)[] = ['visits', 'findings', 'outlets']
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const { user, scopedOutletIds } = useAuth()
-  const { outletScope } = useFilters()
+  const { outletScope, customRange } = useFilters()
   const now = useNow()
   const repo = getRepository()
   const [data, setData] = useState<Dataset | null>(null)
@@ -133,24 +167,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
     await reload()
   }, [repo, reload])
 
-  const scoped = useMemo(() => {
-    const empty = { outlets: [] as Outlet[], visits: [] as Visit[], ids: new Set<string>(), authorizedOutlets: [] as Outlet[], authorizedVisits: [] as Visit[], filtered: false }
-    if (!data || !user) return empty
+  const scopeOf = useCallback(
+    (ds: Dataset | null): ScopedView | null => {
+      if (!ds || !user) return null
+      // 1. Authorisation: what this user is entitled to see at all.
+      const authorizedOutlets = scopedOutletIds ? ds.outlets.filter((o) => scopedOutletIds.includes(o.id)) : ds.outlets
+      const authorizedIds = new Set(authorizedOutlets.map((o) => o.id))
+      let authorizedVisits = ds.visits.filter((v) => authorizedIds.has(v.outletId))
+      if (user.role === 'shopper') authorizedVisits = authorizedVisits.filter((v) => v.shopperId === user.shopperId)
 
-    // 1. Authorisation: what this user is entitled to see at all.
-    const authorizedOutlets = scopedOutletIds ? data.outlets.filter((o) => scopedOutletIds.includes(o.id)) : data.outlets
-    const authorizedIds = new Set(authorizedOutlets.map((o) => o.id))
-    let authorizedVisits = data.visits.filter((v) => authorizedIds.has(v.outletId))
-    if (user.role === 'shopper') authorizedVisits = authorizedVisits.filter((v) => v.shopperId === user.shopperId)
+      // 2. Selection: the top-bar selector narrows it further — one outlet, a
+      //    company's branches or a tag's branches.
+      const picked = outletsForScope(outletScope, authorizedOutlets, ds.brands)
+      const outlets = picked ?? authorizedOutlets
+      const ids = new Set(outlets.map((o) => o.id))
+      const visits = picked ? authorizedVisits.filter((v) => ids.has(v.outletId)) : authorizedVisits
+      return { data: ds, outlets, visits, ids, authorizedOutlets, authorizedVisits, filtered: !!picked }
+    },
+    [user, scopedOutletIds, outletScope],
+  )
 
-    // 2. Selection: the top-bar outlet selector narrows it further.
-    const selectionValid = outletScope !== 'all' && authorizedIds.has(outletScope)
-    const outlets = selectionValid ? authorizedOutlets.filter((o) => o.id === outletScope) : authorizedOutlets
-    const ids = new Set(outlets.map((o) => o.id))
-    const visits = selectionValid ? authorizedVisits.filter((v) => ids.has(v.outletId)) : authorizedVisits
-
-    return { outlets, visits, ids, authorizedOutlets, authorizedVisits, filtered: selectionValid }
-  }, [data, user, scopedOutletIds, outletScope])
+  const scoped = useMemo(
+    () => scopeOf(data) ?? { data: data as Dataset, outlets: [] as Outlet[], visits: [] as Visit[], ids: new Set<string>(), authorizedOutlets: [] as Outlet[], authorizedVisits: [] as Visit[], filtered: false },
+    [scopeOf, data],
+  )
+  const report = useMemo(() => (data && customRange ? scopeOf(withinRange(data, customRange)) : scoped), [scopeOf, data, customRange, scoped])
 
   const value = useMemo<DataContextValue>(
     () => ({
@@ -169,8 +210,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       authorizedOutlets: scoped.authorizedOutlets,
       authorizedVisits: scoped.authorizedVisits,
       isOutletFiltered: scoped.filtered,
+      report,
     }),
-    [data, loading, error, reload, dispatch, uploadEvidence, deleteEvidenceFile, deleteVisit, resetDemo, scoped],
+    [data, loading, error, reload, dispatch, uploadEvidence, deleteEvidenceFile, deleteVisit, resetDemo, scoped, report],
   )
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
 }
@@ -180,6 +222,29 @@ export function useData(): DataContextValue & { data: Dataset } {
   if (!ctx) throw new Error('useData must be used within DataProvider')
   if (!ctx.data) throw new Error('Dataset not loaded')
   return ctx as DataContextValue & { data: Dataset }
+}
+
+/**
+ * `useData()` for reporting pages: when a custom date range is chosen in the
+ * period selector, `data` and the scoped lists cover that window only (outlet
+ * scores recomputed from it). Writes still go through `dispatch` to the full
+ * dataset. Operational pages (Visits, Calendar, Assignments) keep `useData()` so
+ * a past date range never hides the visits still to be done.
+ */
+export function useReportData(): DataContextValue & { data: Dataset } {
+  const ctx = useData()
+  const r = ctx.report
+  if (!r || r.data === ctx.data) return ctx
+  return {
+    ...ctx,
+    data: r.data,
+    scopedOutlets: r.outlets,
+    scopedVisits: r.visits,
+    scopedOutletIds: r.ids,
+    authorizedOutlets: r.authorizedOutlets,
+    authorizedVisits: r.authorizedVisits,
+    isOutletFiltered: r.filtered,
+  }
 }
 
 export function useDataState(): DataContextValue {

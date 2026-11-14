@@ -21,7 +21,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
-import { useData } from '@/contexts/DataContext'
+import { useReportData } from '@/contexts/DataContext'
 import { CLIENT_BRAND } from '@/config/client'
 import { useDocumentTitle, useNow } from '@/hooks'
 import { ROLE_LABELS } from '@/config/permissions'
@@ -60,7 +60,7 @@ export default function ExportsPage() {
   useDocumentTitle('Exports')
   const now = useNow()
   const { can } = useAuth()
-  const { data, dispatch, scopedOutlets, scopedVisits, scopedOutletIds } = useData()
+  const { data, dispatch, scopedOutlets, scopedVisits, scopedOutletIds } = useReportData()
   const [busy, setBusy] = useState<string | null>(null)
 
   const stamp = fmtDate(now, 'yyyyMMdd')

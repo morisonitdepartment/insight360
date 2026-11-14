@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { AlertOctagon, AlertTriangle, ArrowDownRight, ArrowUpRight, Building2, CalendarClock, CheckCircle2, Download, LayoutGrid, List, Map as MapIcon, Minus, ThumbsUp, UserRound } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
-import { useData } from '@/contexts/DataContext'
+import { useReportData } from '@/contexts/DataContext'
 import { useDocumentTitle } from '@/hooks'
 import { logExport } from '@/services/actions'
 import type { Outlet, RiskRating } from '@/types'
@@ -67,7 +67,7 @@ export default function OutletsPage() {
   useDocumentTitle(`${T.Outlet} Performance`)
   const navigate = useNavigate()
   const { can } = useAuth()
-  const { scopedOutlets, dispatch } = useData()
+  const { scopedOutlets, dispatch } = useReportData()
   const [params, setParams] = useSearchParams()
 
   const [view, setView] = useState<ViewMode>('table')

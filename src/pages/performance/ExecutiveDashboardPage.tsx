@@ -1,8 +1,9 @@
+import { parseISO } from 'date-fns'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { AlertOctagon, ArrowRight, BellRing, ClipboardCheck, FileBarChart, Gauge, Lightbulb, PlayCircle, ShieldCheck, Sparkles, Store, TrendingDown, TrendingUp, Utensils, Wrench } from 'lucide-react'
-import { useData } from '@/contexts/DataContext'
+import { useReportData } from '@/contexts/DataContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { useFilters } from '@/contexts/FilterContext'
 import { useGuidedDemo } from '@/contexts/GuidedDemoContext'
@@ -26,9 +27,9 @@ import { T } from '@/config/terms'
 
 export default function ExecutiveDashboardPage() {
   useDocumentTitle('Executive Dashboard')
-  const { data, scopedOutlets, scopedVisits, dispatch } = useData()
+  const { data, scopedOutlets, scopedVisits, dispatch } = useReportData()
   const { can } = useAuth()
-  const { periodMonths, outletScope } = useFilters()
+  const { periodMonths, outletScope, customRange } = useFilters()
   const demo = useGuidedDemo()
   const now = useNow()
   const navigate = useNavigate()
@@ -43,7 +44,7 @@ export default function ExecutiveDashboardPage() {
   const alerts = useMemo(() => data.alerts.filter((a) => outletIds.has(a.outletId)), [data.alerts, outletIds])
 
   const kpi = useMemo(() => kpiSummary(data, outlets), [data, outlets])
-  const trend = useMemo(() => monthlyTrend(visits, findings, actions, now, periodMonths), [visits, findings, actions, now, periodMonths])
+  const trend = useMemo(() => monthlyTrend(visits, findings, actions, customRange ? parseISO(customRange.to) : now, periodMonths), [visits, findings, actions, now, periodMonths, customRange])
   const ranked = useMemo(() => rankedOutlets(outlets), [outlets])
   const cats = useMemo(() => categoryAverages(outlets), [outlets])
   const mvf = useMemo(() => mainVsFollowUp(visits), [visits])

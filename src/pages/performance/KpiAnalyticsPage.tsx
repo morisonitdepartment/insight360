@@ -1,7 +1,8 @@
+import { parseISO } from 'date-fns'
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Activity, Gauge, ShieldCheck, ShoppingBag, Sparkles, Timer, type LucideIcon } from 'lucide-react'
-import { useData } from '@/contexts/DataContext'
+import { useReportData } from '@/contexts/DataContext'
 import { useFilters } from '@/contexts/FilterContext'
 import { useDocumentTitle, useNow } from '@/hooks'
 import { categoryAverages, heatmapRows, kpiSummary, monthlyTrend, segmentComparison, sequenceKpis } from '@/services/analytics'
@@ -41,8 +42,8 @@ export default function KpiAnalyticsPage() {
   useDocumentTitle('KPI Analytics')
   const navigate = useNavigate()
   const now = useNow()
-  const { periodMonths } = useFilters()
-  const { data, scopedOutlets, scopedVisits, scopedOutletIds } = useData()
+  const { periodMonths, customRange } = useFilters()
+  const { data, scopedOutlets, scopedVisits, scopedOutletIds } = useReportData()
 
   const summary = useMemo(() => kpiSummary(data, scopedOutlets), [data, scopedOutlets])
   const averages = useMemo(() => categoryAverages(scopedOutlets), [scopedOutlets])
@@ -52,7 +53,7 @@ export default function KpiAnalyticsPage() {
 
   const scopedFindings = useMemo(() => data.findings.filter((f) => scopedOutletIds.has(f.outletId)), [data.findings, scopedOutletIds])
   const scopedActions = useMemo(() => data.correctiveActions.filter((a) => scopedOutletIds.has(a.outletId)), [data.correctiveActions, scopedOutletIds])
-  const trend = useMemo(() => monthlyTrend(scopedVisits, scopedFindings, scopedActions, now, periodMonths), [scopedVisits, scopedFindings, scopedActions, now, periodMonths])
+  const trend = useMemo(() => monthlyTrend(scopedVisits, scopedFindings, scopedActions, customRange ? parseISO(customRange.to) : now, periodMonths), [scopedVisits, scopedFindings, scopedActions, now, periodMonths, customRange])
 
   const vsTarget = useMemo(() => kpiConfig.map((k) => ({ name: CATEGORY_SHORT[k.key], full: k.name, Actual: avgByKey[k.key] ?? 0, Target: k.target })), [kpiConfig, avgByKey])
 

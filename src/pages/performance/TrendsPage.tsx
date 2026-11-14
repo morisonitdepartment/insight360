@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { AlertOctagon, AlertTriangle, ArrowDownRight, ArrowUpRight, CheckCircle2, Download, Info, Minus } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
-import { useData } from '@/contexts/DataContext'
+import { useReportData } from '@/contexts/DataContext'
 import { useFilters } from '@/contexts/FilterContext'
 import { useDocumentTitle, useNow } from '@/hooks'
 import { generateInsights, monthlyTrend, type MonthPoint } from '@/services/analytics'
@@ -71,7 +71,7 @@ export default function TrendsPage() {
   const now = useNow()
   const { can } = useAuth()
   const { periodMonths } = useFilters()
-  const { data, scopedOutlets, scopedVisits, scopedOutletIds, dispatch } = useData()
+  const { data, scopedOutlets, scopedVisits, scopedOutletIds, dispatch } = useReportData()
 
   const [period, setPeriod] = useState<PeriodKey>(() => (['1', '3', '6', '12'].includes(String(periodMonths)) ? (String(periodMonths) as PeriodKey) : '12'))
   const [customFrom, setCustomFrom] = useState('')

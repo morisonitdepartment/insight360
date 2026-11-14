@@ -18,6 +18,7 @@ import { timingChainText } from '@/utils/sequence'
 import { fmtDateTime } from '@/utils/format'
 import type { AnswerValue, Evidence, Question, VisitAnswer } from '@/types'
 import { cn } from '@/utils/cn'
+import { RESTROOM_STAGE_CODE } from '@/data/templateKit'
 
 /** Idle time before a draft saves itself. Short enough to survive a dropped page. */
 const AUTOSAVE_MS = 2500
@@ -421,6 +422,7 @@ export default function AssessmentPage() {
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">{section.description} · {sectionAnswered}/{sectionQuestions.length} answered</p>
           </div>
+          {section.code === RESTROOM_STAGE_CODE && !locked && <RestroomBulk questions={sectionQuestions} answers={answers} onChange={setAnswer} />}
           <ol className="space-y-3">
             {sectionQuestions.map((q, qi) => (
               <QuestionCard key={q.id} index={qi + 1} q={q} answer={answers[q.id]} clockProblem={clockProblems[q.id]} locked={locked} onChange={(patch) => setAnswer(q, patch)} onAttach={(files) => void attachEvidence(q, files)} uploading={uploadingFor === q.id} uploadNote={uploadingFor === q.id ? uploadNote : null} evidence={data.evidence.filter((e) => answers[q.id]?.evidenceIds.includes(e.id))} onRename={(id, title) => void renameAttachment(id, title)} onDelete={(id) => void removeAttachment(id)} />
@@ -783,5 +785,81 @@ function Attachment({ ev, locked, onRename, onDelete }: { ev: Attached; locked: 
           </button>
         ))}
     </span>
+  )
+}
+
+/**
+ * The restroom stage only: one switch to mark every question N/A (often the
+ * outlet has no customer restroom, or it is closed), and one comment written to
+ * every question at once. Each question can still be changed on its own below.
+ *
+ * The shared comment fills the questions whose comment is empty or still equal
+ * to the shared one, so a note written on one question by hand is
+ * never overwritten.
+ */
+function RestroomBulk({ questions, answers, onChange }: { questions: Question[]; answers: Record<string, VisitAnswer>; onChange: (q: Question, patch: Partial<VisitAnswer>) => void }) {
+  const selectable = questions.filter(naSelectable)
+  const allNa = selectable.length > 0 && selectable.every((q) => answers[q.id]?.na)
+  const someNa = selectable.some((q) => answers[q.id]?.na)
+  // The comment most of the questions hold (two or more), so the box shows the
+  // shared reason again after a reload even if one question has its own note.
+  const counts = new Map<string, number>()
+  for (const q of questions) {
+    const c = answers[q.id]?.comment ?? ''
+    if (c.trim()) counts.set(c, (counts.get(c) ?? 0) + 1)
+  }
+  const [top] = [...counts.entries()].sort((x, y) => y[1] - x[1])
+  const shared = top && top[1] >= 2 ? top[0] : ''
+  const [text, setText] = useState(shared)
+  const lastApplied = useRef(shared)
+
+  const setAllNa = (on: boolean) => {
+    for (const q of selectable) {
+      if ((answers[q.id]?.na ?? false) !== on) onChange(q, { na: on, value: on ? null : (answers[q.id]?.value ?? null) })
+    }
+  }
+  const setShared = (value: string) => {
+    setText(value)
+    for (const q of questions) {
+      const cur = answers[q.id]?.comment ?? ''
+      if (cur === '' || cur === lastApplied.current) onChange(q, { comment: value })
+    }
+    lastApplied.current = value
+  }
+
+  return (
+    <div className="card mb-3 space-y-3 border-amber-200 bg-amber-50/60 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
+      <label className="flex min-h-[44px] cursor-pointer items-center gap-3">
+        <input
+          type="checkbox"
+          checked={allNa}
+          ref={(el) => {
+            if (el) el.indeterminate = someNa && !allNa
+          }}
+          onChange={(e) => setAllNa(e.target.checked)}
+          className="h-5 w-5 rounded border-slate-300 text-teal-600"
+        />
+        <span>
+          <span className="block text-sm font-semibold text-slate-900 dark:text-white">Mark the whole restroom section N/A</span>
+          <span className="block text-xs text-slate-600 dark:text-slate-300">
+            Ticks N/A on all {selectable.length} questions below. You can still answer any of them on its own afterwards.
+          </span>
+        </span>
+      </label>
+      <div>
+        <label htmlFor="restroom-shared-comment" className="text-xs font-medium text-slate-700 dark:text-slate-200">
+          Comment for all restroom questions {allNa && <span className="text-red-600">* say why the restroom could not be inspected</span>}
+        </label>
+        <Textarea
+          id="restroom-shared-comment"
+          rows={2}
+          value={text}
+          onChange={(e) => setShared(e.target.value)}
+          placeholder="e.g. No customer restroom at this outlet / restroom closed for maintenance"
+          className="mt-1"
+        />
+        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">Copied to every question below. A comment you write on a single question stays as you wrote it.</p>
+      </div>
+    </div>
   )
 }

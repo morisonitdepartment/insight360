@@ -33,7 +33,11 @@ export function RestroomStatus({ visit }: { visit: Visit }) {
     earned += q.weight * a.score
   }
   const score = weight > 0 ? (earned / weight) * 100 : null
-  const status = done === 0 ? 'Not inspected yet' : done < questions.length ? `${done} of ${questions.length} checks done` : `All ${questions.length} checks done`
+  // Marked N/A as a whole (no customer restroom, or closed): say so, with the
+  // shopper's reason, rather than "All 21 checks done" with no score.
+  const allNa = questions.length > 0 && questions.every((q) => answers.get(q.id)?.na)
+  const reason = allNa ? questions.map((q) => answers.get(q.id)?.comment?.trim()).find(Boolean) : undefined
+  const status = allNa ? `Not applicable${reason ? `: ${reason}` : ''}` : done === 0 ? 'Not inspected yet' : done < questions.length ? `${done} of ${questions.length} checks done` : `All ${questions.length} checks done`
 
   return (
     <div className="border-t border-slate-200 pt-3 dark:border-navy-800">

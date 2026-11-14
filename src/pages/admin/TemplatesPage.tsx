@@ -923,7 +923,7 @@ export default function TemplatesPage() {
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         title="New audit template"
-        description="The template is created as a Draft with no sections. Add sections and questions, then activate it."
+        description="The template is created as a Draft with the standard Toilet / Restroom Cleanliness stage (21 questions) already in it. Add your other sections and questions, then activate it."
         size="md"
         footer={
           <>

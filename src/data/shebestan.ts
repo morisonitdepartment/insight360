@@ -1,5 +1,5 @@
 import type { ServiceSequence } from '@/types'
-import { CRITICAL_FAILURES_DINING, PROBLEM_SOLVING_OPTIONS, QUALITY_SCALE, type SectionBlueprint, type TemplateBlueprint, stage } from './templateKit'
+import { CRITICAL_FAILURES_DINING, PROBLEM_SOLVING_OPTIONS, QUALITY_SCALE, type SectionBlueprint, type TemplateBlueprint, RESTROOM_KPI, restroomStage, stage } from './templateKit'
 
 /**
  * SHEBESTAN_FINE_DINING — Shebestan Palace, Al Sadd.
@@ -499,37 +499,7 @@ const LOYALTY: SectionBlueprint = stage(
 
 // ── 22 · Restroom Cleanliness — 5% → 4.8 ────────────────────────────────────
 
-const RESTROOM: SectionBlueprint = stage(
-  'WC',
-  'Toilet / Restroom Cleanliness',
-  'Restroom Cleanliness',
-  4.8,
-  'safety_entertainment',
-  'A full restroom inspection against the fine-dining standard. Photograph anything that falls short.',
-  [
-    { text: 'Was the restroom clean?', type: 'yes_no', weight: 3, evidence: true, tag: 'washroom', kpi: ['restroom'] },
-    { text: 'Was the toilet bowl clean?', type: 'yes_no', weight: 3, kpi: ['restroom'] },
-    { text: 'Was the toilet seat clean?', type: 'yes_no', weight: 3, kpi: ['restroom'] },
-    { text: 'Was the toilet floor clean?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
-    { text: 'Was the floor dry?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
-    { text: 'Was the washbasin clean?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
-    { text: 'Was the mirror clean?', type: 'yes_no', weight: 1, kpi: ['restroom'] },
-    { text: 'Was hand soap available?', type: 'yes_no', weight: 3, tag: 'hand_hygiene', kpi: ['restroom'] },
-    { text: 'Was the soap dispenser adequately filled?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
-    { text: 'Was hand sanitiser available, where applicable?', type: 'yes_no', weight: 1, na: true, kpi: ['restroom'] },
-    { text: 'Was the hand sanitiser adequately filled?', type: 'yes_no', weight: 1, na: true, kpi: ['restroom'] },
-    { text: 'Was toilet tissue available?', type: 'yes_no', weight: 3, kpi: ['restroom'] },
-    { text: 'Was hand tissue / paper towel available?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
-    { text: 'Was the tissue roll adequately stocked?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
-    { text: 'Was the exhaust fan clean?', type: 'yes_no', weight: 1, kpi: ['restroom'] },
-    { text: 'Was the exhaust fan operational?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
-    { text: 'Was the restroom free from bad or unpleasant smells?', type: 'yes_no', weight: 3, tag: 'hygiene', kpi: ['restroom'] },
-    { text: 'Were the restroom lights operational?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
-    { text: 'Was the waste bin clean?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
-    { text: 'Was the waste bin free from overflowing?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
-    { text: 'Was the restroom overall suitable for a fine-dining restaurant?', type: 'rating_5', weight: 3, kpi: ['restroom'] },
-  ],
-)
+const RESTROOM: SectionBlueprint = restroomStage(4.8, 'a fine-dining restaurant', 'A full restroom inspection against the fine-dining standard. Photograph anything that falls short.')
 
 // ── 23–27 · Billing, Payment & Farewell — 8% → 7.6 ──────────────────────────
 
@@ -642,7 +612,7 @@ const SHEBESTAN_SEQUENCE: ServiceSequence = {
     { key: 'main_course_time', label: 'Food Delivery Speed', kind: 'timing' },
     { key: 'grilled_time', label: 'Grilled Items Delivery Time', kind: 'timing' },
     { key: 'plate_clearing_time', label: 'Table Clearing Time', kind: 'timing' },
-    { key: 'restroom', label: 'Restroom Cleanliness Score', kind: 'weighted' },
+    RESTROOM_KPI,
     { key: 'complaint_resolution', label: 'Complaint Resolution Score', kind: 'weighted' },
     { key: 'loyalty', label: 'Loyalty Programme Awareness', kind: 'weighted' },
     { key: 'billing_payment', label: 'Billing & Payment Score', kind: 'weighted' },

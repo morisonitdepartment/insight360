@@ -86,6 +86,51 @@ export const stage = (
   questions: QuestionBlueprint[],
 ): SectionBlueprint => ({ code, title, kpiName, stageWeight, category, description, applicableTo: 'all', questions })
 
+/**
+ * The standard restroom inspection — part of every template, so every branch of
+ * every brand is inspected against the same 21 checks (operator's standard,
+ * 14 Nov 2026). Only the last question names the standard the restroom is held
+ * to: "a fine-dining restaurant", "a casual-dining restaurant of Bennigan's
+ * standard". Brand frameworks place it as a weighted stage; a template started
+ * in the admin gets it unweighted (see `RESTROOM_STAGE_CODE` in actions).
+ */
+export const RESTROOM_STAGE_CODE = 'WC'
+export const RESTROOM_TITLE = 'Toilet / Restroom Cleanliness'
+export const RESTROOM_DESCRIPTION = 'A full restroom inspection. Photograph anything that falls short.'
+
+export function restroomQuestions(standard: string): QuestionBlueprint[] {
+  return [
+    { text: 'Was the restroom clean?', type: 'yes_no', weight: 3, evidence: true, tag: 'washroom', kpi: ['restroom'] },
+    { text: 'Was the toilet bowl clean?', type: 'yes_no', weight: 3, kpi: ['restroom'] },
+    { text: 'Was the toilet seat clean?', type: 'yes_no', weight: 3, kpi: ['restroom'] },
+    { text: 'Was the toilet floor clean?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
+    { text: 'Was the floor dry?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
+    { text: 'Was the washbasin clean?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
+    { text: 'Was the mirror clean?', type: 'yes_no', weight: 1, kpi: ['restroom'] },
+    { text: 'Was hand soap available?', type: 'yes_no', weight: 3, tag: 'hand_hygiene', kpi: ['restroom'] },
+    { text: 'Was the soap dispenser adequately filled?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
+    { text: 'Was hand sanitizer available, where applicable?', type: 'yes_no', weight: 1, na: true, kpi: ['restroom'] },
+    { text: 'Was the hand sanitizer adequately filled?', type: 'yes_no', weight: 1, na: true, kpi: ['restroom'] },
+    { text: 'Was toilet tissue available?', type: 'yes_no', weight: 3, kpi: ['restroom'] },
+    { text: 'Was hand tissue / paper towel available?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
+    { text: 'Was the tissue roll adequately stocked?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
+    { text: 'Was the exhaust fan clean?', type: 'yes_no', weight: 1, kpi: ['restroom'] },
+    { text: 'Was the exhaust fan operational?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
+    { text: 'Was the toilet free from bad or unpleasant smells?', type: 'yes_no', weight: 3, tag: 'hygiene', kpi: ['restroom'] },
+    { text: 'Were restroom lights operational?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
+    { text: 'Was the waste bin clean?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
+    { text: 'Was the waste bin not overflowing?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
+    { text: `Was the restroom overall suitable for ${standard}?`, type: 'rating_5', weight: 3, kpi: ['restroom'] },
+  ]
+}
+
+/** The restroom inspection as a weighted stage of a brand framework. */
+export const restroomStage = (stageWeight: number, standard: string, description = RESTROOM_DESCRIPTION): SectionBlueprint =>
+  stage(RESTROOM_STAGE_CODE, RESTROOM_TITLE, 'Restroom Cleanliness', stageWeight, 'safety_entertainment', description, restroomQuestions(standard))
+
+/** The KPI every restroom question feeds; brand frameworks list it among their main KPIs. */
+export const RESTROOM_KPI = { key: 'restroom', label: 'Restroom Cleanliness Score', kind: 'weighted' } as const
+
 export const PROBLEM_SOLVING_OPTIONS = ['Resolved immediately with empathy', 'Resolved after escalation', 'Partially resolved', 'Not resolved / ignored']
 
 /** Excellent → Poor, best first: the scorer reads a choice list as a descending scale. */

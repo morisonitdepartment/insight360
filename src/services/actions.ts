@@ -32,6 +32,7 @@ import type { DatasetPatch } from '@/repositories/types'
 import { CATEGORY_KEYS, computeVisitScores, roundScoreMap } from '@/utils/scoring'
 import { T } from '@/config/terms'
 import { userIdForShopper } from './workflow'
+import { RESTROOM_DESCRIPTION, RESTROOM_STAGE_CODE, RESTROOM_TITLE, restroomQuestions } from '@/data/templateKit'
 
 /**
  * Pure action reducers. Each returns a DatasetPatch (only the collections that changed) so the
@@ -756,10 +757,48 @@ export function cloneTemplate(data: Dataset, ctx: ActionContext, templateId: str
   return { templates: [...data.templates, template], sections: [...data.sections, ...sections], questions: [...data.questions, ...questions], activityLogs: withLog(data, ctx, 'Template cloned', 'Templates', template.code, `from ${t.code}`) }
 }
 
+/**
+ * A new template starts with the standard restroom inspection, so no branch is
+ * ever assessed without it. It is added unweighted (no stage weight): the
+ * template scores by question weight until its author sets stage weights, and
+ * the stage can be edited or removed like any other.
+ */
 export function createTemplate(data: Dataset, ctx: ActionContext, input: Pick<AuditTemplate, 'name' | 'code' | 'description' | 'segment' | 'journey' | 'isFollowUp'>): DatasetPatch {
   const id = uid('tpl')
-  const template: AuditTemplate = { ...input, id, version: '1.0', status: 'Draft', sectionIds: [], questionCount: 0, createdAt: iso(ctx.now), updatedAt: iso(ctx.now) }
-  return { templates: [...data.templates, template], activityLogs: withLog(data, ctx, 'Template created', 'Templates', template.code) }
+  const sid = `${id}-${RESTROOM_STAGE_CODE}`
+  const section: Section = {
+    id: sid,
+    templateId: id,
+    code: RESTROOM_STAGE_CODE,
+    title: RESTROOM_TITLE,
+    category: 'safety_entertainment',
+    description: RESTROOM_DESCRIPTION,
+    order: 1,
+    applicableTo: 'all',
+  }
+  const questions: Question[] = restroomQuestions('the standard of this outlet').map((q, i) => ({
+    id: `${sid}-${String(i + 1).padStart(2, '0')}`,
+    sectionId: sid,
+    code: `${RESTROOM_STAGE_CODE}.${i + 1}`,
+    text: q.text,
+    type: q.type,
+    weight: q.weight ?? 1,
+    critical: false,
+    evidenceRequired: q.evidence ?? false,
+    commentRequired: false,
+    commentOnFail: true,
+    allowNA: q.na ?? false,
+    guidance: '',
+    order: i + 1,
+  }))
+  const template: AuditTemplate = { ...input, id, version: '1.0', status: 'Draft', sectionIds: [sid], questionCount: questions.length, createdAt: iso(ctx.now), updatedAt: iso(ctx.now) }
+  // Key order is the write order: the template before its stage, the stage before its questions.
+  return {
+    templates: [...data.templates, template],
+    sections: [...data.sections, section],
+    questions: [...data.questions, ...questions],
+    activityLogs: withLog(data, ctx, 'Template created', 'Templates', template.code, 'with the standard restroom inspection'),
+  }
 }
 
 export function updateTemplate(data: Dataset, ctx: ActionContext, id: string, patch: Partial<AuditTemplate>): DatasetPatch {

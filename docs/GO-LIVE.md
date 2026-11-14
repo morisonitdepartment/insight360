@@ -13,10 +13,10 @@ Verified on **11 November 2026**, after loading:
 
 | | |
 |---|---|
-| Migrations | `0001`–`0013` **all applied** (0012 on 13 November, 0013 on 14 November 2026) |
+| Migrations | `0001`–`0014` **all applied** (0012 on 13 November, 0013–0014 on 14 November 2026) |
 | Brands / outlets / questionnaires | 3 / 3 / 3 |
-| Stages | 52 — each template sums to exactly **100.00** scored weight, with the conditional Complaint Handling stage outside it |
-| Questions | **582** — matching each template's declared count exactly |
+| Stages | 53 — each template sums to exactly **100.00** scored weight, with the conditional Complaint Handling stage outside it |
+| Questions | **603** — matching each template's declared count exactly |
 | Shoppers | **0 — the remaining step** |
 | Visits / answers / evidence | 0 |
 
@@ -54,10 +54,10 @@ file is the two migrations and the seed in the only order that works:
 |---|---|
 | 1 | Migration `0010` — the service-sequence columns |
 | 2 | Migration `0011` — the brand-framework columns |
-| 3 | 3 brands, 3 outlets, 3 questionnaires, 52 stages, **582 questions** |
+| 3 | 3 brands, 3 outlets, 3 questionnaires, 53 stages, **603 questions** |
 
 It ends with a check that prints `OK` or `FAIL` per row. **Every row must read
-`OK`,** and questions must read 582.
+`OK`,** and questions must read 603.
 
 Three files pasted by hand is three chances to paste them in the wrong order, and
 a half-applied schema announces itself as `column does not exist` from somewhere
@@ -109,6 +109,12 @@ stage at 5% (21 questions), the brief's other stages scaled by 0.95 so their
 relative weights hold, and the repeated ORD.1 "What did you order?" removed (PRF.8
 "Items ordered" is the record of the order). A fresh load from `GO_LIVE.sql`
 already includes all of it.
+
+`0014_restroom_standard.sql` (applied 14 November 2026) makes the restroom
+inspection standard: Pizza Hut gets the same stage at 5% (its brief's areas scaled
+by 0.95), and Shebestan's five differently worded restroom questions take the
+standard wording. Every new template created in Audit Templates starts with the
+same 21 questions, unweighted.
 
 ## Step 3 — Create the three shopper accounts
 

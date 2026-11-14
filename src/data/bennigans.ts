@@ -1,5 +1,5 @@
 import type { ServiceSequence } from '@/types'
-import { PROBLEM_SOLVING_OPTIONS, QUALITY_SCALE, type SectionBlueprint, type TemplateBlueprint, stage } from './templateKit'
+import { PROBLEM_SOLVING_OPTIONS, QUALITY_SCALE, type SectionBlueprint, type TemplateBlueprint, stage, RESTROOM_KPI, restroomStage } from './templateKit'
 
 /**
  * BENNIGANS_CASUAL_DINING — Bennigan's, Qatar Tennis Federation.
@@ -507,39 +507,9 @@ const COMPLAINT: SectionBlueprint = stage(
 // ── 15 · Toilet / Restroom Cleanliness — 5% ────────────────────────────────
 // Not in the client's brief: added at the operator's request (14 Nov 2026). It
 // takes 5%, and every other stage was scaled by 0.95 so the brief's relative
-// weights hold exactly. Same questions as Shebestan's restroom inspection.
+// weights hold exactly. The standard inspection shared by every template.
 
-const RESTROOM: SectionBlueprint = stage(
-  'WC',
-  'Toilet / Restroom Cleanliness',
-  'Restroom Cleanliness',
-  5,
-  'safety_entertainment',
-  'A full restroom inspection. Photograph anything that falls short.',
-  [
-    { text: 'Was the restroom clean?', type: 'yes_no', weight: 3, evidence: true, tag: 'washroom', kpi: ['restroom'] },
-    { text: 'Was the toilet bowl clean?', type: 'yes_no', weight: 3, kpi: ['restroom'] },
-    { text: 'Was the toilet seat clean?', type: 'yes_no', weight: 3, kpi: ['restroom'] },
-    { text: 'Was the toilet floor clean?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
-    { text: 'Was the floor dry?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
-    { text: 'Was the washbasin clean?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
-    { text: 'Was the mirror clean?', type: 'yes_no', weight: 1, kpi: ['restroom'] },
-    { text: 'Was hand soap available?', type: 'yes_no', weight: 3, kpi: ['restroom'] },
-    { text: 'Was the soap dispenser adequately filled?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
-    { text: 'Was hand sanitizer available, where applicable?', type: 'yes_no', weight: 1, na: true, kpi: ['restroom'] },
-    { text: 'Was the hand sanitizer adequately filled?', type: 'yes_no', weight: 1, na: true, kpi: ['restroom'] },
-    { text: 'Was toilet tissue available?', type: 'yes_no', weight: 3, kpi: ['restroom'] },
-    { text: 'Was hand tissue / paper towel available?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
-    { text: 'Was the tissue roll adequately stocked?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
-    { text: 'Was the exhaust fan clean?', type: 'yes_no', weight: 1, kpi: ['restroom'] },
-    { text: 'Was the exhaust fan operational?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
-    { text: 'Was the toilet free from bad or unpleasant smells?', type: 'yes_no', weight: 3, kpi: ['restroom'] },
-    { text: 'Were restroom lights operational?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
-    { text: 'Was the waste bin clean?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
-    { text: 'Was the waste bin not overflowing?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
-    { text: 'Was the restroom overall suitable for a casual-dining restaurant of Bennigan’s standard?', type: 'rating_5', weight: 3, kpi: ['restroom'] },
-  ],
-)
+const RESTROOM: SectionBlueprint = restroomStage(5, 'a casual-dining restaurant of Bennigan’s standard')
 
 // ── 16 · Billing, Payment & Farewell — 7% → 6.65 ────────────────────────────
 // The brief's sections 18 and 19. Cash questions are gated on cash payment.
@@ -656,7 +626,7 @@ const BENNIGANS_SEQUENCE: ServiceSequence = {
     { key: 'plate_clearing_time', label: 'Table Clearing Time', kind: 'timing' },
     { key: 'attentiveness', label: 'Waiter Attentiveness Score', kind: 'weighted' },
     { key: 'cleanliness', label: 'Cleanliness Score', kind: 'weighted' },
-    { key: 'restroom', label: 'Restroom Cleanliness Score', kind: 'weighted' },
+    RESTROOM_KPI,
     { key: 'manager_interaction', label: 'Supervisor / Manager Feedback Interaction Rate', kind: 'derived' },
     { key: 'complaint_resolution', label: 'Complaint Resolution Score', kind: 'weighted' },
     { key: 'complaint_resolution_time', label: 'Complaint Resolution Time', kind: 'timing' },

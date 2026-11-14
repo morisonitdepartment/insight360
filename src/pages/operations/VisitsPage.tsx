@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { AlertTriangle, CalendarClock, CheckCircle2, ClipboardList, Download, Eye, FileText, MoreHorizontal, PlayCircle, Plus, RotateCcw, ThumbsUp, Timer, Trash2, UserPlus, Users, XCircle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { visitReportDate } from '@/contexts/FilterContext'
 import { useData } from '@/contexts/DataContext'
 import { useDocumentTitle, useNow } from '@/hooks'
 import type { JourneyType, Shopper, Visit, VisitType } from '@/types'
@@ -235,8 +236,9 @@ export default function VisitsPage() {
       risk: (v) => v.risk,
       band: (v) => scoreBand(v.score),
     })
-    if (from) list = list.filter((v) => v.scheduledDate >= from)
-    if (to) list = list.filter((v) => v.scheduledDate <= to)
+    // The From/To filter matches the day a visit took place, or its booked day if not yet done.
+    if (from) list = list.filter((v) => visitReportDate(v) >= from)
+    if (to) list = list.filter((v) => visitReportDate(v) <= to)
     list = matchesSearch(list, search, (v) => [v.code, outletById.get(v.outletId)?.name, outletById.get(v.outletId)?.code, shopperById.get(v.shopperId ?? '')?.name])
     return [...list].sort((a, b) => b.scheduledDate.localeCompare(a.scheduledDate))
   }, [scopedVisits, myQueue, queueMine, filters, from, to, search, outletById, shopperById])

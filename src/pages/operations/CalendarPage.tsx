@@ -15,6 +15,7 @@ import { BrandMark } from '@/components/ui/BrandMark'
 import { SegmentedControl } from '@/components/ui/Form'
 import { ProgressBar } from '@/components/ui/Misc'
 import { fmtDate } from '@/utils/format'
+import { visitReportDate } from '@/contexts/FilterContext'
 import { cn } from '@/utils/cn'
 import { T } from '@/config/terms'
 
@@ -58,7 +59,7 @@ export default function CalendarPage() {
         type: (v) => v.type,
         status: (v) => v.status,
         segment: (v) => outletById.get(v.outletId)?.segment,
-        month: (v) => v.scheduledDate.slice(0, 7),
+        month: (v) => visitReportDate(v).slice(0, 7),
       }),
     [scopedVisits, filters, outletById],
   )
@@ -81,14 +82,18 @@ export default function CalendarPage() {
 
   const byDay = useMemo(() => {
     const map = new Map<string, Visit[]>()
-    for (const v of visits) map.set(v.scheduledDate, [...(map.get(v.scheduledDate) ?? []), v])
+    // A visit sits on the day it took place; one not yet carried out, on its booked day.
+    for (const v of visits) {
+      const day = visitReportDate(v)
+      map.set(day, [...(map.get(day) ?? []), v])
+    }
     return map
   }, [visits])
 
   // ── Month grid ──
   const days = useMemo(() => eachDayOfInterval({ start: startOfWeek(startOfMonth(month), { weekStartsOn: 1 }), end: endOfWeek(endOfMonth(month), { weekStartsOn: 1 }) }), [month])
   const monthKey = format(month, 'yyyy-MM')
-  const monthVisits = visits.filter((v) => v.scheduledDate.startsWith(monthKey))
+  const monthVisits = visits.filter((v) => visitReportDate(v).startsWith(monthKey))
 
   // ── Year cards ──
   const yearMonths = useMemo(() => {
@@ -96,13 +101,23 @@ export default function CalendarPage() {
     return Array.from({ length: 12 }, (_, i) => {
       const m = addMonths(start, i)
       const key = format(m, 'yyyy-MM')
-      const mv = visits.filter((v) => v.scheduledDate.startsWith(key))
+      const mv = visits.filter((v) => visitReportDate(v).startsWith(key))
       return { date: m, key, label: format(m, 'MMM yyyy'), planned: mv.length, completed: mv.filter(isCompleted).length, overdue: mv.filter((v) => isOverdue(v, today)).length, main: mv.filter(isMainAudit).length, follow: mv.filter(isFollowUp).length }
     })
   }, [visits, data.organization.engagementStart, today])
 
   const listColumns: Column<Visit>[] = [
-    { key: 'scheduledDate', header: 'Scheduled', sortValue: (v) => v.scheduledDate, render: (v) => <span className="whitespace-nowrap tabular-nums">{fmtDate(v.scheduledDate)}</span> },
+    {
+      key: 'scheduledDate',
+      header: 'Date',
+      sortValue: (v) => visitReportDate(v),
+      render: (v) => (
+        <span className="whitespace-nowrap tabular-nums">
+          {fmtDate(visitReportDate(v))}
+          {v.visitDate && v.visitDate !== v.scheduledDate && <span className="block text-[11px] text-slate-500">booked {fmtDate(v.scheduledDate)}</span>}
+        </span>
+      ),
+    },
     { key: 'code', header: 'Visit', render: (v) => <span className="font-mono text-xs font-semibold">{v.code}</span> },
     {
       key: 'outlet',

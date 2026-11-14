@@ -134,10 +134,10 @@ export default function OverviewPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
-        {/* Upcoming, ongoing, pending approval and overdue visits */}
-        <VisitPipeline />
+      {/* Upcoming, ongoing, pending approval and overdue visits — full width so the tabs and columns fit */}
+      <VisitPipeline />
 
+      <div className="grid gap-4 lg:grid-cols-2">
         {/* Recently completed */}
         <Card>
           <CardHeader title="Recently approved" subtitle="Latest completed assessments" actions={can('reports.visit') ? <Link to="/reports/visits" className="text-xs link">Reports</Link> : undefined} />

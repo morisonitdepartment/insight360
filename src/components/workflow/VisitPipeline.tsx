@@ -61,7 +61,7 @@ export function VisitPipeline() {
   }
 
   return (
-    <Card className="xl:col-span-2">
+    <Card>
       <CardHeader
         title="Visit pipeline"
         subtitle="Upcoming, ongoing and pending visits in your scope"

@@ -101,6 +101,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setError(null)
     try {
       const ds = await repo.loadDataset()
+      // Set at once, not on the next render: an action dispatched right after
+      // reload() (a new account's details) must see the reloaded data.
+      dataRef.current = ds
       setData(ds)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load data')

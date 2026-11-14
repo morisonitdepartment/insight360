@@ -711,12 +711,13 @@ export interface NewUserInput {
   email: string
   role: Role
   title: string
+  nationality?: string
   outletIds: string[]
 }
 
 export function createUser(data: Dataset, ctx: ActionContext, input: NewUserInput): DatasetPatch {
   const id = uid('usr')
-  const user: User = { id, name: input.name, email: input.email, role: input.role, status: 'invited', title: input.title, outletIds: input.outletIds, brandIds: [], lastLogin: null, mfaEnabled: false, createdAt: iso(ctx.now) }
+  const user: User = { id, name: input.name, email: input.email, role: input.role, status: 'invited', title: input.title, nationality: input.nationality ?? '', outletIds: input.outletIds, brandIds: [], lastLogin: null, mfaEnabled: false, createdAt: iso(ctx.now) }
   return { users: [...data.users, user], activityLogs: withLog(data, ctx, 'User created', 'Users', id, `${input.name} · ${input.role}`) }
 }
 
@@ -724,7 +725,8 @@ export function createUser(data: Dataset, ctx: ActionContext, input: NewUserInpu
  * A mystery shopper is two records: the sign-in account (`users`) and the
  * shopper profile (`shoppers`) that visits, assignments and reports name.
  * Renaming one used to leave the other on the old name, so the new name showed
- * in the top bar and nowhere else. A name or email change now goes to both.
+ * in the top bar and nowhere else. A name, email or nationality change now goes
+ * to both.
  */
 export function updateUser(data: Dataset, ctx: ActionContext, id: string, patch: Partial<User>): DatasetPatch {
   const u = data.users.find((x) => x.id === id)
@@ -738,6 +740,7 @@ export function updateUser(data: Dataset, ctx: ActionContext, id: string, patch:
     const sync: Partial<Shopper> = {}
     if (patch.name !== undefined && patch.name !== shopper.name) sync.name = patch.name
     if (patch.email !== undefined && patch.email !== shopper.email) sync.email = patch.email
+    if (patch.nationality !== undefined && patch.nationality !== shopper.nationality) sync.nationality = patch.nationality
     if (Object.keys(sync).length) out.shoppers = replace(data.shoppers, { ...shopper, ...sync })
   }
   return out
@@ -797,8 +800,14 @@ export function updateShopper(data: Dataset, ctx: ActionContext, id: string, pat
   const out: DatasetPatch = { shoppers: replace(data.shoppers, { ...s, ...patch }), activityLogs: withLog(data, ctx, 'Shopper updated', 'Shoppers', s.code) }
   // The other half of the pair (see updateUser): keep the sign-in account's name in step.
   const account = data.users.find((u) => u.shopperId === id)
-  if (account && ((patch.name !== undefined && patch.name !== account.name) || (patch.email !== undefined && patch.email !== account.email))) {
-    out.users = replace(data.users, { ...account, ...(patch.name !== undefined ? { name: patch.name } : {}), ...(patch.email !== undefined ? { email: patch.email } : {}) })
+  const differs = (k: 'name' | 'email' | 'nationality') => patch[k] !== undefined && patch[k] !== (account?.[k] ?? '')
+  if (account && (differs('name') || differs('email') || differs('nationality'))) {
+    out.users = replace(data.users, {
+      ...account,
+      ...(patch.name !== undefined ? { name: patch.name } : {}),
+      ...(patch.email !== undefined ? { email: patch.email } : {}),
+      ...(patch.nationality !== undefined ? { nationality: patch.nationality } : {}),
+    })
   }
   return out
 }

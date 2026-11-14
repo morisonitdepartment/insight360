@@ -43,8 +43,12 @@ interface UserForm {
   email: string
   role: Role
   title: string
+  nationality: string
   outletIds: string[]
 }
+
+/** Offered as suggestions; any other nationality can be typed. */
+const NATIONALITIES = ['Qatari', 'Saudi', 'Emirati', 'Kuwaiti', 'Bahraini', 'Omani', 'Egyptian', 'Jordanian', 'Lebanese', 'Syrian', 'Palestinian', 'Sudanese', 'Tunisian', 'Moroccan', 'Algerian', 'Indian', 'Pakistani', 'Bangladeshi', 'Sri Lankan', 'Nepali', 'Filipino', 'Indonesian', 'Kenyan', 'Ugandan', 'Nigerian', 'Ethiopian', 'British', 'American', 'Canadian', 'Australian', 'French', 'German', 'Italian', 'Spanish', 'Turkish', 'Iranian', 'Chinese', 'South African']
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -118,14 +122,19 @@ export default function UsersPage() {
   // ── Filters ──
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<Record<string, string>>({})
+  // A shopper's nationality may so far be held only on their shopper profile.
+  const nationalityOf = useCallback(
+    (u: User) => u.nationality?.trim() || (u.shopperId ? data.shoppers.find((sh) => sh.id === u.shopperId)?.nationality?.trim() : '') || '',
+    [data.shoppers],
+  )
   const filterDefs: FilterDef[] = [
     { key: 'role', label: 'Role', options: ALL_ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] })) },
     { key: 'status', label: 'Status', options: STATUSES.map((s) => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) })) },
   ]
   const rows = useMemo(() => {
     const list = applyFilters(data.users, filters, { role: (u) => u.role, status: (u) => u.status })
-    return [...matchesSearch(list, search, (u) => [u.name, u.email, u.title, ROLE_LABELS[u.role]])].sort((a, b) => a.name.localeCompare(b.name))
-  }, [data.users, filters, search])
+    return [...matchesSearch(list, search, (u) => [u.name, u.email, u.title, nationalityOf(u), ROLE_LABELS[u.role]])].sort((a, b) => a.name.localeCompare(b.name))
+  }, [data.users, filters, search, nationalityOf])
 
   const kpi = useMemo(() => {
     const total = data.users.length
@@ -158,7 +167,7 @@ export default function UsersPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [confirm, setConfirm] = useState<'deactivate' | 'reactivate' | 'reset' | null>(null)
-  const [form, setForm] = useState<UserForm>({ name: '', email: '', role: manageableRoles[0] ?? 'analyst', title: '', outletIds: [] })
+  const [form, setForm] = useState<UserForm>({ name: '', email: '', role: manageableRoles[0] ?? 'analyst', title: '', nationality: '', outletIds: [] })
   const [errors, setErrors] = useState<Partial<Record<keyof UserForm, string>>>({})
   // Shown once after a Live Mode account is created. The password is never
   // stored or re-readable, so closing this dialog is the last chance to copy it.
@@ -189,13 +198,13 @@ export default function UsersPage() {
   }
 
   const openCreate = () => {
-    setForm({ name: '', email: '', role: manageableRoles[0] ?? 'analyst', title: '', outletIds: [] })
+    setForm({ name: '', email: '', role: manageableRoles[0] ?? 'analyst', title: '', nationality: '', outletIds: [] })
     setErrors({})
     setCreateOpen(true)
   }
   const openEdit = () => {
     if (!selected) return
-    setForm({ name: selected.name, email: selected.email, role: selected.role, title: selected.title, outletIds: selected.outletIds })
+    setForm({ name: selected.name, email: selected.email, role: selected.role, title: selected.title, nationality: nationalityOf(selected), outletIds: selected.outletIds })
     setErrors({})
     setEditOpen(true)
   }
@@ -203,7 +212,7 @@ export default function UsersPage() {
   const submitCreate = async (ev: FormEvent) => {
     ev.preventDefault()
     if (!canCreate || !validate(true)) return
-    const input: NewUserInput = { name: form.name.trim(), email: form.email.trim().toLowerCase(), role: form.role, title: form.title.trim(), outletIds: form.role === 'ops_manager' ? form.outletIds : [] }
+    const input: NewUserInput = { name: form.name.trim(), email: form.email.trim().toLowerCase(), role: form.role, title: form.title.trim(), nationality: form.nationality.trim(), outletIds: form.role === 'ops_manager' ? form.outletIds : [] }
 
     if (!isLiveMode()) {
       await run(`Invitation sent to ${input.email}`, (d, ctx) => createUser(d, ctx, input), () => setCreateOpen(false))
@@ -218,6 +227,13 @@ export default function UsersPage() {
       const codes = data.outlets.filter((o) => input.outletIds.includes(o.id)).map((o) => o.code)
       const result = await provisionUser({ ...input, outletCodes: codes })
       await reload()
+      // The account is created on the server without it; add it straight after.
+      if (input.nationality) {
+        await dispatch((d, ctx) => {
+          const created = d.users.find((u) => u.email.toLowerCase() === input.email)
+          return created ? updateUser(d, ctx, created.id, { nationality: input.nationality }) : {}
+        })
+      }
       setCreateOpen(false)
       setCredentials({ name: input.name, email: input.email, password: result.temporaryPassword, warning: result.warning })
       toast.success(result.reusedExisting ? `${input.name} linked to their existing login` : `${input.name} can now sign in`)
@@ -235,7 +251,7 @@ export default function UsersPage() {
       toast.error('You cannot change your own role.')
       return
     }
-    const patch: Partial<User> = { name: form.name.trim(), email: form.email.trim().toLowerCase(), title: form.title.trim() }
+    const patch: Partial<User> = { name: form.name.trim(), email: form.email.trim().toLowerCase(), title: form.title.trim(), nationality: form.nationality.trim() }
     if (form.role !== selected.role) patch.role = form.role
     await run(`${patch.name} updated`, (d, ctx) => updateUser(d, ctx, selected.id, patch), () => setEditOpen(false))
   }
@@ -283,6 +299,7 @@ export default function UsersPage() {
       Name: u.name,
       Email: u.email,
       Title: u.title,
+      Nationality: nationalityOf(u),
       Role: ROLE_LABELS[u.role],
       Status: u.status,
       [`Authorised ${T.Outlets}`]: u.outletIds.length ? u.outletIds.map((id) => outletById.get(id)?.code ?? id).join('; ') : 'All',
@@ -324,6 +341,7 @@ export default function UsersPage() {
     },
     { key: 'email', header: 'Email', render: (u) => <span className="text-xs text-slate-600 dark:text-slate-300">{u.email}</span> },
     { key: 'role', header: 'Role', render: (u) => <Badge tone={ROLE_TONE[u.role]}>{ROLE_LABELS[u.role]}</Badge>, sortValue: (u) => ROLE_LABELS[u.role] },
+    { key: 'nationality', header: 'Nationality', render: (u) => <span className="text-xs text-slate-600 dark:text-slate-300">{nationalityOf(u) || '—'}</span>, sortValue: (u) => nationalityOf(u) },
     { key: 'outlets', header: `Authorised ${T.outlets}`, render: outletSummary, sortValue: (u) => u.outletIds.length },
     { key: 'lastLogin', header: 'Last login', render: (u) => <span className="text-xs tabular-nums whitespace-nowrap">{u.lastLogin ? fmtDateTime(u.lastLogin) : 'Never'}</span> },
     { key: 'mfa', header: 'MFA', render: (u) => (u.mfaEnabled ? <Badge tone="green" icon={ShieldCheck}>Enabled</Badge> : <Badge tone="slate" icon={ShieldOff}>Not enrolled</Badge>), sortValue: (u) => (u.mfaEnabled ? 1 : 0) },
@@ -417,6 +435,7 @@ export default function UsersPage() {
               columns={2}
               items={[
                 { label: 'Email', value: selected.email },
+                { label: 'Nationality', value: nationalityOf(selected) || '—' },
                 { label: 'Created', value: fmtDate(selected.createdAt) },
                 { label: 'Last login', value: selected.lastLogin ? `${fmtDateTime(selected.lastLogin)} (${relativeTime(selected.lastLogin, now)})` : 'Never' },
                 { label: 'Linked shopper', value: selected.shopperId ? data.shoppers.find((s) => s.id === selected.shopperId)?.name ?? selected.shopperId : '—' },
@@ -567,6 +586,14 @@ export default function UsersPage() {
             </Field>
             <Field label="Job title" htmlFor="user-title">
               <Input id="user-title" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="e.g. Regional Operations Manager" />
+            </Field>
+            <Field label="Nationality" htmlFor="user-nationality" hint={form.role === 'shopper' ? 'Also shown on the mystery shopper profile.' : undefined}>
+              <Input id="user-nationality" list="nationality-options" value={form.nationality} onChange={(e) => setForm((f) => ({ ...f, nationality: e.target.value }))} placeholder="e.g. Qatari" autoComplete="off" />
+              <datalist id="nationality-options">
+                {NATIONALITIES.map((n) => (
+                  <option key={n} value={n} />
+                ))}
+              </datalist>
             </Field>
           </div>
           {createOpen && form.role === 'ops_manager' && (

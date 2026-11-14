@@ -20,6 +20,8 @@ export interface User {
   role: Role
   status: UserStatus
   title: string
+  /** e.g. "Qatari", "Indian". For a shopper, kept in step with the shopper profile's nationality. */
+  nationality?: string
   /** Authorised outlet ids. Empty array = all outlets (subject to role). */
   outletIds: string[]
   brandIds: string[]

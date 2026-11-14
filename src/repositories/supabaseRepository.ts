@@ -1,3 +1,4 @@
+import { format, isValid, parseISO } from 'date-fns'
 import type { Dataset, Evidence, User } from '@/types'
 import { DEFAULT_THRESHOLDS } from '@/utils/scoring'
 import { DEFAULT_ORGANIZATION } from '@/data/defaults'
@@ -45,14 +46,33 @@ const UNIQUE_VIOLATION = '23505'
 const toSnake = (s: string) => s.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`)
 const toCamel = (s: string) => s.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
 
+/**
+ * Timestamps. The app keeps every time as local wall-clock text with no zone —
+ * `2026-11-14T15:51:31` — which is what the demo and every screen expect. A
+ * `timestamptz` column reads zone-less text as UTC, so in Doha every time the
+ * app wrote was stored three hours late and shown three hours late after a
+ * reload. Times are therefore turned into real instants on the way to the
+ * database and back into local wall-clock text on the way out. Dates
+ * (`2026-11-14`) and anything nested in jsonb are left alone; the nested ones
+ * round-trip as local text untouched, which is already consistent.
+ */
+const LOCAL_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?$/
+const ZONED_TIME = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}(:?\d{2})?)$/
+const toInstant = (v: unknown) => (typeof v === 'string' && LOCAL_TIME.test(v) ? new Date(v).toISOString() : v)
+const toLocalTime = (v: unknown) => {
+  if (typeof v !== 'string' || !ZONED_TIME.test(v)) return v
+  const d = parseISO(v.replace(' ', 'T'))
+  return isValid(d) ? format(d, "yyyy-MM-dd'T'HH:mm:ss") : v
+}
+
 function rowToModel<T>(row: Record<string, unknown>): T {
   const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(row)) out[toCamel(k)] = v
+  for (const [k, v] of Object.entries(row)) out[toCamel(k)] = toLocalTime(v)
   return out as T
 }
 function modelToRow(model: object): Record<string, unknown> {
   const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(model)) out[toSnake(k)] = v
+  for (const [k, v] of Object.entries(model)) out[toSnake(k)] = toInstant(v)
   return out
 }
 
@@ -328,7 +348,7 @@ export class SupabaseRepository implements Repository {
     const path = `${meta.visitId}/${id}-${file.name.replace(/[^\w.-]/g, '_')}`
     const { error } = await sb.storage.from('evidence').upload(path, file, { upsert: false, contentType: file.type })
     if (error) throw new Error(`Upload failed: ${error.message}`)
-    const now = new Date().toISOString()
+    const now = format(new Date(), "yyyy-MM-dd'T'HH:mm:ss") // local wall-clock, like every other time in the app
     const evidence: Evidence = {
       id,
       visitId: meta.visitId,

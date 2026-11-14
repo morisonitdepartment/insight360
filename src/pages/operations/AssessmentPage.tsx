@@ -116,7 +116,7 @@ export default function AssessmentPage() {
     setSaving(true)
     try {
       if (visit.status === 'Assigned' || visit.status === 'Planned') await dispatch((d, ctx) => startVisit(d, ctx, visit.id))
-      await dispatch((d, ctx) => saveDraft(d, ctx, visit.id, Object.values(answers)))
+      await dispatch((d, ctx) => saveDraft(d, ctx, visit.id, Object.values(answers), { log: !silent }))
       setDirty(false)
       setSavedAt(new Date())
       if (!silent) toast.success('Draft saved')

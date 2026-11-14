@@ -117,7 +117,12 @@ export function startVisit(data: Dataset, ctx: ActionContext, visitId: string): 
   return { visits: replace(data.visits, updated), activityLogs: withLog(data, ctx, 'Visit started', 'Visits', v.code) }
 }
 
-export function saveDraft(data: Dataset, ctx: ActionContext, visitId: string, answers: VisitAnswer[]): DatasetPatch {
+/**
+ * `log: false` for autosave: it fires a few seconds after every edit, and logging
+ * each one buried the activity log under thousands of "Draft saved" lines from a
+ * single visit. Only a deliberate Save Draft is worth a line.
+ */
+export function saveDraft(data: Dataset, ctx: ActionContext, visitId: string, answers: VisitAnswer[], opts: { log?: boolean } = {}): DatasetPatch {
   const v = data.visits.find((x) => x.id === visitId)
   if (!v) return {}
   const others = data.answers.filter((a) => a.visitId !== visitId)
@@ -131,7 +136,9 @@ export function saveDraft(data: Dataset, ctx: ActionContext, visitId: string, an
     reportStatus: 'Draft',
   }
   if (updated.status === 'In Progress' && res.progress >= 80) updated.status = 'Draft'
-  return { visits: replace(data.visits, updated), answers: [...others, ...answers], activityLogs: withLog(data, ctx, 'Draft saved', 'Visits', v.code, `${res.progress}% complete`) }
+  const patch: DatasetPatch = { visits: replace(data.visits, updated), answers: [...others, ...answers] }
+  if (opts.log !== false) patch.activityLogs = withLog(data, ctx, 'Draft saved', 'Visits', v.code, `${res.progress}% complete`)
+  return patch
 }
 
 export function submitVisit(
@@ -153,6 +160,10 @@ export function submitVisit(
   const updated: Visit = {
     ...v,
     status: 'Submitted',
+    // A visit can reach Submit without its start ever being saved (a start that
+    // failed, then a reload); the report still needs a date and a start time.
+    visitDate: v.visitDate ?? format(ctx.now, 'yyyy-MM-dd'),
+    visitStart: v.visitStart ?? visitEnd,
     visitEnd,
     submissionDeadline: deadline,
     submittedAt: iso(ctx.now),

@@ -1,3 +1,4 @@
+import { useOrganizationLogo } from '@/hooks/useOrganizationLogo'
 import { NavLink } from 'react-router-dom'
 import { ChevronsLeft, ChevronsRight, PlayCircle, X } from 'lucide-react'
 import { NAVIGATION } from '@/config/navigation'
@@ -11,9 +12,10 @@ import { cn } from '@/utils/cn'
 
 export function BrandMark({ className, size = 'md' }: { className?: string; size?: 'sm' | 'md' | 'lg' }) {
   const s = size === 'sm' ? 'h-7 w-7' : size === 'lg' ? 'h-12 w-12' : 'h-9 w-9'
+  const uploaded = useOrganizationLogo()
   return (
     <span className={cn('inline-flex shrink-0 items-center justify-center rounded-lg bg-white ring-1 ring-black/5', s, className)} aria-hidden>
-      <img src={CLIENT_BRAND.mark} alt="" className="h-[74%] w-[74%] object-contain" />
+      <img src={uploaded ?? CLIENT_BRAND.mark} alt="" className="h-[74%] w-[74%] object-contain" />
     </span>
   )
 }

@@ -34,10 +34,12 @@ export function BrandMark({
   className?: string
 }) {
   const { data } = useData()
-  const file = data.brands.find((b) => b.name === brandName)?.logoFile
+  const brand = data.brands.find((b) => b.name === brandName)
+  // An uploaded logo (Settings) wins over a built-in file; neither gives initials.
+  const src = brand?.logo || (brand?.logoFile ? `${import.meta.env.BASE_URL}${brand.logoFile}` : null)
   const base = cn('inline-flex shrink-0 items-center justify-center overflow-hidden', SIZES[size], className)
 
-  if (!file) {
+  if (!src) {
     return (
       <span
         className={cn(base, 'bg-slate-100 font-semibold tracking-wide text-slate-500 ring-1 ring-black/5 dark:bg-slate-700 dark:text-slate-300 dark:ring-white/10')}
@@ -49,12 +51,12 @@ export function BrandMark({
   }
   return (
     <img
-      src={`${import.meta.env.BASE_URL}${file}`}
+      src={src}
       alt=""
       aria-hidden="true"
       loading="lazy"
       decoding="async"
-      className={cn(base, 'object-contain ring-1 ring-black/5 dark:ring-white/10')}
+      className={cn(base, 'bg-white object-contain ring-1 ring-black/5 dark:ring-white/10')}
     />
   )
 }

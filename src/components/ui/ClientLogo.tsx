@@ -1,4 +1,5 @@
 import { CLIENT_BRAND } from '@/config/client'
+import { useOrganizationLogo } from '@/hooks/useOrganizationLogo'
 import { cn } from '@/utils/cn'
 
 /**
@@ -8,9 +9,10 @@ import { cn } from '@/utils/cn'
 export function ClientLogo({ size = 'md', className }: { size?: 'xs' | 'sm' | 'md' | 'lg'; className?: string }) {
   const h = size === 'xs' ? 'h-5' : size === 'sm' ? 'h-7' : size === 'lg' ? 'h-14' : 'h-10'
   const pad = size === 'xs' ? 'px-1.5 py-1' : size === 'lg' ? 'px-4 py-3' : 'px-2.5 py-2'
+  const uploaded = useOrganizationLogo()
   return (
     <span className={cn('inline-flex items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-black/5', pad, className)}>
-      <img src={CLIENT_BRAND.logo} alt={CLIENT_BRAND.logoAlt} className={cn(h, 'w-auto object-contain')} loading="lazy" decoding="async" />
+      <img src={uploaded ?? CLIENT_BRAND.logo} alt={CLIENT_BRAND.logoAlt} className={cn(h, 'w-auto object-contain')} loading="lazy" decoding="async" />
     </span>
   )
 }

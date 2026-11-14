@@ -256,7 +256,12 @@ export class SupabaseRepository implements Repository {
   async persist(patch: DatasetPatch, previous?: Dataset): Promise<void> {
     const sb = getSupabase()
     if (patch.organization) {
-      const { error } = await sb.from('organizations').upsert(modelToRow(patch.organization))
+      // An existing organisation is UPDATEd: an upsert is also checked against
+      // the INSERT rule, which an administrator holding only admin.settings
+      // does not pass (see updateRows).
+      const row = modelToRow(patch.organization)
+      const id = (patch.organization as { id?: string }).id
+      const { error } = id ? await sb.from('organizations').update(row).eq('id', id) : await sb.from('organizations').upsert(row)
       if (error) throw new Error(`Failed to save settings: ${error.message}`)
     }
 

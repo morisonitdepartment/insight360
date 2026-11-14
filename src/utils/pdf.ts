@@ -1,3 +1,4 @@
+import { uploadedBrandLogo, uploadedOrganizationLogo } from '@/utils/logos'
 import type { jsPDF } from 'jspdf'
 import { format } from 'date-fns'
 import { CLIENT } from '@/config/client'
@@ -360,6 +361,8 @@ export class ReportDoc {
     title: string[]
     subtitle?: string
     logo?: string | null
+    /** The assessed company's own logo, set in the top-right corner. */
+    brandLogo?: string | null
     score?: { value: number | null; caption: string; band?: string; bandTone?: Rgb; narrative?: string }
     meta?: MetaPair[]
   }) {
@@ -370,6 +373,13 @@ export class ReportDoc {
     this.waves(A4.h - 76, [52, 92, 176], 0.4)
 
     let top = 18
+    if (opts.brandLogo) {
+      try {
+        this.doc.addImage(opts.brandLogo, 'PNG', A4.w - MARGIN - 20, 13, 20, 20)
+      } catch {
+        /* as below: a logo that will not decode never fails the export */
+      }
+    }
     if (opts.logo) {
       try {
         this.doc.addImage(opts.logo, 'PNG', MARGIN, top - 5, 13, 13)
@@ -1227,9 +1237,20 @@ export class ReportDoc {
  * Returns null on any failure — a missing logo should cost the reader a small
  * square of colour, never the report.
  */
+/** The organisation's mark for a report cover: the logo uploaded in Settings, else the built-in one. */
 export async function loadClientMark(): Promise<string | null> {
+  return loadMark(uploadedOrganizationLogo() ?? `${import.meta.env.BASE_URL}${CLIENT.brand.markFile}`)
+}
+
+/** A company's uploaded logo for a report cover, or null when none was uploaded. */
+export async function loadBrandMark(brandName: string): Promise<string | null> {
+  const src = uploadedBrandLogo(brandName)
+  return src ? loadMark(src) : null
+}
+
+/** Any image (URL or data URL) squared onto a white tile, as a PNG data URL jsPDF can place. */
+async function loadMark(url: string): Promise<string | null> {
   try {
-    const url = `${import.meta.env.BASE_URL}${CLIENT.brand.markFile}`
     const res = await fetch(url)
     if (!res.ok) return null
     const blob = await res.blob()

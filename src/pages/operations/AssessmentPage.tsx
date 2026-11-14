@@ -60,6 +60,7 @@ export default function AssessmentPage() {
   const [narrative, setNarrative] = useState('')
   const [occupancy, setOccupancy] = useState<string>('')
   const [uploadingFor, setUploadingFor] = useState<string | null>(null)
+  const [uploadNote, setUploadNote] = useState<string | null>(null)
   const [briefingOpen, setBriefingOpen] = useState(false)
   const initialised = useRef<string | null>(null)
 
@@ -245,22 +246,40 @@ export default function AssessmentPage() {
     }
   }
 
-  const attachEvidence = async (q: Question, file: File | null) => {
-    if (!visit || !outlet || !user) return
+  /**
+   * Attach one or more files to a question. Several photos can be picked at once
+   * from the gallery; they upload one after another and each is saved as soon as
+   * it lands, so a failure part-way loses nothing already attached. The answer is
+   * carried forward between files: reading `answers` again would start every file
+   * from the same stale copy and keep only the last one.
+   */
+  const attachEvidence = async (q: Question, files: (File | null)[]) => {
+    if (!visit || !outlet || !user || !files.length) return
     setUploadingFor(q.id)
+    const sec = sections.find((s) => s.id === q.sectionId)!
+    let current = { ...answers }
+    let attached = 0
+    const failed: string[] = []
     try {
-      const sec = sections.find((s) => s.id === q.sectionId)!
-      const ev = await uploadEvidence(file, { visitId: visit.id, outletId: outlet.id, category: sec.category, questionId: q.id, type: q.type === 'video' ? 'Video' : sec.code === 'G' ? 'Screenshot' : 'Photo', title: q.text.replace(/\?$/, '').slice(0, 60), description: `Captured during ${visit.type} for question ${q.code}`, uploadedBy: user.name })
-      const cur = answers[q.id] ?? { id: `${visit.id}-${q.id}`, visitId: visit.id, questionId: q.id, value: null, na: false, comment: '', evidenceIds: [], score: null }
-      const nextAnswer: VisitAnswer = { ...cur, evidenceIds: [...cur.evidenceIds, ev.id] }
-      const nextAnswers = { ...answers, [q.id]: nextAnswer }
-      setAnswers(nextAnswers)
-      await dispatch((d, ctx) => addEvidence(d, ctx, ev, { visitId: visit.id, questionId: q.id, answers: Object.values(nextAnswers) }))
-      toast.success(`${ev.type} attached`)
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Upload failed')
+      for (const [i, file] of files.entries()) {
+        if (files.length > 1) setUploadNote(`${i + 1} of ${files.length}`)
+        try {
+          const ev = await uploadEvidence(file, { visitId: visit.id, outletId: outlet.id, category: sec.category, questionId: q.id, type: q.type === 'video' ? 'Video' : sec.code === 'G' ? 'Screenshot' : 'Photo', title: q.text.replace(/\?$/, '').slice(0, 60), description: `Captured during ${visit.type} for question ${q.code}`, uploadedBy: user.name })
+          const cur = current[q.id] ?? { id: `${visit.id}-${q.id}`, visitId: visit.id, questionId: q.id, value: null, na: false, comment: '', evidenceIds: [], score: null }
+          current = { ...current, [q.id]: { ...cur, evidenceIds: [...cur.evidenceIds, ev.id] } }
+          setAnswers(current)
+          const snapshot = Object.values(current)
+          await dispatch((d, ctx) => addEvidence(d, ctx, ev, { visitId: visit.id, questionId: q.id, answers: snapshot }))
+          attached++
+        } catch (e) {
+          failed.push(`${file?.name ?? 'File'}: ${e instanceof Error ? e.message : 'upload failed'}`)
+        }
+      }
+      if (attached) toast.success(attached === 1 ? `${q.type === 'video' ? 'Video' : 'Photo'} attached` : `${attached} ${q.type === 'video' ? 'videos' : 'photos'} attached`)
+      for (const f of failed) toast.error(f)
     } finally {
       setUploadingFor(null)
+      setUploadNote(null)
     }
   }
 
@@ -394,7 +413,7 @@ export default function AssessmentPage() {
           </div>
           <ol className="space-y-3">
             {sectionQuestions.map((q, qi) => (
-              <QuestionCard key={q.id} index={qi + 1} q={q} answer={answers[q.id]} clockProblem={clockProblems[q.id]} locked={locked} onChange={(patch) => setAnswer(q, patch)} onAttach={(file) => void attachEvidence(q, file)} uploading={uploadingFor === q.id} evidence={data.evidence.filter((e) => answers[q.id]?.evidenceIds.includes(e.id))} onRename={(id, title) => void renameAttachment(id, title)} onDelete={(id) => void removeAttachment(id)} />
+              <QuestionCard key={q.id} index={qi + 1} q={q} answer={answers[q.id]} clockProblem={clockProblems[q.id]} locked={locked} onChange={(patch) => setAnswer(q, patch)} onAttach={(files) => void attachEvidence(q, files)} uploading={uploadingFor === q.id} uploadNote={uploadingFor === q.id ? uploadNote : null} evidence={data.evidence.filter((e) => answers[q.id]?.evidenceIds.includes(e.id))} onRename={(id, title) => void renameAttachment(id, title)} onDelete={(id) => void removeAttachment(id)} />
             ))}
           </ol>
         </section>
@@ -521,7 +540,7 @@ export default function AssessmentPage() {
 
 type Attached = Evidence
 
-function QuestionCard({ index, q, answer, clockProblem, locked, onChange, onAttach, uploading, evidence, onRename, onDelete }: { index: number; q: Question; answer: VisitAnswer | undefined; clockProblem?: string; locked: boolean; onChange: (patch: Partial<VisitAnswer>) => void; onAttach: (file: File | null) => void; uploading: boolean; evidence: Attached[]; onRename: (id: string, title: string) => void; onDelete: (id: string) => void }) {
+function QuestionCard({ index, q, answer, clockProblem, locked, onChange, onAttach, uploading, uploadNote, evidence, onRename, onDelete }: { index: number; q: Question; answer: VisitAnswer | undefined; clockProblem?: string; locked: boolean; onChange: (patch: Partial<VisitAnswer>) => void; onAttach: (files: (File | null)[]) => void; uploading: boolean; uploadNote?: string | null; evidence: Attached[]; onRename: (id: string, title: string) => void; onDelete: (id: string) => void }) {
   const cameraRef = useRef<HTMLInputElement>(null)
   const uploadRef = useRef<HTMLInputElement>(null)
   const isVideo = q.type === 'video'
@@ -645,13 +664,14 @@ function QuestionCard({ index, q, answer, clockProblem, locked, onChange, onAtta
                     away on a phone; the same input without it offers the gallery
                     and the files, which is the one a shopper needs when the photo
                     was taken earlier or is being filed from a laptop. */}
-                <input ref={cameraRef} type="file" accept={isVideo ? 'video/*' : 'image/*'} capture="environment" className="hidden" onChange={(e) => { onAttach(e.target.files?.[0] ?? null); e.target.value = '' }} />
-                <input ref={uploadRef} type="file" accept={isVideo ? 'video/*' : 'image/*'} className="hidden" onChange={(e) => { onAttach(e.target.files?.[0] ?? null); e.target.value = '' }} />
+                <input ref={cameraRef} type="file" accept={isVideo ? 'video/*' : 'image/*'} capture="environment" className="hidden" onChange={(e) => { onAttach(Array.from(e.target.files ?? []).slice(0, 1)); e.target.value = '' }} />
+                {/* The gallery picker takes several at once; the camera is one shot at a time. */}
+                <input ref={uploadRef} type="file" accept={isVideo ? 'video/*' : 'image/*'} multiple className="hidden" onChange={(e) => { onAttach(Array.from(e.target.files ?? [])); e.target.value = '' }} />
                 <button type="button" className="btn-secondary btn-sm" disabled={uploading} onClick={() => cameraRef.current?.click()}>
-                  {isVideo ? <Video className="h-3.5 w-3.5" aria-hidden /> : <Camera className="h-3.5 w-3.5" aria-hidden />} {uploading ? 'Attaching…' : isVideo ? 'Record video' : 'Take photo'}
+                  {isVideo ? <Video className="h-3.5 w-3.5" aria-hidden /> : <Camera className="h-3.5 w-3.5" aria-hidden />} {uploading ? `Attaching${uploadNote ? ` ${uploadNote}` : ''}…` : isVideo ? 'Record video' : 'Take photo'}
                 </button>
                 <button type="button" className="btn-secondary btn-sm" disabled={uploading} onClick={() => uploadRef.current?.click()}>
-                  <Upload className="h-3.5 w-3.5" aria-hidden /> {isVideo ? 'Upload video' : 'Upload photo'}
+                  <Upload className="h-3.5 w-3.5" aria-hidden /> {isVideo ? 'Upload videos' : 'Upload photos'}
                 </button>
               </>
             )}

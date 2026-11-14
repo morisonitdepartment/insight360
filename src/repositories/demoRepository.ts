@@ -60,6 +60,8 @@ const PERSISTED_KEYS: (keyof Dataset)[] = [
   'notificationRules',
   'organization',
   'reports',
+  // Brands carry the logos uploaded in Settings.
+  'brands',
 ]
 
 /**

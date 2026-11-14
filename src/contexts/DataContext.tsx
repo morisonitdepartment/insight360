@@ -8,6 +8,7 @@ import { useFilters } from './FilterContext'
 import { useNow } from '@/hooks'
 import { isDemoMode } from '@/config/app'
 import { prepareUpload } from '@/utils/prepareUpload'
+import { setLogoSources } from '@/utils/logos'
 
 export type ActionRecipe = (data: Dataset, ctx: ActionContext) => DatasetPatch
 
@@ -45,7 +46,7 @@ interface DataContextValue {
   isOutletFiltered: boolean
 }
 
-const DataContext = createContext<DataContextValue | null>(null)
+export const DataContext = createContext<DataContextValue | null>(null)
 
 const DERIVE_TRIGGERS: (keyof Dataset)[] = ['visits', 'findings', 'outlets']
 
@@ -80,6 +81,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     }
   }, [user, reload])
+
+  // The PDF builders run outside React; give them the current uploaded logos.
+  useEffect(() => {
+    if (data) setLogoSources(data.organization.logo, data.brands)
+  }, [data])
 
   const dispatch = useCallback(
     async (recipe: ActionRecipe) => {

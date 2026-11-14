@@ -11,6 +11,7 @@ import { canReviewVisit, reviewerCandidates, shopperCovers } from '@/services/wo
 import { WorkflowTracker } from '@/components/workflow/WorkflowTracker'
 import { DeleteVisitDialog } from '@/components/workflow/DeleteVisitDialog'
 import { ReopenVisitDialog } from '@/components/workflow/ReopenVisitDialog'
+import { RestroomStatus } from '@/components/workflow/RestroomStatus'
 import { isAwaitingApproval, isCompleted } from '@/services/derive'
 import { CATEGORY_KEYS, CATEGORY_LABELS } from '@/utils/scoring'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -325,6 +326,7 @@ export default function VisitDetailPage() {
                     </div>
                   )
                 })}
+                <RestroomStatus visit={visit} />
               </CardBody>
             </Card>
           ) : (
@@ -332,6 +334,9 @@ export default function VisitDetailPage() {
               <CardHeader title="Assessment progress" subtitle={visit.status === 'Planned' || visit.status === 'Assigned' ? 'Not started yet' : 'Mandatory questions answered'} />
               <CardBody>
                 <ProgressBar value={visit.progress} tone="accent" showValue label="Assessment progress" />
+                <div className="mt-4">
+                  <RestroomStatus visit={visit} />
+                </div>
               </CardBody>
             </Card>
           )}

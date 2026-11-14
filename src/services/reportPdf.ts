@@ -17,7 +17,7 @@ import type {
   VisitAnswer,
 } from '@/types'
 import { CATEGORY_KEYS, CATEGORY_LABELS, DEFAULT_THRESHOLDS } from '@/utils/scoring'
-import { ReportDoc, bandColor, loadClientMark, scoreTone, type CellTone, type PdfColumn } from '@/utils/pdf'
+import { ReportDoc, bandColor, loadBrandMark, loadClientMark, scoreTone, type CellTone, type PdfColumn } from '@/utils/pdf'
 import { CLIENT } from '@/config/client'
 import { KPI_KIND_LABEL, formatKpiValue, stageRows, timingChainText, weightText } from '@/utils/sequence'
 import { T } from '@/config/terms'
@@ -140,7 +140,7 @@ export interface VisitPdfInput {
 export async function exportVisitReportPdf(i: VisitPdfInput): Promise<void> {
   const { visit, outlet, template } = i
   const doc = await ReportDoc.create()
-  const mark = await loadClientMark()
+  const [mark, brandMark] = await Promise.all([loadClientMark(), loadBrandMark(outlet.brand)])
   const bands = i.thresholds ?? DEFAULT_THRESHOLDS
   const rating = visit.risk ?? 'Not Assessed'
 
@@ -180,6 +180,7 @@ export async function exportVisitReportPdf(i: VisitPdfInput): Promise<void> {
     title: ['Service', 'Excellence', 'Report'],
     subtitle: `${template?.name ?? 'Mystery shopping assessment'} · ${i.scenario ? `${i.scenario.name} scenario` : 'Standard visit'}`,
     logo: mark,
+    brandLogo: brandMark,
     score: {
       value: visit.score,
       caption: 'Overall',
@@ -434,13 +435,14 @@ export interface OutletPdfInput {
 export async function exportOutletReportPdf(i: OutletPdfInput): Promise<void> {
   const { outlet } = i
   const doc = await ReportDoc.create()
-  const mark = await loadClientMark()
+  const [mark, brandMark] = await Promise.all([loadClientMark(), loadBrandMark(outlet.brand)])
 
   doc.coverPage({
     eyebrow: `${CLIENT.brand.name} · ${T.Outlet} performance`,
     title: ['Performance', 'Review', 'Report'],
     subtitle: `${outlet.name} · ${outlet.code} · programme to date`,
     logo: mark,
+    brandLogo: brandMark,
     score: {
       value: outlet.overallScore,
       caption: 'Score',

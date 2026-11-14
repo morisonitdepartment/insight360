@@ -406,12 +406,31 @@ export interface NewVisitInput {
   reviewerId?: string | null
 }
 
+/**
+ * The next free number for a code like `MS-26-0004`: one past the highest
+ * number ever issued, counting codes that now survive only in the activity log
+ * (a deleted visit). Counting the rows instead re-issued an existing code as
+ * soon as a visit was deleted — "duplicate key value violates unique
+ * constraint visits_code_key" — and a deleted visit's code is never reused.
+ */
+function nextCodeNumber(prefix: string, codes: Iterable<string>): number {
+  const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const pattern = new RegExp('^' + escaped + '(\\d+)$')
+  let max = 0
+  for (const c of codes) {
+    const m = pattern.exec(c)
+    if (m) max = Math.max(max, Number(m[1]))
+  }
+  return max + 1
+}
+
 export function createVisit(data: Dataset, ctx: ActionContext, input: NewVisitInput): DatasetPatch {
-  const seq = data.visits.length + 1
+  const prefix = `MS-${format(ctx.now, 'yy')}-`
+  const seq = nextCodeNumber(prefix, [...data.visits.map((v) => v.code), ...data.activityLogs.map((l) => l.recordId)])
   const id = uid('vis')
   const visit: Visit = {
     id,
-    code: `MS-${format(ctx.now, 'yy')}-${String(seq).padStart(4, '0')}`,
+    code: `${prefix}${String(seq).padStart(4, '0')}`,
     outletId: input.outletId,
     type: input.type,
     journey: input.journey,
@@ -679,11 +698,27 @@ export function createUser(data: Dataset, ctx: ActionContext, input: NewUserInpu
   return { users: [...data.users, user], activityLogs: withLog(data, ctx, 'User created', 'Users', id, `${input.name} · ${input.role}`) }
 }
 
+/**
+ * A mystery shopper is two records: the sign-in account (`users`) and the
+ * shopper profile (`shoppers`) that visits, assignments and reports name.
+ * Renaming one used to leave the other on the old name, so the new name showed
+ * in the top bar and nowhere else. A name or email change now goes to both.
+ */
 export function updateUser(data: Dataset, ctx: ActionContext, id: string, patch: Partial<User>): DatasetPatch {
   const u = data.users.find((x) => x.id === id)
   if (!u) return {}
   const action = patch.role && patch.role !== u.role ? 'Role modified' : patch.status ? (patch.status === 'active' ? 'User reactivated' : 'User deactivated') : 'User updated'
-  return { users: replace(data.users, { ...u, ...patch }), activityLogs: withLog(data, ctx, action, 'Users', id, patch.role ? `${u.role} → ${patch.role}` : patch.status) }
+  const renamed = patch.name !== undefined && patch.name !== u.name
+  const details = patch.role ? `${u.role} → ${patch.role}` : patch.status ? patch.status : renamed ? `Renamed ${u.name} → ${patch.name}` : undefined
+  const out: DatasetPatch = { users: replace(data.users, { ...u, ...patch }), activityLogs: withLog(data, ctx, action, 'Users', id, details) }
+  const shopper = u.shopperId ? data.shoppers.find((s) => s.id === u.shopperId) : undefined
+  if (shopper) {
+    const sync: Partial<Shopper> = {}
+    if (patch.name !== undefined && patch.name !== shopper.name) sync.name = patch.name
+    if (patch.email !== undefined && patch.email !== shopper.email) sync.email = patch.email
+    if (Object.keys(sync).length) out.shoppers = replace(data.shoppers, { ...shopper, ...sync })
+  }
+  return out
 }
 
 export function resetPassword(data: Dataset, ctx: ActionContext, id: string): DatasetPatch {
@@ -737,7 +772,13 @@ export function updateShopperTraining(data: Dataset, ctx: ActionContext, shopper
 export function updateShopper(data: Dataset, ctx: ActionContext, id: string, patch: Partial<Shopper>): DatasetPatch {
   const s = data.shoppers.find((x) => x.id === id)
   if (!s) return {}
-  return { shoppers: replace(data.shoppers, { ...s, ...patch }), activityLogs: withLog(data, ctx, 'Shopper updated', 'Shoppers', s.code) }
+  const out: DatasetPatch = { shoppers: replace(data.shoppers, { ...s, ...patch }), activityLogs: withLog(data, ctx, 'Shopper updated', 'Shoppers', s.code) }
+  // The other half of the pair (see updateUser): keep the sign-in account's name in step.
+  const account = data.users.find((u) => u.shopperId === id)
+  if (account && ((patch.name !== undefined && patch.name !== account.name) || (patch.email !== undefined && patch.email !== account.email))) {
+    out.users = replace(data.users, { ...account, ...(patch.name !== undefined ? { name: patch.name } : {}), ...(patch.email !== undefined ? { email: patch.email } : {}) })
+  }
+  return out
 }
 
 // ───────────────────────────── Templates ─────────────────────────────
@@ -843,7 +884,9 @@ export function deleteQuestion(data: Dataset, ctx: ActionContext, questionId: st
 
 export function createReport(data: Dataset, ctx: ActionContext, report: Omit<ManagementReport, 'id' | 'code' | 'generatedAt' | 'generatedBy'>): DatasetPatch {
   const id = uid('rep')
-  const r: ManagementReport = { ...report, id, code: `RPT-${format(ctx.now, 'yyyy')}-${String(data.reports.length + 1).padStart(3, '0')}`, generatedAt: iso(ctx.now), generatedBy: ctx.user.name }
+  const rptPrefix = `RPT-${format(ctx.now, 'yyyy')}-`
+  const rptSeq = nextCodeNumber(rptPrefix, [...data.reports.map((x) => x.code), ...data.activityLogs.map((l) => l.recordId)])
+  const r: ManagementReport = { ...report, id, code: `${rptPrefix}${String(rptSeq).padStart(3, '0')}`, generatedAt: iso(ctx.now), generatedBy: ctx.user.name }
   return { reports: [r, ...data.reports], activityLogs: withLog(data, ctx, 'Report generated', 'Reports', r.code, r.title) }
 }
 

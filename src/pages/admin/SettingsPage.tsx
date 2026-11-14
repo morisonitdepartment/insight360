@@ -33,6 +33,7 @@ import { DescriptionList, Divider, Stat, Tabs, type TabItem } from '@/components
 import { isCompleted } from '@/services/derive'
 import { fmtDate, fmtDateTime } from '@/utils/format'
 import { T } from '@/config/terms'
+import { LogoSettings } from './LogoSettings'
 
 type TabKey = 'organisation' | 'engagement' | 'appearance' | 'security'
 
@@ -272,6 +273,7 @@ export default function SettingsPage() {
               />
             </CardBody>
           </Card>
+          <LogoSettings />
         </div>
       )}
 

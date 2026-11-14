@@ -54,6 +54,8 @@ export interface Brand {
   templateCode?: string
   /** Square mark, relative to `public/`. Absent brands render their initials. */
   logoFile?: string
+  /** Uploaded logo (PNG data URL, set in Settings). Takes precedence over `logoFile`. */
+  logo?: string | null
 }
 
 /** KPI categories that drive weighted scoring */
@@ -600,6 +602,8 @@ export interface OrganizationSettings {
   timezone: string
   currency: string
   locale: string
+  /** Uploaded organisation logo (PNG data URL, set in Settings); the built-in mark when absent. */
+  logo?: string | null
 }
 
 /** The complete dataset served by a repository (demo or live). */

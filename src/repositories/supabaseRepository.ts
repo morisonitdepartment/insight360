@@ -369,6 +369,9 @@ export class SupabaseRepository implements Repository {
       visualSeed: hashString(id),
       fileName: path,
       sizeKb: Math.round(file.size / 1024),
+      photoTakenAt: meta.stamp?.takenAt ?? null,
+      latitude: meta.stamp?.latitude ?? null,
+      longitude: meta.stamp?.longitude ?? null,
     }
     const { error: dbError } = await sb.from('evidence').insert(modelToRow(evidence))
     if (dbError) throw new Error(`Failed to record evidence: ${dbError.message}`)

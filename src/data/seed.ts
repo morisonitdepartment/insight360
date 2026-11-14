@@ -1552,7 +1552,10 @@ function genAnswer(q: Question, t: number, rng: Rng, forced?: 'fail' | 'pass' | 
   switch (q.type) {
     case 'yes_no':
     case 'pass_fail': {
-      const p = q.critical ? 0.995 : Math.max(0.03, Math.min(0.99, t * 1.03))
+      // Critical failures come only from the storyline's plan (forced tags above),
+      // never by chance: with a dozen red-flag checks a 0.5% miss rate put stray
+      // criticals on visits the story says recovered.
+      const p = q.critical ? 1 : Math.max(0.03, Math.min(0.99, t * 1.03))
       return { value: rng.bool(p), na: false }
     }
     case 'rating_5':

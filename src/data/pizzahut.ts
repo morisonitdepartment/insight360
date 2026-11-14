@@ -29,9 +29,8 @@ import { PROBLEM_SOLVING_OPTIONS, QUALITY_SCALE, type SectionBlueprint, type Tem
  *      Loyalty / Promotions 5       = LOY 5
  *      Cleanliness & Presentation 5 = PKG 3  + CLN 2
  *
- *    Since 14 Nov 2026 the standard restroom inspection (WC) takes 5% and every
- *    figure above is scaled by 0.95 (Food Quality 28.5 = 5.7 + 22.8, and so
- *    on), so the areas keep exactly the proportions the client wrote.
+ *    The standard restroom inspection (WC) is recorded but carries no weight,
+ *    because the brief keeps shared mall facilities out of the score.
  *
  * 2. The timing chain is the engine's own: queue → order → preparation, each
  *    leg calculated from two wall-clock stamps, and total service time derived
@@ -98,7 +97,7 @@ const QUEUE: SectionBlueprint = stage(
   'QUE',
   'Queue & Counter Access',
   'Queue Experience',
-  6.65,
+  7,
   'service_speed',
   'Finding the counter and the wait to be served. The first leg of the timing chain.',
   [
@@ -127,7 +126,7 @@ const CASHIER: SectionBlueprint = stage(
   'CSH',
   'Cashier Greeting & Order Taking',
   'Cashier Service',
-  9.5,
+  10,
   'customer_experience',
   'The brief’s primary focus: how the cashier greeted, listened, captured the order and closed the transaction.',
   [
@@ -172,7 +171,7 @@ const MENU_KNOWLEDGE: SectionBlueprint = stage(
   'MNK',
   'Menu Knowledge & Product Guidance',
   'Menu Knowledge',
-  4.75,
+  5,
   'customer_experience',
   'What the cashier knew about the menu, and whether they guided the order sensibly.',
   [
@@ -196,7 +195,7 @@ const UPSELL: SectionBlueprint = stage(
   'UPS',
   'Upselling & Suggestive Selling',
   'Upselling',
-  9.5,
+  10,
   'upselling_sales',
   'Whether the cashier grew the order, and whether it felt like service rather than pressure.',
   [
@@ -217,7 +216,7 @@ const LOYALTY: SectionBlueprint = stage(
   'LOY',
   'Loyalty Programme, Offers & Promotions',
   'Loyalty / Promotion Communication',
-  4.75,
+  5,
   'upselling_sales',
   'What was on display at the counter, and what the cashier actually said about it.',
   [
@@ -237,7 +236,7 @@ const PAYMENT: SectionBlueprint = stage(
   'PAY',
   'Payment Experience',
   'Transaction Accuracy',
-  4.75,
+  5,
   'operational_compliance',
   'The transaction itself. The cash and card questions are asked only for the method actually used.',
   [
@@ -274,7 +273,7 @@ const PREPARATION: SectionBlueprint = stage(
   'PRP',
   'Preparation & Service Speed',
   'Speed of Service',
-  12.35,
+  13,
   'service_speed',
   'From payment to the order being ready. The third leg of the timing chain, and the one the guest feels most.',
   [
@@ -312,7 +311,7 @@ const HANDOVER: SectionBlueprint = stage(
   'HND',
   'Order Handover & Accuracy',
   'Order Accuracy & Handover',
-  9.5,
+  10,
   'operational_compliance',
   'What was actually handed over, checked item by item against what was ordered.',
   [
@@ -346,7 +345,7 @@ const BEVERAGE: SectionBlueprint = stage(
   'BEV',
   'Beverage Quality',
   'Beverage Quality',
-  5.7,
+  6,
   'product_environment',
   'The drink as handed over: correct, cold, carbonated and sealed.',
   [
@@ -366,7 +365,7 @@ const FOOD_QUALITY: SectionBlueprint = stage(
   'FQ',
   'Pizza & Food Quality',
   'Food Quality',
-  22.8,
+  24,
   'product_environment',
   'The product itself, opened and assessed: temperature, crust, base, cheese, toppings, cut, taste and seasoning.',
   [
@@ -407,7 +406,7 @@ const PACKAGING: SectionBlueprint = stage(
   'PKG',
   'Packaging & Presentation',
   'Packaging & Presentation',
-  2.85,
+  3,
   'product_environment',
   'The box and everything in it — the brand’s last physical impression on the guest.',
   [
@@ -429,7 +428,7 @@ const CLEANLINESS: SectionBlueprint = stage(
   'CLN',
   'Counter & Visible Area Cleanliness',
   'Counter Cleanliness',
-  1.9,
+  2,
   'safety_entertainment',
   'The counter, the POS and the visible preparation area — Pizza Hut’s own footprint — plus any seating Pizza Hut clears itself.',
   [
@@ -463,14 +462,15 @@ const CLEANLINESS: SectionBlueprint = stage(
   ],
 )
 
-// ── 13 · Toilet / Restroom Cleanliness — 5% ────────────────────────────────
+// ── 13 · Toilet / Restroom Cleanliness — recorded, not scored ──────────────
 // Not in the client's brief: the standard restroom inspection every template
-// carries (operator's request, 14 Nov 2026). In a food court the restroom may
-// be the mall's; the shopper inspects the one Pizza Hut guests are directed to
-// and can mark a check N/A with a reason. The brief's areas were scaled by 0.95
-// to make room, so they keep their relative weights.
+// carries (operator's request, 14 Nov 2026). The brief keeps shared mall
+// facilities out of the score, and a food-court restroom usually is the mall's,
+// so the stage carries no weight: it is inspected, reported and shown as
+// Restroom Cleanliness, and the brief's seven areas keep the weights the client
+// wrote.
 
-const RESTROOM: SectionBlueprint = restroomStage(5, 'a quick-service restaurant of Pizza Hut’s standard')
+const RESTROOM: SectionBlueprint = restroomStage(0, 'a quick-service restaurant of Pizza Hut’s standard')
 
 // ── 14 · Complaint / Service Recovery — conditional ─────────────────────────
 
@@ -478,7 +478,7 @@ const COMPLAINT: SectionBlueprint = stage(
   'CMP',
   'Complaint / Service Recovery',
   'Complaint Resolution',
-  4.75,
+  5,
   'customer_experience',
   'Scored only on a visit where a complaint was raised. On every other visit the stage is excluded and the twelve weighted stages carry the full score.',
   [

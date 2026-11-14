@@ -1,5 +1,5 @@
 import type { ServiceSequence } from '@/types'
-import { CRITICAL_FAILURES_DINING, PROBLEM_SOLVING_OPTIONS, QUALITY_SCALE, type SectionBlueprint, type TemplateBlueprint, RESTROOM_KPI, restroomStage, stage } from './templateKit'
+import { PROBLEM_SOLVING_OPTIONS, QUALITY_SCALE, type SectionBlueprint, type TemplateBlueprint, RESTROOM_KPI, restroomStage, stage, RED_FLAGS_DINE_IN } from './templateKit'
 
 /**
  * SHEBESTAN_FINE_DINING — Shebestan Palace, Al Sadd.
@@ -173,6 +173,8 @@ const AMBIENCE: SectionBlueprint = stage(
     { text: 'Was the restaurant free from unpleasant odours?', type: 'yes_no', weight: 3, tag: 'hygiene' },
     { text: 'Was the overall atmosphere appropriate for a fine-dining restaurant?', type: 'rating_5', weight: 3 },
     { text: 'Was the insect killer operational, where applicable?', type: 'yes_no', weight: 1, na: true },
+    // Red flag (14 Nov 2026), added at the end of the stage: question ids are positional.
+    { text: 'Were the dining area and table free from serious dirt or any hygiene issue?', type: 'yes_no', weight: 3, critical: true, evidence: true, comment: true, guidance: 'A critical failure: a seriously dirty dining area or table at the time of service, or a hygiene hazard such as pests. Photograph it.' },
   ],
 )
 
@@ -248,6 +250,8 @@ const WAITER: SectionBlueprint = stage(
     { text: 'Did staff avoid inappropriate or personal conversations in front of guests?', type: 'yes_no', weight: 3, kpi: ['service'] },
     { text: 'Was staff communication discreet?', type: 'yes_no', weight: 2, kpi: ['service'] },
     { text: 'Did staff behaviour maintain a fine-dining atmosphere?', type: 'rating_5', weight: 3, kpi: ['service'] },
+    // Red flag (14 Nov 2026), added at the end of the stage: question ids are positional.
+    { text: 'Was all staff conduct free from rude, aggressive, discriminatory or seriously unprofessional behaviour?', type: 'yes_no', weight: 3, critical: true, comment: true, kpi: ['service'], guidance: 'A critical failure. Describe exactly what was said or done. Speaking another language is not a fault.' },
   ],
 )
 
@@ -304,7 +308,9 @@ const ORDER_ACCURACY: SectionBlueprint = stage(
     { text: 'Did the order taker confirm special requests or modifications?', type: 'yes_no', weight: 2, na: true, kpi: ['order_accuracy'] },
     { text: 'Did the waiter understand the order correctly?', type: 'yes_no', weight: 3, kpi: ['order_accuracy'] },
     { text: 'Were all modifications correctly communicated?', type: 'yes_no', weight: 2, na: true, kpi: ['order_accuracy'] },
-    { text: 'Did the guest receive exactly what was ordered?', type: 'pass_fail', weight: 3, tag: 'order_accuracy', kpi: ['order_accuracy'], guidance: 'A missing item, a substitution or a wrong cut is a fail. Describe it in the comment.' },
+    { text: 'Did the guest receive exactly what was ordered?', type: 'pass_fail', weight: 3, key: 'ord_exact', tag: 'order_accuracy', kpi: ['order_accuracy'], guidance: 'A missing item, a substitution or a wrong cut is a fail. Describe it in the comment.' },
+    // Red flag (14 Nov 2026), added at the end of the stage: question ids are positional.
+    { text: 'Was the order error corrected once you pointed it out?', type: 'yes_no', weight: 3, critical: true, comment: true, when: { key: 'ord_exact', equals: false }, kpi: ['order_accuracy'], guidance: 'Point out the wrong or missing item. A critical failure (major order error not corrected) when it was not put right.' },
   ],
 )
 
@@ -328,6 +334,8 @@ const DELIVERY: SectionBlueprint = stage(
     { text: 'Were the grilled items delivered within an acceptable time?', type: 'yes_no', weight: 2 },
     { text: "Were all guests' meals served within a reasonable time of each other?", type: 'yes_no', weight: 3, guidance: 'The table should be served together. Note any guest left waiting while others ate.' },
     { text: 'Were any service delays explained?', type: 'yes_no', weight: 2, na: true },
+    // Red flag (14 Nov 2026), added at the end of the stage: question ids are positional.
+    { text: 'Was the meal free from any excessive, unexplained service delay?', type: 'yes_no', weight: 2, critical: true, comment: true, guidance: 'A critical failure. Answer No only for a wait far beyond the standard times that nobody explained or apologised for.' },
   ],
 )
 
@@ -347,16 +355,7 @@ const FOOD_QUALITY: SectionBlueprint = stage(
     { text: 'Was the meat tender?', type: 'yes_no', weight: 2, kpi: ['food_quality'] },
     { text: 'Were the grilled items served at the correct temperature?', type: 'yes_no', weight: 3, kpi: ['food_quality'] },
     { text: 'Were the grilled items hot when served?', type: 'yes_no', weight: 3, kpi: ['food_quality'] },
-    {
-      text: 'Was the food fresh?',
-      type: 'pass_fail',
-      weight: 3,
-      critical: true,
-      evidence: true,
-      tag: 'food_safety',
-      kpi: ['food_quality'],
-      guidance: 'A critical standard. Fail this only for food that is not safe or fit to eat — spoiled, raw where it should not be, or containing a foreign object — and photograph it.',
-    },
+    { text: 'Was the food fresh?', type: 'yes_no', weight: 3, kpi: ['food_quality'] },
     { text: 'Was the food visually appealing?', type: 'yes_no', weight: 2, kpi: ['food_quality'] },
     { text: 'Was the food appetising?', type: 'yes_no', weight: 2, kpi: ['food_quality'] },
     { text: 'Was the food delicious?', type: 'yes_no', weight: 2, kpi: ['food_quality'] },
@@ -371,6 +370,18 @@ const FOOD_QUALITY: SectionBlueprint = stage(
     { text: 'Portion size', type: 'multiple_choice', weight: 2, options: QUALITY_SCALE },
     { text: 'Cooking quality', type: 'multiple_choice', weight: 3, options: QUALITY_SCALE, kpi: ['food_quality'] },
     { text: 'Overall meal quality', type: 'multiple_choice', weight: 3, options: QUALITY_SCALE, kpi: ['food_quality'] },
+    // Red flag (14 Nov 2026), added at the end of the stage: question ids are positional.
+    {
+      text: 'Was the food safe to eat — nothing undercooked or raw, nothing spoiled, and no foreign object?',
+      type: 'yes_no',
+      weight: 3,
+      critical: true,
+      evidence: true,
+      comment: true,
+      tag: 'food_safety',
+      kpi: ['food_quality'],
+      guidance: 'A critical failure. Answer No for anything served clearly undercooked, raw where it should not be, spoiled, or with a foreign object in it. Photograph it and describe what you found.',
+    },
   ],
 )
 
@@ -398,6 +409,8 @@ const PLATE: SectionBlueprint = stage(
     { text: 'Was the plate free from any visible damage?', type: 'yes_no', weight: 2 },
     { text: 'Was the plate in good overall condition?', type: 'yes_no', weight: 2 },
     { text: 'Was the plate appropriate for fine-dining presentation?', type: 'yes_no', weight: 2 },
+    // Red flag (14 Nov 2026), added at the end of the stage: question ids are positional.
+    { text: 'Was the serving ware safe — no chip or crack that could cut or harm a guest?', type: 'yes_no', weight: 2, critical: true, evidence: true, comment: true, guidance: 'A critical failure only when the damage is a safety risk: a sharp chip or a crack that could break. Cosmetic marks are recorded in the questions above.' },
   ],
 )
 
@@ -475,6 +488,8 @@ const COMPLAINT: SectionBlueprint = stage(
     { text: 'Was the complaint solved within a reasonable time?', type: 'yes_no', weight: 2, when: { key: 'had_complaint', equals: true }, kpi: ['complaint_resolution'] },
     { text: 'Was the guest satisfied with the solution?', type: 'yes_no', weight: 3, when: { key: 'had_complaint', equals: true }, kpi: ['complaint_resolution'] },
     { text: 'Did the supervisor / manager become involved when needed?', type: 'yes_no', weight: 2, na: true, when: { key: 'had_complaint', equals: true }, kpi: ['complaint_resolution'] },
+    // Red flag (14 Nov 2026), added at the end of the stage: question ids are positional.
+    { text: 'Was the complaint taken seriously — not ignored or dismissed?', type: 'yes_no', weight: 3, critical: true, comment: true, when: { key: 'had_complaint', equals: true }, kpi: ['complaint_resolution'], guidance: 'A critical failure when staff ignored or dismissed the complaint. Describe what happened.' },
   ],
 )
 
@@ -542,6 +557,8 @@ const CLOSING: SectionBlueprint = stage(
     { text: 'Was the farewell professional?', type: 'rating_5', weight: 2, kpi: ['farewell'] },
     { text: 'Did staff invite the guest to return?', type: 'yes_no', weight: 2, kpi: ['farewell'] },
     { text: 'Did the final interaction leave a positive impression?', type: 'rating_5', weight: 3, kpi: ['farewell'] },
+    // Red flag (14 Nov 2026), added at the end of the stage: question ids are positional.
+    { text: 'Were the bill and any change correct, or corrected before you left?', type: 'yes_no', weight: 3, critical: true, comment: true, guidance: 'A critical failure when a wrong bill or wrong cash change was not put right before you left.' },
   ],
 )
 
@@ -627,7 +644,8 @@ const SHEBESTAN_SEQUENCE: ServiceSequence = {
     { key: 'bill_delivery_time', label: 'Bill Delivery Time', kind: 'timing' },
     { key: 'complaint_resolution_time', label: 'Complaint Resolution Time', kind: 'timing' },
   ],
-  criticalFailures: CRITICAL_FAILURES_DINING,
+  // Shebestan's brief names no red flags; the dine-in list from the Bennigan's brief applies.
+  criticalFailures: RED_FLAGS_DINE_IN,
 }
 
 export const SHEBESTAN_TEMPLATE: TemplateBlueprint = {

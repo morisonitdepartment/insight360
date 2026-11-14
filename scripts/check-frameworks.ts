@@ -99,7 +99,11 @@ for (const t of templates) {
       if ((s.stageWeight ?? 0) > 0 && scorable.length === 0) {
         fail(t.code, s.code, `carries ${pct(s.stageWeight ?? 0)}% but has no scorable weighted question, so it can never score`)
       }
-      if (s.stageWeight === 0 && qs.some((q) => q.weight > 0)) {
+      // A recorded-but-unscored stage (Pizza Hut's restroom: the brief keeps mall
+      // facilities out of the score) is the exception: its weights still score the
+      // stage itself and the KPI it reports, only the visit score leaves it out.
+      const recordedStage = qs.filter((q) => q.weight > 0).every((q) => (q.kpiKeys ?? []).length > 0)
+      if (s.stageWeight === 0 && qs.some((q) => q.weight > 0) && !recordedStage) {
         const which = qs.filter((q) => q.weight > 0).map((q) => q.code)
         fail(t.code, s.code, `is an unweighted stage, so the weights on ${which.join(', ')} are silently ignored`)
       }

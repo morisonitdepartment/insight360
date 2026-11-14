@@ -133,6 +133,24 @@ export const restroomStage = (stageWeight: number, standard: string, description
 /** The KPI every restroom question feeds; brand frameworks list it among their main KPIs. */
 export const RESTROOM_KPI = { key: 'restroom', label: 'Restroom Cleanliness Score', kind: 'weighted' } as const
 
+/**
+ * The dine-in red flags, in the words of the Bennigan's brief. Shebestan's brief
+ * names none, so the same ten apply there (decided 14 Nov 2026); each is backed by
+ * a critical question in both questionnaires.
+ */
+export const RED_FLAGS_DINE_IN = [
+  'Serious food-safety or hygiene issue',
+  'Foreign object in food',
+  'Food served clearly undercooked or unsafe',
+  'Rude, aggressive, discriminatory or seriously unprofessional staff behaviour',
+  'Major order error not corrected',
+  'Incorrect bill or incorrect cash change not corrected',
+  'Complaint ignored or dismissed',
+  'Excessive unexplained service delay',
+  'Damaged or chipped serving ware creating a safety risk',
+  'Seriously dirty dining area or table at the time of service',
+]
+
 export const PROBLEM_SOLVING_OPTIONS = ['Resolved immediately with empathy', 'Resolved after escalation', 'Partially resolved', 'Not resolved / ignored']
 
 /** Excellent → Poor, best first: the scorer reads a choice list as a descending scale. */

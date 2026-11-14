@@ -410,6 +410,11 @@ export interface Evidence {
   visualSeed: number
   fileName: string
   sizeKb: number
+  /** When the camera says the photo was taken (EXIF, local time); null when the file carried none. */
+  photoTakenAt?: string | null
+  /** Where the camera says it was taken (EXIF GPS). */
+  latitude?: number | null
+  longitude?: number | null
 }
 
 export type Severity = 'Critical' | 'High' | 'Medium' | 'Low'

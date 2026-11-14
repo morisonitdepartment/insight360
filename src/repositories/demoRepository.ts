@@ -1,3 +1,4 @@
+import { format } from 'date-fns'
 import { APP_CONFIG } from '@/config/app'
 import { DEMO_ACCOUNTS } from '@/config/demoAccounts'
 import { SEED_VERSION, emptyDataset, generateDataset, portfolioDataset } from '@/data/seed'
@@ -278,7 +279,7 @@ export class DemoRepository implements Repository {
   async uploadEvidence(file: File | null, meta: EvidenceUploadMeta): Promise<Evidence> {
     await delay(500)
     const id = `ev-u-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4)}`
-    const now = new Date().toISOString().slice(0, 19)
+    const now = format(new Date(), "yyyy-MM-dd'T'HH:mm:ss")
     if (file) localFiles.set(id, URL.createObjectURL(file))
     return {
       id,
@@ -295,6 +296,9 @@ export class DemoRepository implements Repository {
       visualSeed: hashString(id),
       fileName: file?.name ?? `${meta.type.toUpperCase()}_${Date.now()}.jpg`,
       sizeKb: file ? Math.max(1, Math.round(file.size / 1024)) : 640,
+      photoTakenAt: meta.stamp?.takenAt ?? null,
+      latitude: meta.stamp?.latitude ?? null,
+      longitude: meta.stamp?.longitude ?? null,
     }
   }
 

@@ -271,6 +271,10 @@ export default function AssessmentPage() {
           const snapshot = Object.values(current)
           await dispatch((d, ctx) => addEvidence(d, ctx, ev, { visitId: visit.id, questionId: q.id, answers: snapshot }))
           attached++
+          // A proof photo should carry the camera's own date and time; tell the shopper now, not the reviewer later.
+          if (sec.code === 'PRF' && q.type === 'photo' && !q.allowNA && !ev.photoTakenAt) {
+            toast(`${file?.name ?? 'This photo'} has no camera date and time inside it, so the reviewer cannot confirm when it was taken. Use Take photo, or upload the original from the camera roll, not a screenshot or a forwarded copy.`, { icon: '⚠️', duration: 9000 })
+          }
         } catch (e) {
           failed.push(`${file?.name ?? 'File'}: ${e instanceof Error ? e.message : 'upload failed'}`)
         }

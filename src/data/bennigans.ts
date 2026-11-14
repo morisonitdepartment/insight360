@@ -1,5 +1,5 @@
 import type { ServiceSequence } from '@/types'
-import { PROBLEM_SOLVING_OPTIONS, QUALITY_SCALE, type SectionBlueprint, type TemplateBlueprint, stage, RESTROOM_KPI, restroomStage } from './templateKit'
+import { PROBLEM_SOLVING_OPTIONS, QUALITY_SCALE, type SectionBlueprint, type TemplateBlueprint, stage, RESTROOM_KPI, restroomStage, RED_FLAGS_DINE_IN } from './templateKit'
 
 /**
  * BENNIGANS_CASUAL_DINING — Bennigan's, Qatar Tennis Federation.
@@ -70,6 +70,7 @@ const PROOF: SectionBlueprint = stage(
       type: 'text',
       weight: 0,
       guidance: 'List every item ordered for the whole party — appetizers, mains with how they were requested, sides, drinks and desserts. This is the record every accuracy, timing and food-quality answer below is read against.',
+      retired: 'The brief asks this in Order Taking & Accuracy ("What did you order?"), which now holds it (14 Nov 2026).',
     },
     { text: 'Total bill amount (QAR)', type: 'numeric', weight: 0 },
     {
@@ -253,8 +254,8 @@ const ORDER_ACCURACY: SectionBlueprint = stage(
       text: 'What did you order?',
       type: 'text',
       weight: 0,
-      guidance: 'Record every item by category: appetizer, main course, beverage, and any sides or desserts.',
-      retired: 'Repeated "Items ordered" in Visit Reference & Proof of Visit, which is the single record of the order (14 Nov 2026).',
+      required: true,
+      guidance: 'Record every item by category — appetizer, main course with how it was requested, beverage, sides and desserts — for the whole party. Every accuracy, timing and food-quality answer is read against this list.',
     },
     { text: 'Did the order taker repeat the complete order back to you?', type: 'yes_no', weight: 3, tag: 'order_accuracy', kpi: ['order_accuracy'] },
     { text: 'Did you make a modification or special request?', type: 'yes_no', weight: 0, key: 'ord_special', guidance: 'Informational — gates the next question.' },
@@ -676,18 +677,7 @@ const BENNIGANS_SEQUENCE: ServiceSequence = {
     { key: 'visit_duration', label: 'Total Visit Duration', kind: 'timing' },
   ],
   // The brief's red-flag list, in its words.
-  criticalFailures: [
-    'Serious food-safety or hygiene issue',
-    'Foreign object in food',
-    'Food served clearly undercooked or unsafe',
-    'Rude, aggressive, discriminatory or seriously unprofessional staff behaviour',
-    'Major order error not corrected',
-    'Incorrect bill or incorrect cash change not corrected',
-    'Complaint ignored or dismissed',
-    'Excessive unexplained service delay',
-    'Damaged or chipped serving ware creating a safety risk',
-    'Seriously dirty dining area or table at the time of service',
-  ],
+  criticalFailures: RED_FLAGS_DINE_IN,
 }
 
 export const BENNIGANS_TEMPLATE: TemplateBlueprint = {

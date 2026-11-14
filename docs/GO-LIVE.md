@@ -13,10 +13,10 @@ Verified on **11 November 2026**, after loading:
 
 | | |
 |---|---|
-| Migrations | `0001`–`0017` **all applied** (0012 on 13 November, 0013–0017 on 14 November 2026) |
+| Migrations | `0001`–`0018` **all applied** (0012 on 13 November, 0013–0018 on 14 November 2026) |
 | Brands / outlets / questionnaires | 3 / 3 / 3 |
 | Stages | 53 — each template sums to exactly **100.00** scored weight, with the conditional Complaint Handling stage outside it |
-| Questions | **608** — matching each template's declared count exactly |
+| Questions | **616** — matching each template's declared count exactly |
 | Shoppers | **0 — the remaining step** |
 | Visits / answers / evidence | 0 |
 
@@ -54,10 +54,10 @@ file is the two migrations and the seed in the only order that works:
 |---|---|
 | 1 | Migration `0010` — the service-sequence columns |
 | 2 | Migration `0011` — the brand-framework columns |
-| 3 | 3 brands, 3 outlets, 3 questionnaires, 53 stages, **608 questions** |
+| 3 | 3 brands, 3 outlets, 3 questionnaires, 53 stages, **616 questions** |
 
 It ends with a check that prints `OK` or `FAIL` per row. **Every row must read
-`OK`,** and questions must read 608.
+`OK`,** and questions must read 616.
 
 Three files pasted by hand is three chances to paste them in the wrong order, and
 a half-applied schema announces itself as `column does not exist` from somewhere
@@ -122,6 +122,16 @@ N/A; NPS is asked 0–10; the red flags the briefs list but the questionnaires d
 enforce are now critical checks (Bennigan's: order error, bill or change, complaint
 ignored, excessive delay; Pizza Hut: complaint ignored); Pizza Hut's dashboard shows a
 critical-failure count. `GO_LIVE.sql` bundles 0016 so a fresh load gets the new column.
+
+`0018` (applied 14 November 2026) finishes the brief comparison: Shebestan gets the ten
+dine-in red flags as critical checks; Bennigan's "What did you order?" is back in Order
+Taking (the saved answer and photo moved across); Pizza Hut keeps its brief's weights
+exactly, with the restroom recorded but not scored; and evidence stores the camera's
+date, time and GPS for the proof-of-visit check.
+
+**A fresh database** runs `0001`–`0009`, then `GO_LIVE.sql`, then `0012`–`0018` in order.
+The later files carry schema the seed does not (notification recipients, logos, photo
+stamps); their questionnaire parts are written to be re-run and end in the same state.
 
 ## Step 3 — Create the three shopper accounts
 

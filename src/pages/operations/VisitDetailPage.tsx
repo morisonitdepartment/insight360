@@ -12,6 +12,7 @@ import { WorkflowTracker } from '@/components/workflow/WorkflowTracker'
 import { DeleteVisitDialog } from '@/components/workflow/DeleteVisitDialog'
 import { ReopenVisitDialog } from '@/components/workflow/ReopenVisitDialog'
 import { RestroomStatus } from '@/components/workflow/RestroomStatus'
+import { ProofOfVisitCheck } from '@/components/workflow/ProofOfVisitCheck'
 import { isAwaitingApproval, isCompleted } from '@/services/derive'
 import { CATEGORY_KEYS, CATEGORY_LABELS } from '@/utils/scoring'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -340,6 +341,7 @@ export default function VisitDetailPage() {
               </CardBody>
             </Card>
           )}
+          {role !== 'shopper' && <ProofOfVisitCheck visit={visit} />}
         </div>
 
         {/* Right column */}

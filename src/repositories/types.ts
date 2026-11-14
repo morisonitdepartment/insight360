@@ -21,6 +21,8 @@ export interface EvidenceUploadMeta {
   title: string
   description: string
   uploadedBy: string
+  /** Camera date/time and GPS read from the original file before it was shrunk. */
+  stamp?: { takenAt: string | null; latitude: number | null; longitude: number | null }
 }
 
 /**

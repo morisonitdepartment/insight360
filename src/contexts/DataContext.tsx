@@ -9,6 +9,7 @@ import { useNow } from '@/hooks'
 import { isDemoMode } from '@/config/app'
 import { prepareUpload } from '@/utils/prepareUpload'
 import { setLogoSources } from '@/utils/logos'
+import { readPhotoStamp } from '@/utils/photoStamp'
 
 export type ActionRecipe = (data: Dataset, ctx: ActionContext) => DatasetPatch
 
@@ -110,7 +111,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Every upload passes through prepareUpload: phone photos are shrunk and
   // converted to JPEG, and a file with no type gets one from its extension.
   const uploadEvidence = useCallback(
-    async (file: File | null, meta: EvidenceUploadMeta) => repo.uploadEvidence(file ? await prepareUpload(file) : null, meta),
+    async (file: File | null, meta: EvidenceUploadMeta) => {
+      // Read the camera's date, time and GPS first: shrinking the photo strips them.
+      const stamp = await readPhotoStamp(file)
+      return repo.uploadEvidence(file ? await prepareUpload(file) : null, { ...meta, stamp })
+    },
     [repo],
   )
   const deleteEvidenceFile = useCallback((id: string) => repo.deleteEvidence(id), [repo])

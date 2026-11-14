@@ -15,7 +15,7 @@ import { RadarCompareChart } from '@/components/charts'
 import { ClientLogo } from '@/components/ui/ClientLogo'
 import { CLIENT_BRAND } from '@/config/client'
 import { approveVisit, getVisitQuestions, getVisitSections, logExport, rejectVisit, startReview } from '@/services/actions'
-import { CATEGORY_KEYS, CATEGORY_LABELS, CATEGORY_SHORT, computeVisitScores, visibleQuestions } from '@/utils/scoring'
+import { CATEGORY_KEYS, CATEGORY_LABELS, CATEGORY_SHORT, computeVisitScores, CRITICAL_COUNT_KEY, visibleQuestions } from '@/utils/scoring'
 import { KPI_KIND_LABEL, formatKpiValue, stageRows, timingChainText, weightText } from '@/utils/sequence'
 import { exportCsv, printPage } from '@/utils/export'
 import { exportVisitReportPdf } from '@/services/reportPdf'
@@ -310,7 +310,7 @@ export default function VisitReportPage() {
                         <span className="min-w-0 text-slate-700 dark:text-slate-200">
                           {k.label} <span className="text-slate-400">· {KPI_KIND_LABEL[k.kind]}</span>
                         </span>
-                        <span className="shrink-0 font-semibold tabular-nums text-slate-800 dark:text-slate-100">{formatKpiValue(k, kpiScores?.[k.key], 'visit')}</span>
+                        <span className="shrink-0 font-semibold tabular-nums text-slate-800 dark:text-slate-100">{formatKpiValue(k, k.key === CRITICAL_COUNT_KEY ? visit.criticalCount : kpiScores?.[k.key], 'visit')}</span>
                       </li>
                     ))}
                   </ul>

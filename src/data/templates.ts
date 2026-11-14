@@ -829,6 +829,7 @@ export function buildTemplates(): TemplateBundle {
           commentRequired: q.comment ?? false,
           ...((q.commentOnFail ?? t.commentOnFail) && canFallShort ? { commentOnFail: true } : {}),
           allowNA: q.na ?? false,
+          ...(q.required ? { required: true } : {}),
           guidance: q.guidance ?? '',
           options: q.options,
           threshold: q.threshold,

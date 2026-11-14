@@ -20,10 +20,11 @@ cd "$(dirname "$0")/.."
 
 M10=supabase/migrations/0010_service_sequence.sql
 M11=supabase/migrations/0011_brand_framework.sql
+M16=supabase/migrations/0016_required_questions.sql
 SEED=supabase/seed_sterling.sql
 OUT=supabase/GO_LIVE.sql
 
-for f in "$M10" "$M11" "$SEED"; do
+for f in "$M10" "$M11" "$M16" "$SEED"; do
   [ -f "$f" ] || { echo "missing: $f" >&2; exit 1; }
 done
 
@@ -89,6 +90,11 @@ HEADER
 -- ===========================================================================
 MID
   cat "$M11"
+  printf '
+
+-- Migration 0016: mandatory unscored questions (the seed writes this column)
+'
+  cat "$M16"
   cat <<'MID2'
 
 

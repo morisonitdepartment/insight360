@@ -1,6 +1,6 @@
 import { addMonths, differenceInCalendarDays, differenceInHours, format, startOfMonth, subMonths } from 'date-fns'
 import type { AuditTemplate, CategoryKey, CategoryScores, CorrectiveAction, Dataset, Finding, KpiKind, Outlet, Visit, VisitType } from '@/types'
-import { CATEGORY_KEYS, CATEGORY_LABELS, averageCategoryScores } from '@/utils/scoring'
+import { CATEGORY_KEYS, CATEGORY_LABELS, averageCategoryScores, CRITICAL_COUNT_KEY } from '@/utils/scoring'
 import { avg, round } from '@/utils/format'
 import { isCompleted, isInProgress, isOpenFinding, isScored, isAwaitingApproval } from './derive'
 import { T, countOutlets } from '@/config/terms'
@@ -459,6 +459,12 @@ export function sequenceKpis(template: AuditTemplate, visits: Visit[]): Sequence
   if (!template.sequence) return []
   const scored = visits.filter((v) => v.templateId === template.id && v.score !== null && v.kpiScores)
   return template.sequence.mainKpis.map((k) => {
+    // A count is a total across the visits, read from the visit itself so visits
+    // scored before the KPI existed still count.
+    if (k.key === CRITICAL_COUNT_KEY) {
+      const counted = visits.filter((v) => v.templateId === template.id && v.score !== null)
+      return { ...k, value: counted.length ? counted.reduce((n, v) => n + (v.criticalCount ?? 0), 0) : null, n: counted.length }
+    }
     const vals = scored.map((v) => v.kpiScores![k.key]).filter((x): x is number => typeof x === 'number' && Number.isFinite(x))
     if (!vals.length) return { ...k, value: null, n: 0 }
     if (k.key === 'nps') {

@@ -38,7 +38,7 @@ import {
   upsertQuestion,
   upsertSection,
 } from '@/services/actions'
-import { CATEGORY_KEYS, CATEGORY_LABELS, CATEGORY_SHORT } from '@/utils/scoring'
+import { CATEGORY_KEYS, CATEGORY_LABELS, CATEGORY_SHORT, ratingScale } from '@/utils/scoring'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { DataTable, type Column } from '@/components/ui/DataTable'
@@ -172,12 +172,12 @@ function PreviewControl({ q }: { q: Question }) {
     }
     case 'rating_5':
     case 'rating_10': {
-      const n = q.type === 'rating_5' ? 5 : 10
+      const { min, max } = ratingScale(q)
       return (
         <div className="flex flex-wrap gap-1.5" role="group" aria-label={q.text}>
-          {Array.from({ length: n }, (_, i) => (
+          {Array.from({ length: max - min + 1 }, (_, i) => (
             <span key={i} className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 dark:border-navy-700 bg-slate-50 dark:bg-navy-800/60 text-xs tabular-nums text-slate-500 dark:text-slate-400">
-              {i + 1}
+              {i + min}
             </span>
           ))}
         </div>

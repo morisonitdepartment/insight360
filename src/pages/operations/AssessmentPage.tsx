@@ -13,7 +13,7 @@ import { ProgressBar } from '@/components/ui/Misc'
 import { EmptyState } from '@/components/ui/States'
 import { EvidencePreviewModal, EvidenceVisual } from '@/components/ui/EvidenceThumb'
 import { addEvidence, getVisitQuestions, getVisitSections, removeEvidence, renameEvidence, saveDraft, startVisit, submitVisit } from '@/services/actions'
-import { clockOrderProblem, computeVisitScores, deriveTimedAnswers, isQuestionAnswered, naAllowed, naNeedsReason, naSelectable, scoreQuestion, visibleQuestions } from '@/utils/scoring'
+import { clockOrderProblem, computeVisitScores, deriveTimedAnswers, isQuestionAnswered, naAllowed, naNeedsReason, naSelectable, ratingScale, scoreQuestion, visibleQuestions } from '@/utils/scoring'
 import { timingChainText } from '@/utils/sequence'
 import { fmtDateTime } from '@/utils/format'
 import type { AnswerValue, Evidence, Question, VisitAnswer } from '@/types'
@@ -206,7 +206,7 @@ export default function AssessmentPage() {
         if (naNeedsReason(q) && !(a.comment?.trim())) issues.push({ q, reason: 'Say in the comment why this is N/A' })
         continue
       }
-      if (scorable && !isQuestionAnswered(q, a)) issues.push({ q, reason: clockProblems[q.id] ?? (q.derivedFrom ? 'Record both clock times this duration is measured between' : 'Answer required') })
+      if ((scorable || q.required) && !isQuestionAnswered(q, a)) issues.push({ q, reason: clockProblems[q.id] ?? (q.derivedFrom ? 'Record both clock times this duration is measured between' : 'Answer required') })
       if ((q.type === 'photo' || q.type === 'video') && !(a?.evidenceIds.length)) issues.push({ q, reason: `${q.type === 'photo' ? 'Photo' : 'Video'} evidence required` })
       if (q.evidenceRequired && q.type !== 'photo' && q.type !== 'video' && a && a.score !== null && a.score < 0.5 && !a.evidenceIds.length) issues.push({ q, reason: 'Evidence required for a failed standard' })
       if (q.commentRequired && isQuestionAnswered(q, a) && !(a?.comment?.trim())) issues.push({ q, reason: 'Comment required' })
@@ -572,7 +572,8 @@ function QuestionCard({ index, q, answer, clockProblem, locked, onChange, onAtta
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-slate-900 dark:text-white leading-snug">{q.text}</p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <Badge tone="slate" size="xs">{TYPE_LABEL[q.type]}</Badge>
+            <Badge tone="slate" size="xs">{q.type === 'rating_10' && ratingScale(q).min === 0 ? '0–10 rating' : TYPE_LABEL[q.type]}</Badge>
+            {q.required && <Badge tone="blue" size="xs">Required</Badge>}
             <Badge tone="slate" size="xs">Weight {q.weight}</Badge>
             {q.critical && <Badge tone="red" size="xs" icon={AlertOctagon}>Critical</Badge>}
             {q.evidenceRequired && <Badge tone="blue" size="xs" icon={Camera}>Evidence required</Badge>}
@@ -606,7 +607,7 @@ function QuestionCard({ index, q, answer, clockProblem, locked, onChange, onAtta
             )}
             {(q.type === 'rating_5' || q.type === 'rating_10') && (
               <div className="flex flex-wrap gap-1.5" role="group" aria-label={q.text}>
-                {Array.from({ length: q.type === 'rating_5' ? 5 : 10 }, (_, i) => i + 1).map((n) => (
+                {Array.from({ length: ratingScale(q).max - ratingScale(q).min + 1 }, (_, i) => i + ratingScale(q).min).map((n) => (
                   <button key={n} type="button" disabled={disabled} onClick={() => set(n)} aria-pressed={value === n} className={cn('h-11 min-w-[44px] flex-1 rounded-lg border text-sm font-semibold transition-colors disabled:opacity-50', value === n ? 'border-navy-800 bg-navy-800 text-white dark:border-teal-500 dark:bg-teal-600' : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400 dark:border-navy-700 dark:bg-navy-800 dark:text-slate-200')}>
                     {n}
                   </button>

@@ -11,6 +11,7 @@ export const KPI_KIND_LABEL: Record<KpiKind, string> = {
   derived: 'Compliance',
   timing: 'Timing',
   satisfaction: 'Satisfaction',
+  count: 'Count',
 }
 
 export const TIMING_LABEL: Record<TimingRole, string> = {
@@ -65,6 +66,8 @@ export function formatKpiValue(kpi: SequenceKpi, value: number | null | undefine
   switch (kpi.kind) {
     case 'timing':
       return `${value.toFixed(1)} min`
+    case 'count':
+      return String(Math.round(value))
     case 'satisfaction':
       if (kpi.key === 'nps' && scope === 'portfolio') return `${value > 0 ? '+' : ''}${Math.round(value)}`
       return `${value.toFixed(1)} / 10`

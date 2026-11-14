@@ -36,7 +36,7 @@
  */
 import { buildTemplates } from '@/data/templates'
 import { isConditionalSection } from '@/data/templateKit'
-import { SATISFACTION_KEYS, TIMING_KPI_KEY, TOTAL_TIME_KEY } from '@/utils/scoring'
+import { CRITICAL_COUNT_KEY, SATISFACTION_KEYS, TIMING_KPI_KEY, TOTAL_TIME_KEY } from '@/utils/scoring'
 import { CLIENT } from '@/config/client'
 import type { Question, QuestionType, Section } from '@/types'
 
@@ -193,10 +193,13 @@ for (const t of templates) {
       const fed = feeders.get(k.key) ?? []
       const timingRole = Object.entries(TIMING_KPI_KEY).find(([, v]) => v === k.key)?.[0]
       const isTotal = k.key === TOTAL_TIME_KEY
+      // Counted by the engine from the visit's critical failures, not fed by a question.
+      const isCount = k.key === CRITICAL_COUNT_KEY
+      if (isCount !== (k.kind === 'count')) fail(t.code, `KPI ${k.key}`, isCount ? "is the critical-failure count; declare it 'count'" : "is declared 'count' but only the critical-failure count is one")
       const legs = Object.keys(TIMING_KPI_KEY).filter((r) => (roleQs.get(r) ?? []).length > 0)
 
       // Fed by something?
-      if (!fed.length && !timingRole && !isTotal) {
+      if (!fed.length && !timingRole && !isTotal && !isCount) {
         fail(t.code, `KPI ${k.key}`, 'is declared but no question maps to it, so it reads "—" on every visit and report')
       }
       if (timingRole && !(roleQs.get(timingRole) ?? []).length) {

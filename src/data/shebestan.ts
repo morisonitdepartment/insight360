@@ -48,8 +48,8 @@ const PROOF: SectionBlueprint = stage(
   'operational_compliance',
   'Mandatory evidence of the visit. The assessment cannot be submitted without both exterior photographs.',
   [
-    { text: 'Time in (entered the restaurant)', type: 'clock', weight: 0, key: 't_in', guidance: 'Record the moment you cross the entrance threshold. Every arrival timing is measured from here.' },
-    { text: 'Time out (left the restaurant)', type: 'clock', weight: 0, key: 't_out' },
+    { text: 'Time in (entered the restaurant)', type: 'clock', weight: 0, required: true, key: 't_in', guidance: 'Record the moment you cross the entrance threshold. Every arrival timing is measured from here.' },
+    { text: 'Time out (left the restaurant)', type: 'clock', weight: 0, required: true, key: 't_out' },
     {
       text: 'Exterior arrival photograph',
       type: 'photo',
@@ -57,7 +57,7 @@ const PROOF: SectionBlueprint = stage(
       guidance: 'Taken before entering. The image must clearly show the restaurant signage and entrance, with the date, exact time and location stamp visible. The assessment cannot be submitted without it.',
     },
     { text: 'Exterior departure photograph', type: 'photo', weight: 0, guidance: 'Taken on leaving, with the same date, time and location stamp.' },
-    { text: 'Confirm the branch assessed', type: 'yes_no', weight: 0, guidance: 'Shebestan Palace, Building 17, Al Sadd Street, Doha.' },
+    { text: 'Confirm the branch assessed', type: 'yes_no', weight: 0, required: true, guidance: 'Shebestan Palace, Building 17, Al Sadd Street, Doha.' },
     { text: 'Number of guests in your party', type: 'numeric', weight: 0 },
     {
       text: 'Items ordered',
@@ -565,7 +565,7 @@ const OVERALL: SectionBlueprint = stage(
     { text: 'Rate value for money', type: 'rating_5', weight: 0 },
     { text: 'Rate the overall fine-dining experience (1-10)', type: 'rating_10', weight: 0, kpi: ['csat'], guidance: '1 = extremely dissatisfied, 10 = extremely satisfied.' },
     { text: 'How likely are you to return? (1-10)', type: 'rating_10', weight: 0, kpi: ['return_likelihood'] },
-    { text: 'How likely are you to recommend Shebestan Palace to a friend, family member or colleague? (1-10)', type: 'rating_10', weight: 0, kpi: ['nps'], guidance: 'Net Promoter question. 9-10 promoter, 7-8 passive, 1-6 detractor.' },
+    { text: 'How likely are you to recommend Shebestan Palace to a friend, family member or colleague? (0-10)', type: 'rating_10', weight: 0, kpi: ['nps'], guidance: 'Net Promoter question. 9-10 promoter, 7-8 passive, 0-6 detractor.' },
     { text: 'What did you like most?', type: 'text', weight: 0 },
     { text: 'What did you dislike?', type: 'text', weight: 0 },
     { text: 'What should be improved?', type: 'text', weight: 0 },
@@ -609,7 +609,7 @@ const SHEBESTAN_SEQUENCE: ServiceSequence = {
     { key: 'menu_knowledge', label: 'Menu Knowledge Score', kind: 'weighted' },
     { key: 'upselling', label: 'Upselling Score', kind: 'weighted' },
     { key: 'order_accuracy', label: 'Order Accuracy Score', kind: 'weighted' },
-    { key: 'main_course_time', label: 'Food Delivery Speed', kind: 'timing' },
+    { key: 'main_course_time', label: 'Food Delivery Speed (order to main course)', kind: 'timing' },
     { key: 'grilled_time', label: 'Grilled Items Delivery Time', kind: 'timing' },
     { key: 'plate_clearing_time', label: 'Table Clearing Time', kind: 'timing' },
     RESTROOM_KPI,

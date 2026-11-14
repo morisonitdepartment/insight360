@@ -272,6 +272,11 @@ export interface Question {
   evidenceRequired: boolean
   commentRequired: boolean
   allowNA: boolean
+  /**
+   * Must be answered before the visit can be submitted, even though it carries no
+   * score — the brief's mandatory visit fields (time in, time out, branch).
+   */
+  required?: boolean
   guidance: string
   options?: string[]
   /** For time/numeric: threshold above which the question fails (minutes) */
@@ -349,7 +354,7 @@ export type TimingRole = 'queue' | 'order' | 'preparation'
  *  timing       — minutes
  *  satisfaction — CSAT on a 1-10 scale, or an NPS score
  */
-export type KpiKind = 'weighted' | 'derived' | 'timing' | 'satisfaction'
+export type KpiKind = 'weighted' | 'derived' | 'timing' | 'satisfaction' | 'count'
 
 export interface SequenceKpi {
   key: string

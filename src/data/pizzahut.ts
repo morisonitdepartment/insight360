@@ -1,3 +1,4 @@
+import { CRITICAL_COUNT_KEY } from '@/utils/scoring'
 import type { ServiceSequence } from '@/types'
 import { PROBLEM_SOLVING_OPTIONS, QUALITY_SCALE, type SectionBlueprint, type TemplateBlueprint, RESTROOM_KPI, restroomStage, stage } from './templateKit'
 
@@ -63,10 +64,10 @@ const PROOF: SectionBlueprint = stage(
   'operational_compliance',
   'The visit record and its proof. Recorded for context and evidence; not scored.',
   [
-    { text: 'Time in (arrived at the outlet)', type: 'clock', weight: 0, key: 't_in' },
-    { text: 'Time out (left the outlet)', type: 'clock', weight: 0, key: 't_out' },
+    { text: 'Time in (arrived at the outlet)', type: 'clock', weight: 0, required: true, key: 't_in' },
+    { text: 'Time out (left the outlet)', type: 'clock', weight: 0, required: true, key: 't_out' },
     { text: 'Total visit duration (minutes)', type: 'time', weight: 0, from: 't_in', to: 't_out', kpi: ['visit_duration'], guidance: 'Calculated from the two stamps above.' },
-    { text: 'Confirm the branch assessed', type: 'yes_no', weight: 0, guidance: 'Pizza Hut, Doha Festival City Mall food court.' },
+    { text: 'Confirm the branch assessed', type: 'yes_no', weight: 0, required: true, guidance: 'Pizza Hut, Doha Festival City Mall food court.' },
     { text: 'Number of guests in your party', type: 'numeric', weight: 0 },
     {
       text: 'Approximate outlet and queue occupancy on arrival',
@@ -503,7 +504,18 @@ const COMPLAINT: SectionBlueprint = stage(
       when: { key: 'had_complaint', equals: true },
       tag: 'problem_solving',
       kpi: ['complaint_resolution'],
-      guidance: 'A complaint ignored or handled unprofessionally is a critical failure — record it here and describe it in the comment.',
+      guidance: 'Record how the complaint was handled. If it was ignored or handled unprofessionally, answer the next question No.',
+    },
+    // Added at the end of the stage: question ids are positional.
+    {
+      text: 'Was the complaint handled professionally — not ignored or dismissed?',
+      type: 'yes_no',
+      weight: 3,
+      critical: true,
+      comment: true,
+      when: { key: 'had_complaint', equals: true },
+      kpi: ['complaint_resolution'],
+      guidance: 'A critical failure when the complaint was ignored or handled unprofessionally. Describe what happened.',
     },
   ],
 )
@@ -526,11 +538,11 @@ const OVERALL: SectionBlueprint = stage(
     { text: 'Rate the overall Pizza Hut food-court experience (1-10)', type: 'rating_10', weight: 0, kpi: ['csat'], guidance: '1 = extremely dissatisfied, 10 = extremely satisfied.' },
     { text: 'Would you return to this Pizza Hut branch? (1-10)', type: 'rating_10', weight: 0, kpi: ['return_likelihood'] },
     {
-      text: 'How likely are you to recommend this Pizza Hut branch to a friend or colleague? (1-10)',
+      text: 'How likely are you to recommend this Pizza Hut branch to a friend or colleague? (0-10)',
       type: 'rating_10',
       weight: 0,
       kpi: ['nps'],
-      guidance: 'Net Promoter question. 9-10 promoter, 7-8 passive, 1-6 detractor.',
+      guidance: 'Net Promoter question. 9-10 promoter, 7-8 passive, 0-6 detractor.',
     },
     { text: 'What did you like most?', type: 'text', weight: 0 },
     { text: 'What should be improved?', type: 'text', weight: 0 },
@@ -588,6 +600,7 @@ const PIZZAHUT_SEQUENCE: ServiceSequence = {
     { key: 'csat', label: 'Customer Satisfaction (CSAT)', kind: 'satisfaction' },
     { key: 'nps', label: 'Net Promoter Score (NPS)', kind: 'satisfaction' },
     { key: 'return_likelihood', label: 'Likelihood to Return', kind: 'satisfaction' },
+    { key: CRITICAL_COUNT_KEY, label: 'Critical Failure Count', kind: 'count' },
   ],
   // The brief's high-severity flag list, in its words.
   criticalFailures: [

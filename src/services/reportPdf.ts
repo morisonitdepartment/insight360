@@ -16,7 +16,7 @@ import type {
   Visit,
   VisitAnswer,
 } from '@/types'
-import { CATEGORY_KEYS, CATEGORY_LABELS, DEFAULT_THRESHOLDS } from '@/utils/scoring'
+import { CATEGORY_KEYS, CATEGORY_LABELS, CRITICAL_COUNT_KEY, DEFAULT_THRESHOLDS } from '@/utils/scoring'
 import { ReportDoc, bandColor, loadBrandMark, loadClientMark, scoreTone, type CellTone, type PdfColumn } from '@/utils/pdf'
 import { CLIENT } from '@/config/client'
 import { KPI_KIND_LABEL, formatKpiValue, stageRows, timingChainText, weightText } from '@/utils/sequence'
@@ -273,7 +273,7 @@ export async function exportVisitReportPdf(i: VisitPdfInput): Promise<void> {
     doc.tiles(
       seq.mainKpis.map((k) => ({
         label: k.label,
-        value: formatKpiValue(k, kpiScores?.[k.key], 'visit'),
+        value: formatKpiValue(k, k.key === CRITICAL_COUNT_KEY ? visit.criticalCount : kpiScores?.[k.key], 'visit'),
         note: KPI_KIND_LABEL[k.kind],
         tone: k.kind === 'weighted' || k.kind === 'derived' ? scoreTone(kpiScores?.[k.key] ?? null) : 'default',
       })),

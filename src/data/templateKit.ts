@@ -18,6 +18,8 @@ export interface QuestionBlueprint {
   /** Ask for a comment only when the answer falls short (a No, a Fail, a low rating). */
   commentOnFail?: boolean
   na?: boolean
+  /** Must be answered before submission even when unscored (mandatory visit fields). */
+  required?: boolean
   guidance?: string
   options?: string[]
   threshold?: number

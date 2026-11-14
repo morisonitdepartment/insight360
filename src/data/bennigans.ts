@@ -53,8 +53,8 @@ const PROOF: SectionBlueprint = stage(
   'operational_compliance',
   'Mandatory evidence of the visit. The assessment cannot be submitted without both exterior photographs.',
   [
-    { text: 'Time in (entered the restaurant)', type: 'clock', weight: 0, key: 't_in', guidance: 'Record the moment you cross the entrance threshold. Every arrival timing is measured from here.' },
-    { text: 'Time out (left the restaurant)', type: 'clock', weight: 0, key: 't_out' },
+    { text: 'Time in (entered the restaurant)', type: 'clock', weight: 0, required: true, key: 't_in', guidance: 'Record the moment you cross the entrance threshold. Every arrival timing is measured from here.' },
+    { text: 'Time out (left the restaurant)', type: 'clock', weight: 0, required: true, key: 't_out' },
     { text: 'Total visit duration (minutes)', type: 'time', weight: 0, from: 't_in', to: 't_out', kpi: ['visit_duration'], guidance: 'Calculated from the two stamps above.' },
     {
       text: 'Exterior arrival photograph',
@@ -63,7 +63,7 @@ const PROOF: SectionBlueprint = stage(
       guidance: 'Taken before entering. The image must clearly show the Bennigan’s signage and exterior together with the date, exact time and location stamp. The assessment cannot be submitted without it.',
     },
     { text: 'Exterior departure photograph', type: 'photo', weight: 0, guidance: 'Taken on leaving, with the same date, time and location stamp.' },
-    { text: 'Confirm the branch assessed', type: 'yes_no', weight: 0, guidance: 'Bennigan’s, Qatar Tennis Federation, Doha.' },
+    { text: 'Confirm the branch assessed', type: 'yes_no', weight: 0, required: true, guidance: 'Bennigan’s, Qatar Tennis Federation, Doha.' },
     { text: 'Number of guests in your party', type: 'numeric', weight: 0 },
     {
       text: 'Items ordered',
@@ -259,8 +259,20 @@ const ORDER_ACCURACY: SectionBlueprint = stage(
     { text: 'Did the order taker repeat the complete order back to you?', type: 'yes_no', weight: 3, tag: 'order_accuracy', kpi: ['order_accuracy'] },
     { text: 'Did you make a modification or special request?', type: 'yes_no', weight: 0, key: 'ord_special', guidance: 'Informational — gates the next question.' },
     { text: 'Did the order taker confirm the modification or special request?', type: 'yes_no', weight: 3, when: { key: 'ord_special', equals: true }, kpi: ['order_accuracy'] },
-    { text: 'Were all ordered items correctly entered and later delivered as ordered?', type: 'yes_no', weight: 3, comment: true, kpi: ['order_accuracy'] },
+    { text: 'Were all ordered items correctly entered and later delivered as ordered?', type: 'yes_no', weight: 3, comment: true, key: 'ord_correct', kpi: ['order_accuracy'] },
     { text: 'Was the order-taking process accurate and professional?', type: 'rating_5', weight: 2, kpi: ['order_accuracy'] },
+    // Red flags from the brief are added at the end of their stage, never in the
+    // middle: question ids are positional and answers on the live system point at them.
+    {
+      text: 'Was the order error corrected once you pointed it out?',
+      type: 'yes_no',
+      weight: 3,
+      critical: true,
+      comment: true,
+      when: { key: 'ord_correct', equals: false },
+      kpi: ['order_accuracy'],
+      guidance: 'Point out the wrong or missing item to the waiter. A critical failure (major order error not corrected) when it was not put right.',
+    },
   ],
 )
 
@@ -385,6 +397,14 @@ const MAIN_COURSE: SectionBlueprint = stage(
       kpi: ['food_quality'],
       guidance: 'A critical failure. Answer No for anything served clearly undercooked or unsafe, or any foreign object in the food. Photograph it and describe what you found.',
     },
+    {
+      text: 'Was the meal free from any excessive, unexplained service delay?',
+      type: 'yes_no',
+      weight: 2,
+      critical: true,
+      comment: true,
+      guidance: 'A critical failure. Answer No only for a wait far beyond the standard times that nobody explained or apologised for.',
+    },
   ],
 )
 
@@ -499,7 +519,17 @@ const COMPLAINT: SectionBlueprint = stage(
       when: { key: 'had_complaint', equals: true },
       tag: 'problem_solving',
       kpi: ['complaint_resolution'],
-      guidance: 'A complaint ignored or dismissed is a critical failure — record it here and describe it in the comment.',
+      guidance: 'Record how the complaint was handled. If it was ignored or dismissed, answer the next question No.',
+    },
+    {
+      text: 'Was the complaint taken seriously — not ignored or dismissed?',
+      type: 'yes_no',
+      weight: 3,
+      critical: true,
+      comment: true,
+      when: { key: 'had_complaint', equals: true },
+      kpi: ['complaint_resolution'],
+      guidance: 'A critical failure when staff ignored or dismissed the complaint. Describe what happened.',
     },
   ],
 )
@@ -547,6 +577,14 @@ const BILLING_FAREWELL: SectionBlueprint = stage(
     { text: 'Did the hostess acknowledge you on departure?', type: 'yes_no', weight: 2, na: true, kpi: ['farewell'] },
     { text: 'Was the farewell warm and professional?', type: 'rating_5', weight: 2, kpi: ['farewell'] },
     { text: 'Did the final interaction leave a positive impression?', type: 'rating_5', weight: 2, kpi: ['farewell'] },
+    {
+      text: 'Were the bill and any change correct, or corrected before you left?',
+      type: 'yes_no',
+      weight: 3,
+      critical: true,
+      comment: true,
+      guidance: 'A critical failure when a wrong bill or wrong cash change was not put right before you left.',
+    },
   ],
 )
 
@@ -569,11 +607,11 @@ const OVERALL: SectionBlueprint = stage(
     { text: 'Rate the overall American casual-dining experience (1-10)', type: 'rating_10', weight: 0, kpi: ['csat'], guidance: '1 = extremely dissatisfied, 10 = extremely satisfied.' },
     { text: 'How likely are you to return? (1-10)', type: 'rating_10', weight: 0, kpi: ['return_likelihood'] },
     {
-      text: 'How likely are you to recommend Bennigan’s to a friend, family member or colleague? (1-10)',
+      text: 'How likely are you to recommend Bennigan’s to a friend, family member or colleague? (0-10)',
       type: 'rating_10',
       weight: 0,
       kpi: ['nps'],
-      guidance: 'Net Promoter question. 9-10 promoter, 7-8 passive, 1-6 detractor.',
+      guidance: 'Net Promoter question. 9-10 promoter, 7-8 passive, 0-6 detractor.',
     },
     { text: 'What did you like most?', type: 'text', weight: 0 },
     { text: 'What did you dislike?', type: 'text', weight: 0 },

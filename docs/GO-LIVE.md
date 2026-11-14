@@ -13,10 +13,10 @@ Verified on **11 November 2026**, after loading:
 
 | | |
 |---|---|
-| Migrations | `0001`–`0015` **all applied** (0012 on 13 November, 0013–0015 on 14 November 2026) |
+| Migrations | `0001`–`0017` **all applied** (0012 on 13 November, 0013–0017 on 14 November 2026) |
 | Brands / outlets / questionnaires | 3 / 3 / 3 |
 | Stages | 53 — each template sums to exactly **100.00** scored weight, with the conditional Complaint Handling stage outside it |
-| Questions | **603** — matching each template's declared count exactly |
+| Questions | **608** — matching each template's declared count exactly |
 | Shoppers | **0 — the remaining step** |
 | Visits / answers / evidence | 0 |
 
@@ -54,10 +54,10 @@ file is the two migrations and the seed in the only order that works:
 |---|---|
 | 1 | Migration `0010` — the service-sequence columns |
 | 2 | Migration `0011` — the brand-framework columns |
-| 3 | 3 brands, 3 outlets, 3 questionnaires, 53 stages, **603 questions** |
+| 3 | 3 brands, 3 outlets, 3 questionnaires, 53 stages, **608 questions** |
 
 It ends with a check that prints `OK` or `FAIL` per row. **Every row must read
-`OK`,** and questions must read 603.
+`OK`,** and questions must read 608.
 
 Three files pasted by hand is three chances to paste them in the wrong order, and
 a half-applied schema announces itself as `column does not exist` from somewhere
@@ -115,6 +115,13 @@ inspection standard: Pizza Hut gets the same stage at 5% (its brief's areas scal
 by 0.95), and Shebestan's five differently worded restroom questions take the
 standard wording. Every new template created in Audit Templates starts with the
 same 21 questions, unweighted.
+
+`0016`/`0017` (applied 14 November 2026) apply the briefs' rules: time in, time out and
+branch confirmation are mandatory and the proof-of-visit photos can no longer be marked
+N/A; NPS is asked 0–10; the red flags the briefs list but the questionnaires did not
+enforce are now critical checks (Bennigan's: order error, bill or change, complaint
+ignored, excessive delay; Pizza Hut: complaint ignored); Pizza Hut's dashboard shows a
+critical-failure count. `GO_LIVE.sql` bundles 0016 so a fresh load gets the new column.
 
 ## Step 3 — Create the three shopper accounts
 

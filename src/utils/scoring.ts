@@ -91,7 +91,11 @@ export function riskFromScore(score: number | null | undefined, thresholds: Scor
  * (`allowNA` false) the shopper must say why; see `naNeedsReason`.
  */
 export function naAllowed(q: Question): boolean {
-  return q.allowNA || !q.critical
+  if (q.allowNA) return true
+  // Never N/A: a critical check, a mandatory visit field, or required evidence —
+  // the proof-of-visit photos above all, which every brief makes a condition of
+  // submitting at all.
+  return !q.critical && !q.required && q.type !== 'photo' && q.type !== 'video'
 }
 
 /** Whether the shopper ticks N/A themselves. A calculated duration is N/A only when one of its clock times is. */
@@ -102,6 +106,18 @@ export function naSelectable(q: Question): boolean {
 /** N/A on a question that was not written to allow it must be explained. */
 export function naNeedsReason(q: Question): boolean {
   return !q.allowNA && naSelectable(q)
+}
+
+/** The KPI that counts a visit's critical failures (Pizza Hut's "Critical Failure Count"). */
+export const CRITICAL_COUNT_KEY = 'critical_failures'
+
+/**
+ * The buttons a rating question offers. The Net Promoter question runs 0–10, as
+ * NPS is defined and as every brief asks; every other 10-point rating runs 1–10.
+ */
+export function ratingScale(q: Pick<Question, 'type' | 'kpiKeys'>): { min: number; max: number } {
+  if (q.type === 'rating_5') return { min: 1, max: 5 }
+  return q.kpiKeys?.includes('nps') ? { min: 0, max: 10 } : { min: 1, max: 10 }
 }
 
 /** Scores a single answer to 0..1. Returns null when the question is informational or unanswered / N/A. */
@@ -119,7 +135,8 @@ export function scoreQuestion(q: Question, value: AnswerValue, na: boolean): num
     }
     case 'rating_10': {
       const v = Number(value)
-      return Number.isFinite(v) ? Math.max(0, Math.min(1, (v - 1) / 9)) : null
+      const { min, max } = ratingScale(q)
+      return Number.isFinite(v) ? Math.max(0, Math.min(1, (v - min) / (max - min))) : null
     }
     case 'multiple_choice': {
       const opts = q.options ?? []
@@ -320,10 +337,11 @@ export function computeVisitScores(
     for (const q of qs) {
       const a = byQuestion.get(q.id)
       const scorable = q.weight > 0 && q.type !== 'text' && q.type !== 'photo' && q.type !== 'video'
-      if (scorable) totalMandatory++
+      const mandatory = scorable || !!q.required
+      if (mandatory) totalMandatory++
       if (isQuestionAnswered(q, a)) {
         answered++
-        if (scorable) answeredMandatory++
+        if (mandatory) answeredMandatory++
       }
       if (!a) continue
       const s = scoreQuestion(q, a.value, a.na)
@@ -415,6 +433,7 @@ export function computeVisitScores(
     for (const [key, acc] of kpiAcc) kpiScores[key] = acc.n ? (acc.sum / acc.n) * 100 : null
     const legs = Object.values(TIMING_KPI_KEY).map((k) => kpiScores![k])
     if (legs.every((v): v is number => typeof v === 'number' && Number.isFinite(v))) kpiScores[TOTAL_TIME_KEY] = legs.reduce((a, b) => a + b, 0)
+    kpiScores[CRITICAL_COUNT_KEY] = criticalFailures.length
   }
 
   let risk = riskFromScore(overall, thresholds)

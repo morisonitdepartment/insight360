@@ -13,10 +13,10 @@ Verified on **11 November 2026**, after loading:
 
 | | |
 |---|---|
-| Migrations | `0001`–`0012` **all applied** (0012 on 13 November 2026) |
+| Migrations | `0001`–`0013` **all applied** (0012 on 13 November, 0013 on 14 November 2026) |
 | Brands / outlets / questionnaires | 3 / 3 / 3 |
-| Stages | 51 — each template sums to exactly **100.00** scored weight, with the conditional Complaint Handling stage (5) outside it |
-| Questions | **562** — matching each template's declared count exactly |
+| Stages | 52 — each template sums to exactly **100.00** scored weight, with the conditional Complaint Handling stage outside it |
+| Questions | **582** — matching each template's declared count exactly |
 | Shoppers | **0 — the remaining step** |
 | Visits / answers / evidence | 0 |
 
@@ -54,10 +54,10 @@ file is the two migrations and the seed in the only order that works:
 |---|---|
 | 1 | Migration `0010` — the service-sequence columns |
 | 2 | Migration `0011` — the brand-framework columns |
-| 3 | 3 brands, 3 outlets, 3 questionnaires, 51 stages, **562 questions** |
+| 3 | 3 brands, 3 outlets, 3 questionnaires, 52 stages, **582 questions** |
 
 It ends with a check that prints `OK` or `FAIL` per row. **Every row must read
-`OK`,** and questions must read 562.
+`OK`,** and questions must read 582.
 
 Three files pasted by hand is three chances to paste them in the wrong order, and
 a half-applied schema announces itself as `column does not exist` from somewhere
@@ -100,6 +100,15 @@ and in live mode the generator reads an empty dataset and would emit an empty se
 Run `npm run check:frameworks` first — if a questionnaire cannot be scored, there is
 no point loading it. Then rebuild `GO_LIVE.sql` with `bash scripts/build-go-live.sh`,
 or the one-file route will still carry the old questionnaire.
+
+### Changes since the first load
+
+`0013_bennigans_restroom.sql` (applied 14 November 2026) brings a database loaded
+from the earlier seed up to date for Bennigan's: a **Toilet / Restroom Cleanliness**
+stage at 5% (21 questions), the brief's other stages scaled by 0.95 so their
+relative weights hold, and the repeated ORD.1 "What did you order?" removed (PRF.8
+"Items ordered" is the record of the order). A fresh load from `GO_LIVE.sql`
+already includes all of it.
 
 ## Step 3 — Create the three shopper accounts
 

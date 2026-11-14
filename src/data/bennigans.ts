@@ -13,8 +13,10 @@ import { PROBLEM_SOLVING_OPTIONS, QUALITY_SCALE, type SectionBlueprint, type Tem
  *
  * Four things about the shape, all of them from the brief:
  *
- * 1. The brief's KPI table lists fourteen categories and sums to exactly 100,
- *    so the weights go in as written with no scaling. Its twenty questionnaire
+ * 1. The brief's KPI table lists fourteen categories and sums to exactly 100.
+ *    A fifteenth, Toilet / Restroom Cleanliness at 5%, was added at the
+ *    operator's request; the brief's fourteen were scaled by 0.95 to make room,
+ *    which keeps every relative priority exactly as written. Its twenty questionnaire
  *    sections are grouped into those fourteen stages: plate condition joins
  *    plate clearing under Table Maintenance, main-course timing joins main-course
  *    quality, and billing joins farewell.
@@ -23,7 +25,7 @@ import { PROBLEM_SOLVING_OPTIONS, QUALITY_SCALE, type SectionBlueprint, type Tem
  *    occurs". Every one of its scored questions is gated behind that switch,
  *    which puts the stage outside the weights-sum rule: on a visit with no
  *    complaint it scores null and the fourteen weighted stages carry the whole
- *    100 between them; on a visit with one it takes a 5% share of 105. Cash
+ *    100 between them; on a visit with one it takes a 4.75% share of 104.75. Cash
  *    handling is gated the same way, on whether cash was used.
  *
  * 3. Timings are recorded as wall-clock stamps and every duration is calculated,
@@ -86,7 +88,7 @@ const EXTERIOR: SectionBlueprint = stage(
   'EXT',
   'Exterior & First Impression',
   'Arrival & First Impression',
-  4,
+  3.8,
   'product_environment',
   'The frontage, the entrance and the impression the restaurant makes before a word is spoken.',
   [
@@ -104,7 +106,7 @@ const HOSTESS: SectionBlueprint = stage(
   'HOS',
   'Hostess Welcome & Seating',
   'Hostess & Seating',
-  7,
+  6.65,
   'customer_experience',
   'The welcome at the door, the party-size enquiry and the walk to the table.',
   [
@@ -124,7 +126,7 @@ const OCCUPANCY: SectionBlueprint = stage(
   'OCC',
   'Occupancy & Restaurant Environment',
   'Occupancy, Environment & Cleanliness',
-  6,
+  5.7,
   'product_environment',
   'How busy the restaurant was, and the condition of the room the guest sat in. Occupancy is recorded for context and is not scored.',
   [
@@ -161,7 +163,7 @@ const TABLE_SETUP: SectionBlueprint = stage(
   'TBS',
   'Table Setup & Condiments',
   'Table Setup & Condiments',
-  6,
+  5.7,
   'product_environment',
   'The table as the guest finds it: cleanliness, the condiment set and the loyalty material the brief requires on display.',
   [
@@ -182,7 +184,7 @@ const WAITER_CONTACT: SectionBlueprint = stage(
   'WTR',
   'Initial Waiter / Order Taker Contact',
   'Waiter Initial Response',
-  7,
+  6.65,
   'customer_experience',
   'How quickly the order taker reached the table, and the first impression they made. The brand standard is two minutes from seating.',
   [
@@ -216,7 +218,7 @@ const MENU_KNOWLEDGE: SectionBlueprint = stage(
   'MNK',
   'Menu Knowledge & Upselling',
   'Menu Knowledge & Upselling',
-  8,
+  7.6,
   'upselling_sales',
   'What the order taker knew about the menu, and whether they grew the order naturally.',
   [
@@ -243,7 +245,7 @@ const ORDER_ACCURACY: SectionBlueprint = stage(
   'ORD',
   'Order Taking & Accuracy',
   'Order Accuracy',
-  7,
+  6.65,
   'operational_compliance',
   'What was ordered, whether it was confirmed back, and whether it arrived as placed.',
   [
@@ -268,7 +270,7 @@ const APPETIZER: SectionBlueprint = stage(
   'APP',
   'Appetizer Service',
   'Appetizer Service',
-  8,
+  7.6,
   'service_speed',
   'The measured delivery of the appetizer and its quality on arrival.',
   [
@@ -300,7 +302,7 @@ const PLATE: SectionBlueprint = stage(
   'PLT',
   'Plate Condition & Clearing',
   'Table Maintenance',
-  5,
+  4.75,
   'product_environment',
   'The condition of the serving ware, and whether finished plates were cleared and the table kept in order through the meal.',
   [
@@ -344,7 +346,7 @@ const MAIN_COURSE: SectionBlueprint = stage(
   'MCS',
   'Main Course Timing & Quality',
   'Main Course Timing & Quality',
-  15,
+  14.25,
   'product_environment',
   'The measured delivery of the main course and the quality of what arrived: cooking, doneness, temperature, freshness, taste, portion and seasoning.',
   [
@@ -392,7 +394,7 @@ const BEVERAGE: SectionBlueprint = stage(
   'BEV',
   'Beverage Quality & Refill',
   'Beverage Quality & Refill',
-  8,
+  7.6,
   'service_speed',
   'The drink as served, and whether the waiter watched the glass and offered a refill before it was empty.',
   [
@@ -413,7 +415,7 @@ const ATTENTIVENESS: SectionBlueprint = stage(
   'ATT',
   'Waiter Attentiveness & Service Behaviour',
   'Waiter Attentiveness',
-  8,
+  7.6,
   'customer_experience',
   'Presence through the meal: responsiveness, judgement about when to approach, and professional conduct.',
   [
@@ -441,7 +443,7 @@ const SUPERVISOR: SectionBlueprint = stage(
   'SUP',
   'Supervisor / Manager Interaction',
   'Supervisor Interaction',
-  4,
+  3.8,
   'customer_experience',
   'Whether a manager worked the floor and asked the guest for feedback. The follow-up questions are asked only where one passed the table.',
   [
@@ -459,7 +461,7 @@ const COMPLAINT: SectionBlueprint = stage(
   'CMP',
   'Complaint Handling',
   'Complaint Resolution',
-  5,
+  4.75,
   'customer_experience',
   'Scored only on a visit where a complaint was raised. On every other visit the stage is excluded and the fourteen weighted stages carry the full score.',
   [
@@ -502,14 +504,51 @@ const COMPLAINT: SectionBlueprint = stage(
   ],
 )
 
-// ── 15 · Billing, Payment & Farewell — 7% ───────────────────────────────────
+// ── 15 · Toilet / Restroom Cleanliness — 5% ────────────────────────────────
+// Not in the client's brief: added at the operator's request (14 Nov 2026). It
+// takes 5%, and every other stage was scaled by 0.95 so the brief's relative
+// weights hold exactly. Same questions as Shebestan's restroom inspection.
+
+const RESTROOM: SectionBlueprint = stage(
+  'WC',
+  'Toilet / Restroom Cleanliness',
+  'Restroom Cleanliness',
+  5,
+  'safety_entertainment',
+  'A full restroom inspection. Photograph anything that falls short.',
+  [
+    { text: 'Was the restroom clean?', type: 'yes_no', weight: 3, evidence: true, tag: 'washroom', kpi: ['restroom'] },
+    { text: 'Was the toilet bowl clean?', type: 'yes_no', weight: 3, kpi: ['restroom'] },
+    { text: 'Was the toilet seat clean?', type: 'yes_no', weight: 3, kpi: ['restroom'] },
+    { text: 'Was the toilet floor clean?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
+    { text: 'Was the floor dry?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
+    { text: 'Was the washbasin clean?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
+    { text: 'Was the mirror clean?', type: 'yes_no', weight: 1, kpi: ['restroom'] },
+    { text: 'Was hand soap available?', type: 'yes_no', weight: 3, kpi: ['restroom'] },
+    { text: 'Was the soap dispenser adequately filled?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
+    { text: 'Was hand sanitizer available, where applicable?', type: 'yes_no', weight: 1, na: true, kpi: ['restroom'] },
+    { text: 'Was the hand sanitizer adequately filled?', type: 'yes_no', weight: 1, na: true, kpi: ['restroom'] },
+    { text: 'Was toilet tissue available?', type: 'yes_no', weight: 3, kpi: ['restroom'] },
+    { text: 'Was hand tissue / paper towel available?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
+    { text: 'Was the tissue roll adequately stocked?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
+    { text: 'Was the exhaust fan clean?', type: 'yes_no', weight: 1, kpi: ['restroom'] },
+    { text: 'Was the exhaust fan operational?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
+    { text: 'Was the toilet free from bad or unpleasant smells?', type: 'yes_no', weight: 3, kpi: ['restroom'] },
+    { text: 'Were restroom lights operational?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
+    { text: 'Was the waste bin clean?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
+    { text: 'Was the waste bin not overflowing?', type: 'yes_no', weight: 2, kpi: ['restroom'] },
+    { text: 'Was the restroom overall suitable for a casual-dining restaurant of Bennigan’s standard?', type: 'rating_5', weight: 3, kpi: ['restroom'] },
+  ],
+)
+
+// ── 16 · Billing, Payment & Farewell — 7% → 6.65 ────────────────────────────
 // The brief's sections 18 and 19. Cash questions are gated on cash payment.
 
 const BILLING_FAREWELL: SectionBlueprint = stage(
   'BPF',
   'Billing, Payment & Farewell',
   'Billing & Farewell',
-  7,
+  6.65,
   'operational_compliance',
   'From asking for the bill to walking out: promptness, accuracy, cash handling where cash was used, the receipt and the last impression.',
   [
@@ -541,7 +580,7 @@ const BILLING_FAREWELL: SectionBlueprint = stage(
   ],
 )
 
-// ── 16 · Overall Experience — unweighted ────────────────────────────────────
+// ── 17 · Overall Experience — unweighted ────────────────────────────────────
 
 const OVERALL: SectionBlueprint = stage(
   'OVR',
@@ -589,6 +628,7 @@ export const BENNIGANS_STAGES: SectionBlueprint[] = [
   ATTENTIVENESS,
   SUPERVISOR,
   COMPLAINT,
+  RESTROOM,
   BILLING_FAREWELL,
   OVERALL,
 ]
@@ -616,6 +656,7 @@ const BENNIGANS_SEQUENCE: ServiceSequence = {
     { key: 'plate_clearing_time', label: 'Table Clearing Time', kind: 'timing' },
     { key: 'attentiveness', label: 'Waiter Attentiveness Score', kind: 'weighted' },
     { key: 'cleanliness', label: 'Cleanliness Score', kind: 'weighted' },
+    { key: 'restroom', label: 'Restroom Cleanliness Score', kind: 'weighted' },
     { key: 'manager_interaction', label: 'Supervisor / Manager Feedback Interaction Rate', kind: 'derived' },
     { key: 'complaint_resolution', label: 'Complaint Resolution Score', kind: 'weighted' },
     { key: 'complaint_resolution_time', label: 'Complaint Resolution Time', kind: 'timing' },

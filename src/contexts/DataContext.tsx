@@ -6,6 +6,7 @@ import { removeVisit, type ActionContext } from '@/services/actions'
 import { useAuth } from './AuthContext'
 import { useFilters } from './FilterContext'
 import { useNow } from '@/hooks'
+import { isDemoMode } from '@/config/app'
 import { prepareUpload } from '@/utils/prepareUpload'
 
 export type ActionRecipe = (data: Dataset, ctx: ActionContext) => DatasetPatch
@@ -84,7 +85,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     async (recipe: ActionRecipe) => {
       const current = dataRef.current
       if (!current || !user) throw new Error('Data not loaded')
-      const patch = recipe(current, { user, now })
+      // Live: the moment of the action itself. `useNow` only ticks once a minute
+      // and a phone that slept stops the tick, so actions taken on waking were
+      // stamped up to hours in the past. The demo keeps its fixed storyline date.
+      const patch = recipe(current, { user, now: isDemoMode() ? now : new Date() })
       if (!Object.keys(patch).length) return
       let next: Dataset = { ...current, ...patch }
       if (DERIVE_TRIGGERS.some((k) => k in patch)) {

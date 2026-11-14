@@ -186,6 +186,9 @@ export function submitVisit(
   const alerts: Alert[] = [...data.alerts]
   const notifications: Notification[] = [...data.notifications]
   for (const qid of res.criticalFailures) {
+    // A reopened or returned visit is submitted again; a critical failure
+    // already raised as a finding must not be raised a second time.
+    if (data.findings.some((f) => f.visitId === v.id && f.questionId === qid)) continue
     const q = questions.find((x) => x.id === qid)!
     const sec = sections.find((s) => s.id === q.sectionId)!
     const a = answers.find((x) => x.questionId === qid)
@@ -350,6 +353,32 @@ export function rejectVisit(data: Dataset, ctx: ActionContext, visitId: string, 
     ...data.notifications,
   ]
   return { visits: replace(data.visits, updated), notifications, activityLogs: withLog(data, ctx, 'Reviewer rejected', 'Reviews', v.code, reason) }
+}
+
+/** Statuses a Super Admin can send back to the shopper with `reopenVisit`. */
+export const REOPENABLE_STATUSES: Visit['status'][] = ['Submitted', 'Under Review', 'Approved', 'Closed']
+
+/**
+ * Super Admin: send a finished visit back to the shopper as a Draft, so a
+ * mistake is corrected and the visit re-submitted instead of deleted. Answers,
+ * photos and the named reviewer stay; the report is withdrawn until the visit
+ * is approved again.
+ */
+export function reopenVisit(data: Dataset, ctx: ActionContext, visitId: string, reason: string): DatasetPatch {
+  const v = data.visits.find((x) => x.id === visitId)
+  if (!v || !REOPENABLE_STATUSES.includes(v.status)) return {}
+  const updated: Visit = {
+    ...v,
+    status: 'Draft',
+    reportStatus: 'Draft',
+    reviewerComment: reason,
+    approvalHistory: [...v.approvalHistory, { at: iso(ctx.now), by: ctx.user.name, action: 'Reopened', comment: reason }],
+  }
+  const notifications: Notification[] = [
+    { id: uid('ntf'), type: 'report_submitted', title: 'Visit reopened for changes', message: `${v.code} · ${reason}`, createdAt: iso(ctx.now), read: false, link: `/operations/visits/${v.id}`, severity: 'Medium', audience: ['shopper'], recipientId: userIdForShopper(data, v.shopperId) },
+    ...data.notifications,
+  ]
+  return { visits: replace(data.visits, updated), notifications, activityLogs: withLog(data, ctx, 'Visit reopened', 'Visits', v.code, reason) }
 }
 
 export function assignShopper(data: Dataset, ctx: ActionContext, visitId: string, shopperId: string): DatasetPatch {

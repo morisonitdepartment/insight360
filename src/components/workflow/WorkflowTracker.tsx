@@ -13,11 +13,14 @@ import { cn } from '@/utils/cn'
  */
 export function WorkflowTracker({ visit, shopperName, reviewerName }: { visit: Visit; shopperName: string | null; reviewerName: string | null }) {
   const current = workflowStepIndex(visit.status)
-  const returned = visit.status === 'Rejected'
+  const lastEvent = visit.approvalHistory[visit.approvalHistory.length - 1]
+  const reopened = (visit.status === 'Draft' || visit.status === 'In Progress') && lastEvent?.action === 'Reopened'
+  const returned = visit.status === 'Rejected' || reopened
   const done = visit.status === 'Approved' || visit.status === 'Closed'
 
   const holder = (() => {
     if (done) return `Approved${reviewerName ? ` by ${reviewerName}` : ''} — report released`
+    if (reopened) return `Reopened by ${lastEvent.by} — with ${shopperName ?? 'the shopper'} for changes`
     switch (visit.status) {
       case 'Planned':
         return 'Waiting for a shopper to be assigned'
@@ -54,7 +57,7 @@ export function WorkflowTracker({ visit, shopperName, reviewerName }: { visit: V
               <div className={cn('h-1.5 rounded-full', complete ? 'bg-emerald-500' : active ? (returned ? 'bg-amber-500' : 'bg-teal-500') : 'bg-slate-200 dark:bg-navy-700')} />
               <p className={cn('mt-1.5 flex items-center gap-1 truncate text-[10px] sm:text-[11px]', active ? 'font-semibold text-slate-900 dark:text-white' : complete ? 'text-slate-600 dark:text-slate-300' : 'text-slate-400')}>
                 {complete && <Check className="hidden h-3 w-3 shrink-0 text-emerald-600 sm:inline" aria-hidden />}
-                {active && returned ? 'Returned' : step.label}
+                {active && returned ? (reopened ? 'Reopened' : 'Returned') : step.label}
               </p>
             </li>
           )

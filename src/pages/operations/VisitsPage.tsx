@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type
 import { createPortal } from 'react-dom'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { AlertTriangle, CalendarClock, CheckCircle2, ClipboardList, Download, Eye, FileText, MoreHorizontal, PlayCircle, Plus, ThumbsUp, Timer, Trash2, UserPlus, Users, XCircle } from 'lucide-react'
+import { AlertTriangle, CalendarClock, CheckCircle2, ClipboardList, Download, Eye, FileText, MoreHorizontal, PlayCircle, Plus, RotateCcw, ThumbsUp, Timer, Trash2, UserPlus, Users, XCircle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useData } from '@/contexts/DataContext'
 import { useDocumentTitle, useNow } from '@/hooks'
 import type { JourneyType, Shopper, Visit, VisitType } from '@/types'
-import { approveVisit, assignShopper, createVisit, logExport, rejectVisit, startReview, startVisit, type NewVisitInput } from '@/services/actions'
+import { REOPENABLE_STATUSES, approveVisit, assignShopper, createVisit, logExport, rejectVisit, startReview, startVisit, type NewVisitInput } from '@/services/actions'
 import { slaStats } from '@/services/analytics'
 import { isAwaitingApproval, isCompleted, isInProgress } from '@/services/derive'
 import { awaitingMyApproval, canReviewVisit, reviewerCandidates, shopperCovers } from '@/services/workflow'
@@ -19,6 +19,7 @@ import { FilterBar, applyFilters, matchesSearch, type FilterDef } from '@/compon
 import { RiskBadge, ScoreBadge, SegmentBadge, StatusBadge } from '@/components/ui/Badge'
 import { BrandMark } from '@/components/ui/BrandMark'
 import { DeleteVisitDialog } from '@/components/workflow/DeleteVisitDialog'
+import { ReopenVisitDialog } from '@/components/workflow/ReopenVisitDialog'
 import { ConfirmDialog, Modal } from '@/components/ui/Modal'
 import { Field, Input, Select, Textarea } from '@/components/ui/Form'
 import { exportCsv } from '@/utils/export'
@@ -255,6 +256,7 @@ export default function VisitsPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [assignFor, setAssignFor] = useState<Visit | null>(null)
   const [deleteFor, setDeleteFor] = useState<Visit | null>(null)
+  const [reopenFor, setReopenFor] = useState<Visit | null>(null)
   const [decision, setDecision] = useState<{ visit: Visit; kind: 'approve' | 'reject' } | null>(null)
   const [comment, setComment] = useState('')
   const [busy, setBusy] = useState(false)
@@ -331,6 +333,7 @@ export default function VisitsPage() {
     }
     if (v.score !== null && (can('reports.visit') || can('visits.conduct'))) items.push({ label: 'Download report', icon: <FileText className="h-3.5 w-3.5" aria-hidden />, onSelect: () => navigate(`/reports/visits/${v.id}`) })
     items.push({ label: 'Open visit', icon: <ClipboardList className="h-3.5 w-3.5" aria-hidden />, onSelect: () => navigate(`/operations/visits/${v.id}`) })
+    if (user?.role === 'super_admin' && REOPENABLE_STATUSES.includes(v.status)) items.push({ label: 'Reopen for changes', icon: <RotateCcw className="h-3.5 w-3.5" aria-hidden />, onSelect: () => setReopenFor(v) })
     if (user?.role === 'super_admin') items.push({ label: 'Delete visit', icon: <Trash2 className="h-3.5 w-3.5" aria-hidden />, tone: 'danger', onSelect: () => setDeleteFor(v) })
     return items
   }
@@ -517,6 +520,7 @@ export default function VisitsPage() {
 
       {can('visits.create') && <NewVisitModal open={createOpen} onClose={() => setCreateOpen(false)} />}
 
+      {reopenFor && <ReopenVisitDialog visit={reopenFor} shopperName={shopperById.get(reopenFor.shopperId ?? '')?.name ?? null} onClose={() => setReopenFor(null)} />}
       {deleteFor && <DeleteVisitDialog visit={deleteFor} onClose={() => setDeleteFor(null)} />}
       {assignFor && (
         <AssignShopperModal

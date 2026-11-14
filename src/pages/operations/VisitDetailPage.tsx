@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { ArrowLeft, ClipboardList, Eye, FileText, Images, MessageSquare, PlayCircle, Printer, Target, ThumbsUp, UserPlus, XCircle } from 'lucide-react'
+import { ArrowLeft, ClipboardList, Eye, FileText, Images, MessageSquare, PlayCircle, Printer, Target, ThumbsUp, Trash2, UserPlus, XCircle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useData } from '@/contexts/DataContext'
 import { useDocumentTitle, useNow } from '@/hooks'
@@ -9,6 +9,7 @@ import type { Evidence } from '@/types'
 import { addComment, approveVisit, assignShopper, rejectVisit, setReviewer, startReview, startVisit } from '@/services/actions'
 import { canReviewVisit, reviewerCandidates, shopperCovers } from '@/services/workflow'
 import { WorkflowTracker } from '@/components/workflow/WorkflowTracker'
+import { DeleteVisitDialog } from '@/components/workflow/DeleteVisitDialog'
 import { isAwaitingApproval, isCompleted } from '@/services/derive'
 import { CATEGORY_KEYS, CATEGORY_LABELS } from '@/utils/scoring'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -51,6 +52,7 @@ export default function VisitDetailPage() {
   const [newComment, setNewComment] = useState('')
   const [preview, setPreview] = useState<Evidence | null>(null)
   const [busy, setBusy] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const run = async (label: string, recipe: Parameters<typeof dispatch>[0], after?: () => void) => {
     setBusy(true)
@@ -162,11 +164,17 @@ export default function VisitDetailPage() {
       <button type="button" className="btn-ghost" onClick={printPage}>
         <Printer className="h-4 w-4" aria-hidden /> Print
       </button>
+      {user?.role === 'super_admin' && (
+        <button type="button" className="btn-ghost text-red-600 hover:text-red-700 dark:text-red-400" onClick={() => setDeleting(true)}>
+          <Trash2 className="h-4 w-4" aria-hidden /> Delete
+        </button>
+      )}
     </>
   )
 
   return (
     <div className="space-y-5 print-area">
+      {deleting && <DeleteVisitDialog visit={visit} onClose={() => setDeleting(false)} onDeleted={() => navigate('/operations/visits')} />}
       <nav aria-label="Breadcrumb" className="no-print">
         <Link to="/operations/visits" className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white">
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> All visits

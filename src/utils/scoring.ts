@@ -167,25 +167,54 @@ export const TOTAL_TIME_KEY = 'total_service_time'
 /** KPI keys that store the raw 1-10 answer rather than a 0-100 score. */
 export const SATISFACTION_KEYS = new Set(['csat', 'nps', 'return_likelihood'])
 
+/** `HH:MM` → minutes since midnight, or null for anything else. */
+export function clockMinutes(v: unknown): number | null {
+  if (typeof v !== 'string') return null
+  const m = /^(\d{1,2}):(\d{2})$/.exec(v.trim())
+  if (!m) return null
+  const h = Number(m[1])
+  const min = Number(m[2])
+  if (h > 23 || min > 59) return null
+  return h * 60 + min
+}
+
+/**
+ * The longest gap a backwards pair of stamps may be read as crossing midnight.
+ * Anything longer is a typing slip, not a six-hour wait.
+ */
+const MAX_OVERNIGHT_MINUTES = 6 * 60
+
 /**
  * Minutes between two `HH:MM` stamps. A service that crosses midnight — a late
- * dinner billed at 00:10 against an order at 23:40 — would otherwise read as
- * minus 23 and a half hours, so a backwards interval is taken as the next day.
+ * dinner billed at 00:10 against an order at 23:40 — is taken as the next day
+ * (30 minutes). A backwards pair that cannot be a short overnight gap is an
+ * entry mistake and gives null: seated 19:17, approached 19:14 used to come
+ * out as 1,437 minutes and fail the standard by nearly a day.
  */
 export function minutesBetween(from: unknown, to: unknown): number | null {
-  const parse = (v: unknown): number | null => {
-    if (typeof v !== 'string') return null
-    const m = /^(\d{1,2}):(\d{2})$/.exec(v.trim())
-    if (!m) return null
-    const h = Number(m[1])
-    const min = Number(m[2])
-    if (h > 23 || min > 59) return null
-    return h * 60 + min
-  }
-  const a = parse(from)
-  const b = parse(to)
+  const a = clockMinutes(from)
+  const b = clockMinutes(to)
   if (a === null || b === null) return null
-  return b >= a ? b - a : b + 24 * 60 - a
+  if (b >= a) return b - a
+  const overnight = b + 24 * 60 - a
+  return overnight <= MAX_OVERNIGHT_MINUTES ? overnight : null
+}
+
+/**
+ * Why a calculated duration has no value although both of its clock times are
+ * filled in — the later stamp is before the earlier one — or null when there
+ * is nothing wrong. Shown under the duration and blocks submission, so the
+ * shopper corrects the stamp instead of submitting an impossible time.
+ */
+export function clockOrderProblem(q: Question, questions: Question[], answers: VisitAnswer[]): string | null {
+  if (!q.derivedFrom) return null
+  const from = questions.find((x) => x.code === q.derivedFrom!.from)
+  const to = questions.find((x) => x.code === q.derivedFrom!.to)
+  if (!from || !to) return null
+  const fv = answers.find((a) => a.questionId === from.id)?.value
+  const tv = answers.find((a) => a.questionId === to.id)?.value
+  if (clockMinutes(fv) === null || clockMinutes(tv) === null || minutesBetween(fv, tv) !== null) return null
+  return `"${to.text}" (${String(tv)}) is earlier than "${from.text}" (${String(fv)}). Check both clock times.`
 }
 
 /**

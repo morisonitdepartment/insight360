@@ -54,6 +54,14 @@ export interface Repository {
    * the demo overlay and quietly survive in Postgres, reappearing on the next load.
    */
   deleteEvidence(id: string): Promise<void>
+  /**
+   * Delete a visit and everything recorded against it: answers, photos (and
+   * their files), findings, corrective actions, alerts, comments and the
+   * notifications that point at it. Super Admin only — the database refuses
+   * anyone else. Like evidence, this cannot ride on `persist`, which never
+   * deletes; the caller drops the rows locally with a `removeVisit` patch.
+   */
+  deleteVisit(id: string): Promise<void>
   /** Demo only: wipe local overrides and regenerate seed data */
   reset(): Promise<void>
   /**

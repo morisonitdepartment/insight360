@@ -301,6 +301,11 @@ export class DemoRepository implements Repository {
     await delay(150)
   }
 
+  /** The demo keeps whole collections, so the removeVisit patch is the delete. */
+  async deleteVisit(_id: string): Promise<void> {
+    await delay(150)
+  }
+
   switchOrigin(): SwitchOrigin | null {
     const raw = safeGet(sessionStorage, ORIGIN_KEY) ?? safeGet(localStorage, ORIGIN_KEY)
     if (!raw) return null

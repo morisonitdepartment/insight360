@@ -473,6 +473,31 @@ export function removeEvidence(data: Dataset, ctx: ActionContext, evidenceId: st
   }
 }
 
+/**
+ * Drop a deleted visit and everything hanging off it from the dataset. The
+ * server side of the delete is `repository.deleteVisit`; this keeps the screen
+ * in step and writes the activity-log line.
+ */
+export function removeVisit(data: Dataset, ctx: ActionContext, visitId: string): DatasetPatch {
+  const v = data.visits.find((x) => x.id === visitId)
+  if (!v) return {}
+  const findingIds = new Set(data.findings.filter((f) => f.visitId === visitId).map((f) => f.id))
+  const alertIds = new Set(data.alerts.filter((a) => a.visitId === visitId || (a.findingId !== null && findingIds.has(a.findingId))).map((a) => a.id))
+  const links = new Set([`/operations/visits/${visitId}`, `/reports/visits/${visitId}`, ...[...alertIds].map((a) => `/quality/alerts?alert=${a}`)])
+  const outlet = data.outlets.find((o) => o.id === v.outletId)
+  return {
+    visits: data.visits.filter((x) => x.id !== visitId),
+    answers: data.answers.filter((a) => a.visitId !== visitId),
+    evidence: data.evidence.filter((e) => e.visitId !== visitId),
+    findings: data.findings.filter((f) => !findingIds.has(f.id)),
+    alerts: data.alerts.filter((a) => !alertIds.has(a.id)),
+    correctiveActions: data.correctiveActions.filter((c) => !findingIds.has(c.findingId)),
+    comments: data.comments.filter((c) => !(c.entityType === 'visit' && c.entityId === visitId)),
+    notifications: data.notifications.filter((n) => !links.has(n.link)),
+    activityLogs: withLog(data, ctx, 'Visit deleted', 'Visits', v.code, [outlet?.name, v.type, v.status].filter(Boolean).join(' · ')),
+  }
+}
+
 /** Give a photograph a name a reader will understand: "Bill", "Main course as served". */
 export function renameEvidence(data: Dataset, ctx: ActionContext, evidenceId: string, title: string): DatasetPatch {
   const ev = data.evidence.find((e) => e.id === evidenceId)

@@ -385,6 +385,41 @@ export class SupabaseRepository implements Repository {
     if (dbError) throw new Error(`Failed to delete evidence: ${dbError.message}`)
   }
 
+  async deleteVisit(id: string): Promise<void> {
+    const sb = getSupabase()
+    const [{ data: files }, { data: findings }] = await Promise.all([
+      sb.from('evidence').select('file_name').eq('visit_id', id),
+      sb.from('findings').select('id').eq('visit_id', id),
+    ])
+    const paths = (files ?? []).map((r) => (r as { file_name?: string }).file_name).filter((p): p is string => !!p && p.includes('/'))
+    const findingIds = (findings ?? []).map((r) => (r as { id: string }).id)
+
+    // Alerts reference the visit and its findings without cascading, so they
+    // must go before the visit or the delete is refused.
+    const alertQueries = [sb.from('alerts').select('id').eq('visit_id', id)]
+    if (findingIds.length) alertQueries.push(sb.from('alerts').select('id').in('finding_id', findingIds))
+    const alertIds = [...new Set((await Promise.all(alertQueries)).flatMap((r) => (r.data ?? []).map((a) => (a as { id: string }).id)))]
+    if (alertIds.length) {
+      const { error } = await sb.from('alerts').delete().in('id', alertIds)
+      if (error) throw new Error(`Failed to delete the visit's alerts: ${error.message}`)
+    }
+
+    // Answers, evidence rows, findings and their corrective actions cascade.
+    const { data: gone, error } = await sb.from('visits').delete().eq('id', id).select('id')
+    if (error) throw new Error(`Failed to delete visit: ${error.message}`)
+    if (!gone?.length) throw new Error('The visit was not deleted. Only a Super Admin can delete visits.')
+
+    // Tidy-up after the visit is gone. None of it may fail the delete: the
+    // visit is already deleted, and a leftover notification is harmless.
+    const links = [`/operations/visits/${id}`, `/reports/visits/${id}`, ...alertIds.map((a) => `/quality/alerts?alert=${a}`)]
+    const tidy = await Promise.all([
+      sb.from('notifications').delete().in('link', links),
+      sb.from('comments').delete().eq('entity_type', 'visit').eq('entity_id', id),
+      paths.length ? sb.storage.from('evidence').remove(paths) : Promise.resolve({ error: null }),
+    ])
+    for (const t of tidy) if (t.error) console.warn(`Visit ${id} deleted; a clean-up step failed: ${t.error.message}`)
+  }
+
   async reset(): Promise<void> {
     throw new Error('Reset is only available in demo mode.')
   }

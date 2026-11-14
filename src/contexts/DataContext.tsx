@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { Dataset, Evidence, Outlet, Visit } from '@/types'
 import { getRepository, type DatasetPatch, type EvidenceUploadMeta } from '@/repositories'
 import { deriveOutlets } from '@/services/derive'
-import type { ActionContext } from '@/services/actions'
+import { removeVisit, type ActionContext } from '@/services/actions'
 import { useAuth } from './AuthContext'
 import { useFilters } from './FilterContext'
 import { useNow } from '@/hooks'
@@ -20,6 +20,8 @@ interface DataContextValue {
   uploadEvidence: (file: File | null, meta: EvidenceUploadMeta) => Promise<Evidence>
   /** Delete the stored file, then drop the row via a removeEvidence patch. */
   deleteEvidenceFile: (id: string) => Promise<void>
+  /** Super Admin: delete a visit on the server, then drop it and its records locally. */
+  deleteVisit: (id: string) => Promise<void>
   resetDemo: () => Promise<void>
   /**
    * Outlets the user may see AND that match the top-bar outlet selector.
@@ -102,6 +104,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [repo],
   )
   const deleteEvidenceFile = useCallback((id: string) => repo.deleteEvidence(id), [repo])
+  const deleteVisit = useCallback(
+    async (id: string) => {
+      if (user?.role !== 'super_admin') throw new Error('Only a Super Admin can delete visits.')
+      await repo.deleteVisit(id)
+      await dispatch((d, ctx) => removeVisit(d, ctx, id))
+    },
+    [repo, user, dispatch],
+  )
 
   const resetDemo = useCallback(async () => {
     await repo.reset()
@@ -136,6 +146,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       dispatch,
       uploadEvidence,
       deleteEvidenceFile,
+      deleteVisit,
       resetDemo,
       scopedOutlets: scoped.outlets,
       scopedVisits: scoped.visits,
@@ -144,7 +155,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       authorizedVisits: scoped.authorizedVisits,
       isOutletFiltered: scoped.filtered,
     }),
-    [data, loading, error, reload, dispatch, uploadEvidence, deleteEvidenceFile, resetDemo, scoped],
+    [data, loading, error, reload, dispatch, uploadEvidence, deleteEvidenceFile, deleteVisit, resetDemo, scoped],
   )
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
 }

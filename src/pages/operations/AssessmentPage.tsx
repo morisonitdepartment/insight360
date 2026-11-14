@@ -13,7 +13,7 @@ import { ProgressBar } from '@/components/ui/Misc'
 import { EmptyState } from '@/components/ui/States'
 import { EvidencePreviewModal, EvidenceVisual } from '@/components/ui/EvidenceThumb'
 import { addEvidence, getVisitQuestions, getVisitSections, removeEvidence, renameEvidence, saveDraft, startVisit, submitVisit } from '@/services/actions'
-import { computeVisitScores, deriveTimedAnswers, isQuestionAnswered, scoreQuestion, visibleQuestions } from '@/utils/scoring'
+import { clockOrderProblem, computeVisitScores, deriveTimedAnswers, isQuestionAnswered, scoreQuestion, visibleQuestions } from '@/utils/scoring'
 import { timingChainText } from '@/utils/sequence'
 import { fmtDateTime } from '@/utils/format'
 import type { AnswerValue, Evidence, Question, VisitAnswer } from '@/types'
@@ -82,6 +82,15 @@ export default function AssessmentPage() {
   // Gated questions appear only once their parent has the gating answer, so the
   // stepper, the validation and the live score all see the same questionnaire.
   const visible = useMemo(() => visibleQuestions(questions, answerList), [questions, answerList])
+  /** Calculated durations whose two clock times are in an impossible order. */
+  const clockProblems = useMemo(() => {
+    const out: Record<string, string> = {}
+    for (const q of visible) {
+      const p = clockOrderProblem(q, questions, answerList)
+      if (p) out[q.id] = p
+    }
+    return out
+  }, [visible, questions, answerList])
   const questionsBySection = useMemo(() => {
     const m = new Map<string, Question[]>()
     for (const q of visible) m.set(q.sectionId, [...(m.get(q.sectionId) ?? []), q])
@@ -193,7 +202,7 @@ export default function AssessmentPage() {
       const a = answers[q.id]
       const scorable = q.weight > 0 && q.type !== 'text' && q.type !== 'photo' && q.type !== 'video'
       if (a?.na && q.allowNA) continue
-      if (scorable && !isQuestionAnswered(q, a)) issues.push({ q, reason: q.derivedFrom ? 'Record both clock times this duration is measured between' : 'Answer required' })
+      if (scorable && !isQuestionAnswered(q, a)) issues.push({ q, reason: clockProblems[q.id] ?? (q.derivedFrom ? 'Record both clock times this duration is measured between' : 'Answer required') })
       if ((q.type === 'photo' || q.type === 'video') && !(a?.evidenceIds.length)) issues.push({ q, reason: `${q.type === 'photo' ? 'Photo' : 'Video'} evidence required` })
       if (q.evidenceRequired && q.type !== 'photo' && q.type !== 'video' && a && a.score !== null && a.score < 0.5 && !a.evidenceIds.length) issues.push({ q, reason: 'Evidence required for a failed standard' })
       if (q.commentRequired && isQuestionAnswered(q, a) && !(a?.comment?.trim())) issues.push({ q, reason: 'Comment required' })
@@ -377,7 +386,7 @@ export default function AssessmentPage() {
           </div>
           <ol className="space-y-3">
             {sectionQuestions.map((q, qi) => (
-              <QuestionCard key={q.id} index={qi + 1} q={q} answer={answers[q.id]} locked={locked} onChange={(patch) => setAnswer(q, patch)} onAttach={(file) => void attachEvidence(q, file)} uploading={uploadingFor === q.id} evidence={data.evidence.filter((e) => answers[q.id]?.evidenceIds.includes(e.id))} onRename={(id, title) => void renameAttachment(id, title)} onDelete={(id) => void removeAttachment(id)} />
+              <QuestionCard key={q.id} index={qi + 1} q={q} answer={answers[q.id]} clockProblem={clockProblems[q.id]} locked={locked} onChange={(patch) => setAnswer(q, patch)} onAttach={(file) => void attachEvidence(q, file)} uploading={uploadingFor === q.id} evidence={data.evidence.filter((e) => answers[q.id]?.evidenceIds.includes(e.id))} onRename={(id, title) => void renameAttachment(id, title)} onDelete={(id) => void removeAttachment(id)} />
             ))}
           </ol>
         </section>
@@ -504,7 +513,7 @@ export default function AssessmentPage() {
 
 type Attached = Evidence
 
-function QuestionCard({ index, q, answer, locked, onChange, onAttach, uploading, evidence, onRename, onDelete }: { index: number; q: Question; answer: VisitAnswer | undefined; locked: boolean; onChange: (patch: Partial<VisitAnswer>) => void; onAttach: (file: File | null) => void; uploading: boolean; evidence: Attached[]; onRename: (id: string, title: string) => void; onDelete: (id: string) => void }) {
+function QuestionCard({ index, q, answer, clockProblem, locked, onChange, onAttach, uploading, evidence, onRename, onDelete }: { index: number; q: Question; answer: VisitAnswer | undefined; clockProblem?: string; locked: boolean; onChange: (patch: Partial<VisitAnswer>) => void; onAttach: (file: File | null) => void; uploading: boolean; evidence: Attached[]; onRename: (id: string, title: string) => void; onDelete: (id: string) => void }) {
   const cameraRef = useRef<HTMLInputElement>(null)
   const uploadRef = useRef<HTMLInputElement>(null)
   const isVideo = q.type === 'video'
@@ -598,7 +607,11 @@ function QuestionCard({ index, q, answer, locked, onChange, onAttach, uploading,
                 <output className={cn('input !w-36 flex items-center text-lg font-semibold tabular-nums', value === null && 'text-slate-400')} aria-label={q.text}>
                   {value === null ? '—' : `${Number(value).toFixed(0)} min`}
                 </output>
-                <span className="text-xs text-slate-500">{value === null ? 'Calculated once both clock times are recorded' : 'Calculated from the clock times'}</span>
+                {clockProblem ? (
+                  <span role="alert" className="basis-full text-xs font-medium text-red-600 dark:text-red-400">{clockProblem}</span>
+                ) : (
+                  <span className="text-xs text-slate-500">{value === null ? 'Calculated once both clock times are recorded' : 'Calculated from the clock times'}</span>
+                )}
                 {q.threshold !== undefined && <span className={cn('ml-auto text-xs font-medium', failed ? 'text-red-600' : score === 1 ? 'text-emerald-600' : 'text-slate-500')}>Standard ≤ {q.threshold} min{typeof value === 'number' ? (value <= q.threshold ? ' · within standard' : ` · exceeded by ${(value - q.threshold).toFixed(0)}`) : ''}</span>}
               </div>
             )}

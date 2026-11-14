@@ -53,6 +53,12 @@ export default function AssessmentPage() {
 
   const [answers, setAnswers] = useState<Record<string, VisitAnswer>>({})
   const [step, setStep] = useState(0)
+  // Moving to another section starts it at the top: the stepper and the stage
+  // title, not wherever the last section's Next button happened to leave the page.
+  const goToStep = (next: number) => {
+    setStep(next)
+    setTimeout(() => document.getElementById('assessment-sections')?.scrollIntoView({ block: 'start' }), 0)
+  }
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [validation, setValidation] = useState<{ open: boolean; issues: { q: Question; reason: string }[] }>({ open: false, issues: [] })
@@ -385,13 +391,13 @@ export default function AssessmentPage() {
       )}
 
       {/* Section stepper */}
-      <nav aria-label="Sections" className="mt-4 -mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
+      <nav id="assessment-sections" aria-label="Sections" className="mt-4 scroll-mt-20 -mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
         {sections.map((s, i) => {
           const qs = questionsBySection.get(s.id) ?? []
           const done = qs.filter((q) => isQuestionAnswered(q, answers[q.id])).length
           const complete = qs.length > 0 && done === qs.length
           return (
-            <button key={s.id} type="button" onClick={() => setStep(i)} aria-current={i === step ? 'step' : undefined} className={cn('flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors', i === step ? 'border-navy-800 bg-navy-800 text-white dark:border-teal-500 dark:bg-teal-600' : complete ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300' : 'border-slate-300 bg-white text-slate-600 dark:border-navy-700 dark:bg-navy-800 dark:text-slate-300')}>
+            <button key={s.id} type="button" onClick={() => goToStep(i)} aria-current={i === step ? 'step' : undefined} className={cn('flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors', i === step ? 'border-navy-800 bg-navy-800 text-white dark:border-teal-500 dark:bg-teal-600' : complete ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300' : 'border-slate-300 bg-white text-slate-600 dark:border-navy-700 dark:bg-navy-800 dark:text-slate-300')}>
               <span className="font-semibold">{s.code}</span>
               <span className="hidden sm:inline">{s.title}</span>
               {complete && <Check className="h-3 w-3" aria-hidden />}
@@ -426,7 +432,7 @@ export default function AssessmentPage() {
       {/* Sticky action bar */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur dark:border-navy-800 dark:bg-navy-900/95 no-print lg:left-64">
         <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-3">
-          <button type="button" className="btn-secondary" aria-label="Previous section" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}>
+          <button type="button" className="btn-secondary" aria-label="Previous section" onClick={() => goToStep(Math.max(0, step - 1))} disabled={step === 0}>
             <ChevronLeft className="h-4 w-4" aria-hidden /> <span className="hidden sm:inline">Previous</span>
           </button>
           {!locked && (
@@ -449,7 +455,7 @@ export default function AssessmentPage() {
             {result.criticalFailures.length > 0 && <span className="ml-2 inline-flex items-center gap-1 font-semibold text-red-600"><AlertOctagon className="h-3 w-3" /> {result.criticalFailures.length} critical</span>}
           </span>
           {step < sections.length - 1 ? (
-            <button type="button" className="btn-primary" onClick={() => setStep((s) => Math.min(sections.length - 1, s + 1))}>
+            <button type="button" className="btn-primary" onClick={() => goToStep(Math.min(sections.length - 1, step + 1))}>
               Next <ChevronRight className="h-4 w-4" />
             </button>
           ) : (

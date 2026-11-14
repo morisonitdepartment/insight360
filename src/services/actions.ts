@@ -382,6 +382,28 @@ export function reopenVisit(data: Dataset, ctx: ActionContext, visitId: string, 
   return { visits: replace(data.visits, updated), notifications, activityLogs: withLog(data, ctx, 'Visit reopened', 'Visits', v.code, reason) }
 }
 
+/**
+ * Super Admin: correct the date a visit took place (or, before it has happened,
+ * the date it is booked for) — a shopper who fills the form in the next day
+ * otherwise leaves the visit dated the day of entry. Answers, times and scores
+ * are untouched; the reporting pages place the visit on the new date. Kept in
+ * the visit's approval history and the activity log with the reason.
+ */
+export function changeVisitDate(data: Dataset, ctx: ActionContext, visitId: string, date: string, reason: string): DatasetPatch {
+  const v = data.visits.find((x) => x.id === visitId)
+  if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return {}
+  const field = v.visitDate ? 'visitDate' : 'scheduledDate'
+  const before = v.visitDate ?? v.scheduledDate
+  if (before === date) return {}
+  const note = `${before} → ${date}${reason ? ` · ${reason}` : ''}`
+  const updated: Visit = {
+    ...v,
+    [field]: date,
+    approvalHistory: [...v.approvalHistory, { at: iso(ctx.now), by: ctx.user.name, action: 'Date changed', comment: note }],
+  }
+  return { visits: replace(data.visits, updated), activityLogs: withLog(data, ctx, field === 'visitDate' ? 'Visit date changed' : 'Booked date changed', 'Visits', v.code, note) }
+}
+
 export function assignShopper(data: Dataset, ctx: ActionContext, visitId: string, shopperId: string): DatasetPatch {
   const v = data.visits.find((x) => x.id === visitId)
   if (!v) return {}

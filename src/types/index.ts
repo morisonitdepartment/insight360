@@ -203,7 +203,7 @@ export interface Scenario {
 export interface ApprovalEvent {
   at: string
   by: string
-  action: 'Booked' | 'Booked and assigned' | 'Reviewer set' | 'Submitted' | 'Review Started' | 'Approved' | 'Rejected' | 'Reopened' | 'Closed'
+  action: 'Booked' | 'Booked and assigned' | 'Reviewer set' | 'Submitted' | 'Review Started' | 'Approved' | 'Rejected' | 'Reopened' | 'Closed' | 'Date changed'
   comment?: string
 }
 

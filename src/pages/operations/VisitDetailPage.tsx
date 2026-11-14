@@ -11,6 +11,7 @@ import { canReviewVisit, reviewerCandidates, shopperCovers } from '@/services/wo
 import { WorkflowTracker } from '@/components/workflow/WorkflowTracker'
 import { DeleteVisitDialog } from '@/components/workflow/DeleteVisitDialog'
 import { ReopenVisitDialog } from '@/components/workflow/ReopenVisitDialog'
+import { ChangeVisitDateDialog } from '@/components/workflow/ChangeVisitDateDialog'
 import { RestroomStatus } from '@/components/workflow/RestroomStatus'
 import { ProofOfVisitCheck } from '@/components/workflow/ProofOfVisitCheck'
 import { isAwaitingApproval, isCompleted } from '@/services/derive'
@@ -57,6 +58,7 @@ export default function VisitDetailPage() {
   const [busy, setBusy] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [reopening, setReopening] = useState(false)
+  const [changingDate, setChangingDate] = useState(false)
 
   const run = async (label: string, recipe: Parameters<typeof dispatch>[0], after?: () => void) => {
     setBusy(true)
@@ -183,6 +185,7 @@ export default function VisitDetailPage() {
 
   return (
     <div className="space-y-5 print-area">
+      {changingDate && <ChangeVisitDateDialog visit={visit} onClose={() => setChangingDate(false)} />}
       {reopening && <ReopenVisitDialog visit={visit} shopperName={shopper?.name ?? null} onClose={() => setReopening(false)} />}
       {deleting && <DeleteVisitDialog visit={visit} onClose={() => setDeleting(false)} onDeleted={() => navigate('/operations/visits')} />}
       <nav aria-label="Breadcrumb" className="no-print">
@@ -249,8 +252,32 @@ export default function VisitDetailPage() {
                       </span>
                     ),
                   },
-                  { label: 'Scheduled', value: fmtDate(visit.scheduledDate) },
-                  { label: 'Visit date', value: fmtDate(visit.visitDate) },
+                  {
+                    label: 'Scheduled',
+                    value: (
+                      <span className="flex flex-wrap items-center gap-2">
+                        {fmtDate(visit.scheduledDate)}
+                        {user?.role === 'super_admin' && !visit.visitDate && (
+                          <button type="button" className="text-xs link no-print" onClick={() => setChangingDate(true)}>
+                            Change
+                          </button>
+                        )}
+                      </span>
+                    ),
+                  },
+                  {
+                    label: 'Visit date',
+                    value: (
+                      <span className="flex flex-wrap items-center gap-2">
+                        {fmtDate(visit.visitDate)}
+                        {user?.role === 'super_admin' && visit.visitDate && (
+                          <button type="button" className="text-xs link no-print" onClick={() => setChangingDate(true)}>
+                            Change
+                          </button>
+                        )}
+                      </span>
+                    ),
+                  },
                   { label: 'Visit window', value: visit.visitStart ? `${fmtDateTime(visit.visitStart)} → ${visit.visitEnd ? fmtDate(visit.visitEnd, 'HH:mm') : '…'}` : '—' },
                   { label: 'Party size', value: visit.partySize },
                   { label: 'Occupancy on arrival', value: visit.occupancy === null ? '—' : `${visit.occupancy}%` },

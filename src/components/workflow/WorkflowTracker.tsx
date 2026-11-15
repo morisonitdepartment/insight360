@@ -1,6 +1,6 @@
 import { Check, RotateCcw } from 'lucide-react'
 import type { Visit } from '@/types'
-import { WORKFLOW_STEPS, workflowStepIndex } from '@/services/workflow'
+import { WORKFLOW_STEPS, lastWorkflowEvent, workflowStepIndex } from '@/services/workflow'
 import { cn } from '@/utils/cn'
 
 /**
@@ -13,7 +13,7 @@ import { cn } from '@/utils/cn'
  */
 export function WorkflowTracker({ visit, shopperName, reviewerName }: { visit: Visit; shopperName: string | null; reviewerName: string | null }) {
   const current = workflowStepIndex(visit.status)
-  const lastEvent = visit.approvalHistory[visit.approvalHistory.length - 1]
+  const lastEvent = lastWorkflowEvent(visit)
   const reopened = (visit.status === 'Draft' || visit.status === 'In Progress') && lastEvent?.action === 'Reopened'
   const returned = visit.status === 'Rejected' || reopened
   const done = visit.status === 'Approved' || visit.status === 'Closed'

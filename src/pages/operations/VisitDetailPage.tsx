@@ -25,6 +25,7 @@ import { EmptyState } from '@/components/ui/States'
 import { Field, Select, Textarea } from '@/components/ui/Form'
 import { Avatar, DescriptionList, ProgressBar, Timeline } from '@/components/ui/Misc'
 import { EvidenceCard, EvidencePreviewModal } from '@/components/ui/EvidenceThumb'
+import { DeletePhotoDialog } from '@/components/workflow/DeletePhotoDialog'
 import { printPage } from '@/utils/export'
 import { fmtCurrency, fmtDate, fmtDateTime, hoursBetween, relativeTime } from '@/utils/format'
 import { T } from '@/config/terms'
@@ -55,6 +56,7 @@ export default function VisitDetailPage() {
   const [comment, setComment] = useState('')
   const [newComment, setNewComment] = useState('')
   const [preview, setPreview] = useState<Evidence | null>(null)
+  const [deletingPhoto, setDeletingPhoto] = useState<Evidence | null>(null)
   const [busy, setBusy] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [reopening, setReopening] = useState(false)
@@ -553,7 +555,8 @@ export default function VisitDetailPage() {
         }
       />
 
-      <EvidencePreviewModal evidence={preview} onClose={() => setPreview(null)} context={{ outlet: outlet.name, visit: `${visit.code} · ${visit.type}`, question: preview?.questionId ? data.questions.find((q) => q.id === preview.questionId)?.text : undefined }} />
+      <EvidencePreviewModal evidence={preview} onClose={() => setPreview(null)} context={{ outlet: outlet.name, visit: `${visit.code} · ${visit.type}`, question: preview?.questionId ? data.questions.find((q) => q.id === preview.questionId)?.text : undefined }} onDelete={user?.role === 'super_admin' ? (e) => { setPreview(null); setDeletingPhoto(e) } : undefined} />
+      {deletingPhoto && <DeletePhotoDialog evidence={deletingPhoto} onClose={() => setDeletingPhoto(null)} />}
     </div>
   )
 }

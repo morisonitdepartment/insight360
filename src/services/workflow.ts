@@ -1,5 +1,5 @@
 import { hasPermission } from '@/config/permissions'
-import type { Dataset, Segment, Shopper, User, Visit, VisitStatus } from '@/types'
+import type { ApprovalEvent, Dataset, Segment, Shopper, User, Visit, VisitStatus } from '@/types'
 
 /**
  * The life of a visit, as the people involved see it.
@@ -20,6 +20,21 @@ export const WORKFLOW_STEPS: { key: string; label: string; statuses: VisitStatus
   { key: 'review', label: 'Under review', statuses: ['Under Review'] },
   { key: 'approved', label: 'Approved', statuses: ['Approved', 'Closed'] },
 ]
+
+/**
+ * Corrections a Super Admin makes to a visit's record (its date, a photo). They
+ * are kept in the approval history but do not move the visit along: "the last
+ * event was Reopened" must still hold after one of them.
+ */
+const CORRECTION_EVENTS: ApprovalEvent['action'][] = ['Date changed', 'Photo deleted']
+
+/** The latest approval-history event that is a workflow step, not a correction. */
+export function lastWorkflowEvent(visit: Pick<Visit, 'approvalHistory'>): ApprovalEvent | undefined {
+  for (let i = visit.approvalHistory.length - 1; i >= 0; i--) {
+    if (!CORRECTION_EVENTS.includes(visit.approvalHistory[i].action)) return visit.approvalHistory[i]
+  }
+  return undefined
+}
 
 export function workflowStepIndex(status: VisitStatus): number {
   const i = WORKFLOW_STEPS.findIndex((s) => s.statuses.includes(status))

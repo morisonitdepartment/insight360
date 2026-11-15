@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/Form'
 import { ProgressBar, Timeline } from '@/components/ui/Misc'
 import { EmptyState } from '@/components/ui/States'
 import { EvidenceCard, EvidencePreviewModal } from '@/components/ui/EvidenceThumb'
+import { DeletePhotoDialog } from '@/components/workflow/DeletePhotoDialog'
 import { RadarCompareChart } from '@/components/charts'
 import { ClientLogo } from '@/components/ui/ClientLogo'
 import { CLIENT_BRAND } from '@/config/client'
@@ -51,6 +52,7 @@ export default function VisitReportPage() {
   const navigate = useNavigate()
   const printRef = useRef<HTMLDivElement>(null)
   const [preview, setPreview] = useState<Evidence | null>(null)
+  const [deletingPhoto, setDeletingPhoto] = useState<Evidence | null>(null)
   const [decision, setDecision] = useState<'approve' | 'reject' | null>(null)
   const [comment, setComment] = useState('')
   const [busy, setBusy] = useState(false)
@@ -511,7 +513,8 @@ export default function VisitReportPage() {
         </div>
       </div>
 
-      <EvidencePreviewModal evidence={preview} onClose={() => setPreview(null)} context={{ outlet: outlet.name, visit: visit.code, question: preview?.questionId ? questions.find((q) => q.id === preview.questionId)?.text : undefined }} />
+      <EvidencePreviewModal evidence={preview} onClose={() => setPreview(null)} context={{ outlet: outlet.name, visit: visit.code, question: preview?.questionId ? questions.find((q) => q.id === preview.questionId)?.text : undefined }} onDelete={role === 'super_admin' ? (e) => { setPreview(null); setDeletingPhoto(e) } : undefined} />
+      {deletingPhoto && <DeletePhotoDialog evidence={deletingPhoto} onClose={() => setDeletingPhoto(null)} />}
 
       <Modal
         open={decision !== null}

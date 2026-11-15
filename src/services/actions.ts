@@ -528,20 +528,36 @@ export function addEvidence(data: Dataset, ctx: ActionContext, ev: Evidence, ans
 }
 
 /**
- * Unlink and forget one piece of evidence.
+ * Unlink and forget one piece of evidence. Only a Super Admin deletes photos.
  *
  * The repository deletes the stored file separately: `persist` only upserts, so
  * dropping the row from this array is what removes it from the demo overlay and
  * from the screen, never from Postgres.
+ *
+ * With a reason (a photo removed from a visit already submitted or approved)
+ * the deletion is also written into the visit's approval history, so whoever
+ * reads the report later can see a photo was taken out, by whom and why.
+ * Answers and the score are not touched.
  */
-export function removeEvidence(data: Dataset, ctx: ActionContext, evidenceId: string): DatasetPatch {
+export function removeEvidence(data: Dataset, ctx: ActionContext, evidenceId: string, reason?: string): DatasetPatch {
   const ev = data.evidence.find((e) => e.id === evidenceId)
   if (!ev) return {}
-  return {
+  const why = reason?.trim()
+  const question = ev.questionId ? data.questions.find((q) => q.id === ev.questionId) : undefined
+  const note = [`"${ev.title || ev.type}"`, question?.code, why].filter(Boolean).join(' · ')
+  const patch: DatasetPatch = {
     evidence: data.evidence.filter((e) => e.id !== evidenceId),
     answers: data.answers.map((a) => (a.evidenceIds.includes(evidenceId) ? { ...a, evidenceIds: a.evidenceIds.filter((x) => x !== evidenceId) } : a)),
-    activityLogs: withLog(data, ctx, 'Evidence deleted', 'Evidence', ev.id, ev.title),
+    activityLogs: withLog(data, ctx, 'Evidence deleted', 'Evidence', ev.id, why ? note : ev.title),
   }
+  if (data.correctiveActions.some((c) => c.evidenceIds.includes(evidenceId))) {
+    patch.correctiveActions = data.correctiveActions.map((c) => (c.evidenceIds.includes(evidenceId) ? { ...c, evidenceIds: c.evidenceIds.filter((x) => x !== evidenceId) } : c))
+  }
+  const v = data.visits.find((x) => x.id === ev.visitId)
+  if (v && why) {
+    patch.visits = replace(data.visits, { ...v, approvalHistory: [...v.approvalHistory, { at: iso(ctx.now), by: ctx.user.name, action: 'Photo deleted', comment: note }] })
+  }
+  return patch
 }
 
 /**

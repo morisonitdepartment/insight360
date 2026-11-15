@@ -1,4 +1,4 @@
-import { Camera, FileText, Image as ImageIcon, MonitorSmartphone, Receipt, Video } from 'lucide-react'
+import { Camera, FileText, Image as ImageIcon, MonitorSmartphone, Receipt, Trash2, Video } from 'lucide-react'
 import type { Evidence, EvidenceType } from '@/types'
 import { cn } from '@/utils/cn'
 import { fmtDateTime } from '@/utils/format'
@@ -168,13 +168,31 @@ export function EvidenceCard({ evidence, onClick, selected, meta }: { evidence: 
   )
 }
 
-export function EvidencePreviewModal({ evidence, onClose, context }: { evidence: Evidence | null; onClose: () => void; context?: { outlet?: string; visit?: string; question?: string } }) {
+export function EvidencePreviewModal({
+  evidence,
+  onClose,
+  context,
+  onDelete,
+}: {
+  evidence: Evidence | null
+  onClose: () => void
+  context?: { outlet?: string; visit?: string; question?: string }
+  /** Super Admin only: offers "Delete" beside "Open original". */
+  onDelete?: (evidence: Evidence) => void
+}) {
   return (
     <Modal open={!!evidence} onClose={onClose} title={evidence?.title ?? ''} description={evidence ? `${evidence.type} · ${evidence.fileName} · ${evidence.sizeKb.toLocaleString()} KB` : undefined} size="lg">
       {evidence && (
         <div className="space-y-4">
           <EvidenceVisual type={evidence.type} seed={evidence.visualSeed} label={evidence.title} className="aspect-video rounded-lg" large evidence={evidence} />
-          <OpenOriginal evidence={evidence} />
+          <div className="flex flex-wrap items-center gap-2">
+            <OpenOriginal evidence={evidence} />
+            {onDelete && (
+              <button type="button" className="btn-secondary btn-sm ml-auto inline-flex items-center gap-1.5 text-red-600 hover:text-red-700 dark:text-red-400" onClick={() => onDelete(evidence)}>
+                <Trash2 className="h-3.5 w-3.5" aria-hidden /> Delete {evidence.type === 'Photo' ? 'photo' : evidence.type.toLowerCase()}
+              </button>
+            )}
+          </div>
           <div className="grid gap-3 text-sm sm:grid-cols-2">
             <div>
               <p className="label">Description</p>

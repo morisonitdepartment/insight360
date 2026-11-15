@@ -17,6 +17,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Field, Input, Select, SegmentedControl, Textarea } from '@/components/ui/Form'
 import { EmptyState } from '@/components/ui/States'
 import { EvidenceCard, EvidencePreviewModal, EvidenceVisual, evidenceIcon } from '@/components/ui/EvidenceThumb'
+import { DeletePhotoDialog } from '@/components/workflow/DeletePhotoDialog'
 import { FilterBar, applyFilters, matchesSearch, type FilterDef } from '@/components/ui/FilterBar'
 import { exportCsv, type ExportRow } from '@/utils/export'
 import { fmtDate, fmtDateTime, truncate } from '@/utils/format'
@@ -104,6 +105,7 @@ export default function EvidenceLibraryPage() {
     return init
   })
   const [preview, setPreview] = useState<EvidenceRow | null>(null)
+  const [deletingPhoto, setDeletingPhoto] = useState<Evidence | null>(null)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -464,7 +466,8 @@ export default function EvidenceLibraryPage() {
 
       <p className="text-[11px] text-slate-400 dark:text-slate-500">Demo mode renders neutral generated placeholders; no real photographs are stored. Live mode serves originals from Supabase Storage via signed URLs.</p>
 
-      <EvidencePreviewModal evidence={preview} onClose={() => setPreview(null)} context={previewContext} />
+      <EvidencePreviewModal evidence={preview} onClose={() => setPreview(null)} context={previewContext} onDelete={role === 'super_admin' ? (e) => { setPreview(null); setDeletingPhoto(e) } : undefined} />
+      {deletingPhoto && <DeletePhotoDialog evidence={deletingPhoto} onClose={() => setDeletingPhoto(null)} />}
 
       {canUpload && uploadOpen && (
         <UploadEvidenceModal

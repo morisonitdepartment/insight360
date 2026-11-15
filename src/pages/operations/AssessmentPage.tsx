@@ -19,6 +19,7 @@ import { fmtDateTime } from '@/utils/format'
 import type { AnswerValue, Evidence, Question, VisitAnswer } from '@/types'
 import { cn } from '@/utils/cn'
 import { RESTROOM_STAGE_CODE } from '@/data/templateKit'
+import { lastWorkflowEvent } from '@/services/workflow'
 
 /** Idle time before a draft saves itself. Short enough to survive a dropped page. */
 const AUTOSAVE_MS = 2500
@@ -334,9 +335,9 @@ export default function AssessmentPage() {
             {visit.score !== null && role !== 'shopper' && <Link to={`/reports/visits/${visit.id}`} className="link ml-auto">Open report</Link>}
           </p>
         )}
-        {(visit.status === 'Draft' || visit.status === 'In Progress') && visit.approvalHistory.at(-1)?.action === 'Reopened' && (
+        {(visit.status === 'Draft' || visit.status === 'In Progress') && lastWorkflowEvent(visit)?.action === 'Reopened' && (
           <p className="mt-3 flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
-            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" /> Reopened by {visit.approvalHistory.at(-1)!.by} for changes: {visit.approvalHistory.at(-1)!.comment}
+            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" /> Reopened by {lastWorkflowEvent(visit)!.by} for changes: {lastWorkflowEvent(visit)!.comment}
           </p>
         )}
         {visit.status === 'Rejected' && visit.reviewerComment && (
@@ -425,7 +426,7 @@ export default function AssessmentPage() {
           {section.code === RESTROOM_STAGE_CODE && !locked && <RestroomBulk questions={sectionQuestions} answers={answers} onChange={setAnswer} />}
           <ol className="space-y-3">
             {sectionQuestions.map((q, qi) => (
-              <QuestionCard key={q.id} index={qi + 1} q={q} answer={answers[q.id]} clockProblem={clockProblems[q.id]} locked={locked} onChange={(patch) => setAnswer(q, patch)} onAttach={(files) => void attachEvidence(q, files)} uploading={uploadingFor === q.id} uploadNote={uploadingFor === q.id ? uploadNote : null} evidence={data.evidence.filter((e) => answers[q.id]?.evidenceIds.includes(e.id))} onRename={(id, title) => void renameAttachment(id, title)} onDelete={(id) => void removeAttachment(id)} />
+              <QuestionCard key={q.id} index={qi + 1} q={q} answer={answers[q.id]} clockProblem={clockProblems[q.id]} locked={locked} onChange={(patch) => setAnswer(q, patch)} onAttach={(files) => void attachEvidence(q, files)} uploading={uploadingFor === q.id} uploadNote={uploadingFor === q.id ? uploadNote : null} evidence={data.evidence.filter((e) => answers[q.id]?.evidenceIds.includes(e.id))} onRename={(id, title) => void renameAttachment(id, title)} onDelete={role === 'super_admin' ? (id) => void removeAttachment(id) : undefined} />
             ))}
           </ol>
         </section>
@@ -552,7 +553,7 @@ export default function AssessmentPage() {
 
 type Attached = Evidence
 
-function QuestionCard({ index, q, answer, clockProblem, locked, onChange, onAttach, uploading, uploadNote, evidence, onRename, onDelete }: { index: number; q: Question; answer: VisitAnswer | undefined; clockProblem?: string; locked: boolean; onChange: (patch: Partial<VisitAnswer>) => void; onAttach: (files: (File | null)[]) => void; uploading: boolean; uploadNote?: string | null; evidence: Attached[]; onRename: (id: string, title: string) => void; onDelete: (id: string) => void }) {
+function QuestionCard({ index, q, answer, clockProblem, locked, onChange, onAttach, uploading, uploadNote, evidence, onRename, onDelete }: { index: number; q: Question; answer: VisitAnswer | undefined; clockProblem?: string; locked: boolean; onChange: (patch: Partial<VisitAnswer>) => void; onAttach: (files: (File | null)[]) => void; uploading: boolean; uploadNote?: string | null; evidence: Attached[]; onRename: (id: string, title: string) => void; /** Super Admin only: a shopper cannot delete an uploaded photo. */ onDelete?: (id: string) => void }) {
   const cameraRef = useRef<HTMLInputElement>(null)
   const uploadRef = useRef<HTMLInputElement>(null)
   const isVideo = q.type === 'video'
@@ -689,9 +690,12 @@ function QuestionCard({ index, q, answer, clockProblem, locked, onChange, onAtta
               </>
             )}
             {evidence.map((e) => (
-              <Attachment key={e.id} ev={e} locked={locked} onRename={(title) => onRename(e.id, title)} onDelete={() => onDelete(e.id)} />
+              <Attachment key={e.id} ev={e} locked={locked} onRename={(title) => onRename(e.id, title)} onDelete={onDelete ? () => onDelete(e.id) : undefined} />
             ))}
           </div>
+          {!locked && !onDelete && evidence.length > 0 && (
+            <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">Uploaded photos can only be removed by a Super Admin. Attached the wrong one? Upload the right one and say so in the comment.</p>
+          )}
           {/* A written-answer question is its own comment; a second box under it read as a repeated question.
               Kept when an old visit already holds a comment there, so nothing saved disappears. */}
           {(q.type !== 'text' || !!answer?.comment?.trim() || (na && naNeedsReason(q))) && (
@@ -720,7 +724,7 @@ function QuestionCard({ index, q, answer, clockProblem, locked, onChange, onAtta
  * "Cracked plate" — and that is the caption the report and the evidence library
  * both read.
  */
-function Attachment({ ev, locked, onRename, onDelete }: { ev: Attached; locked: boolean; onRename: (title: string) => void; onDelete: () => void }) {
+function Attachment({ ev, locked, onRename, onDelete }: { ev: Attached; locked: boolean; onRename: (title: string) => void; onDelete?: () => void }) {
   const [name, setName] = useState(ev.title)
   const [confirming, setConfirming] = useState(false)
   const [viewing, setViewing] = useState(false)
@@ -770,6 +774,7 @@ function Attachment({ ev, locked, onRename, onDelete }: { ev: Attached; locked: 
         />
       )}
       {!locked &&
+        onDelete &&
         (confirming ? (
           <>
             <button type="button" className="rounded px-1 font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950" onClick={onDelete}>

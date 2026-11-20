@@ -63,7 +63,7 @@ export function exportJson(data: unknown, filename: string): void {
  *
  * The screenshot exporter that used to live here rendered the page with
  * html2canvas and sliced the bitmap across A4 pages: unsearchable text, tables
- * cut mid-row, and megabytes per report. See `src/utils/pdf.ts` and
+ * cut mid-row, and megabytes per report. See `src/services/pdfKit.ts` and
  * `src/services/reportPdf.ts` for what replaced it.
  */
 export function printPage(): void {

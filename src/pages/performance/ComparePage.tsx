@@ -160,6 +160,7 @@ export default function ComparePage() {
         outlets: chosen,
         metrics: metrics.map((m) => ({ label: m.label, values: chosen.map((o) => m.csv(o, m.value(o))) })),
         kpiConfig: data.kpiConfig,
+        thresholds: data.thresholds,
       })
       await dispatch((d, ctx) => logExport(d, ctx, `${T.Outlet} comparison (${chosen.map((o) => o.code).join(', ')})`, 'PDF'))
       toast.success('Comparison exported to PDF')

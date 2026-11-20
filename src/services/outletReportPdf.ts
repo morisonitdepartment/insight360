@@ -19,10 +19,11 @@ import {
   makeTones,
   pct1,
   pillTable,
+  riskTone,
+  signed,
   severityTone,
   statusTone,
   type InterFonts,
-  type Tone,
 } from './pdfKit'
 
 /**
@@ -54,8 +55,6 @@ export interface OutletReportAssets {
   issued: Date
 }
 
-const riskTone = (r: string | null | undefined): Tone => (r === 'Excellent' ? 'good' : r === 'Good' ? 'fair' : r === 'Needs Improvement' ? 'warn' : r === 'Critical' ? 'bad' : 'none')
-const signed = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(1)}`
 
 export function buildOutletReport(JsPdf: typeof jsPDF, i: OutletReportData, assets: OutletReportAssets): jsPDF {
   const f = new ReportFlow(JsPdf, assets.fonts)

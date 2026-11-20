@@ -800,6 +800,14 @@ export default function ManagementReportsPage() {
         ],
         outlets: model.ranked,
         filename: `${selected.code}-${slug(selected.title)}.pdf`,
+        score: model.portfolioScore,
+        stats: [
+          { v: String(model.kpi.criticalIssues), l: 'Open critical' },
+          { v: String(model.ranked.length), l: `${T.Outlets} in scope` },
+          { v: selected.status, l: 'Status' },
+        ],
+        reference: selected.code,
+        thresholds: data.thresholds,
       })
       await dispatch((d, ctx) => logExport(d, ctx, `${selected.code} · ${selected.title}`, 'PDF'))
       toast.success('PDF downloaded', { id: t })

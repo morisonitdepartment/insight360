@@ -327,6 +327,13 @@ export default function ReportBuilderPage() {
         sections: [{ heading: 'Recommendations', bullets: recommendations }],
         outlets: filteredOutlets,
         filename: `${slug(title) || 'custom-report'}-${format(now, 'yyyyMMdd')}.pdf`,
+        score: kpi.overall,
+        stats: [
+          { v: String(scoredVisits.length), l: 'Scored visits' },
+          { v: String(kpi.criticalIssues), l: 'Open critical' },
+          { v: String(overdueCapas.length), l: 'Overdue actions' },
+        ],
+        thresholds: data.thresholds,
       })
       await dispatch((d, ctx) => logExport(d, ctx, `Report builder · ${title.trim() || 'Untitled'}`, 'PDF'))
       toast.success('PDF downloaded', { id: t })

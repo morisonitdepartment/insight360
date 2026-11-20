@@ -359,6 +359,9 @@ export function pillTable<T>(f: ReportFlow, title: string, cols: PillCol<T>[], r
   f.y += 6
 }
 
+export const riskTone = (r: string | null | undefined): Tone =>
+  r === 'Excellent' ? 'good' : r === 'Good' ? 'fair' : r === 'Needs Improvement' ? 'warn' : r === 'Critical' ? 'bad' : 'none'
+export const signed = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(1)}`
 export const severityTone = (v: string): Tone => (v === 'Critical' ? 'bad' : v === 'High' ? 'warn' : v === 'Medium' ? 'fair' : 'none')
 export const statusTone = (v: string): Tone =>
   v === 'Closed' || v === 'Resolved' || v === 'Verified' ? 'good' : v === 'Overdue' ? 'bad' : v === 'Awaiting Evidence' || v === 'Awaiting Verification' ? 'warn' : v === 'Open' ? 'none' : 'fair'
@@ -466,7 +469,8 @@ export interface CoverOpts {
   /** The line under the programme name, e.g. "Mystery Shopping Programme 2025/26 · Main Audit 1". */
   programmeLine: string
   label: string
-  title: [string, string, string]
+  /** One to three lines; the last takes the accent. A single long line is wrapped and, if need be, set smaller. */
+  title: string[]
   subtitle: string
   clientMark: string | null
   brandMark: string | null
@@ -496,13 +500,24 @@ export function drawCover(f: ReportFlow, o: CoverOpts) {
     s.image(o.brandMark, 'PNG', 493.5, 57, 42, 42)
   }
 
-  // The label pill and the title.
+  // The title sits on the line above the subtitle; the label pill rides above it.
+  let size = 46
+  let lines = o.title.slice(0, 3)
+  const tooWide = (ls: string[], sz: number) => ls.some((ln) => s.width(ln, 'b', sz, -0.022) > 470)
+  if (o.title.length === 1 || tooWide(lines, size)) {
+    for (; size > 24; size -= 2) {
+      lines = o.title.length === 1 ? s.wrap(o.title[0], 470 / (1 - 0.022), 'b', size) : o.title.slice(0, 3)
+      if (lines.length <= 3 && !tooWide(lines, size)) break
+    }
+    lines = lines.slice(0, 3)
+  }
+  const step = size * (47.25 / 46)
+  const first = 360 - (lines.length - 1) * step
+  lines.forEach((ln, n) => s.text(ln, 51, first + n * step, { f: 'b', size, color: n === lines.length - 1 ? C.orange : C.white, ls: -0.022 }))
+  const pillTop = first - size * 1.64
   const lw = s.width(o.label, 'b', 7.5, 0.16)
-  s.rrectStroke(51.4, 190.1, lw + 21.5, 18.8, 9.4, C.orange, 0.75)
-  s.text(o.label, 61.7, 202.5, { f: 'b', size: 7.5, color: C.orange, ls: 0.16 })
-  s.text(o.title[0], 51, 265.5, { f: 'b', size: 46, color: C.white, ls: -0.022 })
-  s.text(o.title[1], 51, 312.75, { f: 'b', size: 46, color: C.white, ls: -0.022 })
-  s.text(o.title[2], 51, 360, { f: 'b', size: 46, color: C.orange, ls: -0.022 })
+  s.rrectStroke(51.4, pillTop, lw + 21.5, 18.8, 9.4, C.orange, 0.75)
+  s.text(o.label, 61.7, pillTop + 12.4, { f: 'b', size: 7.5, color: C.orange, ls: 0.16 })
   s.wrap(o.subtitle, 400, 'r', 10.5)
     .slice(0, 2)
     .forEach((ln, n) => s.text(ln, 51, 392.2 + n * 15, { size: 10.5, color: mix(C.navy, C.white, 0.85) }))
@@ -515,10 +530,15 @@ export function drawCover(f: ReportFlow, o: CoverOpts) {
   s.text(o.score === null ? '—' : `${o.score.toFixed(1)}%`, 142.45, 551.2, { f: 'b', size: 28.5, color: C.white, align: 'center', ls: -0.01 })
   s.text(o.scoreCaption.toUpperCase(), 142.45 + 0.5, 570.8, { f: 's', size: 9, color: mix(C.navy, C.white, 0.85), align: 'center', ls: 0.12 })
   if (o.band) s.pill(o.band, 240, 478.5, { size: 8, fg: C.white, bg: C.orange, h: 17.25, padX: 9.5, ls: 0.1 })
+  // The designed columns, pushed right where a value or label is wider.
   const xs = [239.6, 304.4, 402.4]
+  let nextX = 0
   o.stats.slice(0, 3).forEach((st, n) => {
-    s.text(st.v, xs[n], 525, { f: 'b', size: 17, color: C.white })
-    s.text(st.l.toUpperCase(), xs[n], 541.5, { f: 's', size: 7, color: mix(C.navy, C.white, 0.68), ls: 0.09 })
+    const label = st.l.toUpperCase()
+    const x = Math.max(xs[n], nextX)
+    s.text(st.v, x, 525, { f: 'b', size: 17, color: C.white })
+    s.text(label, x, 541.5, { f: 's', size: 7, color: mix(C.navy, C.white, 0.68), ls: 0.09 })
+    nextX = x + Math.max(s.width(st.v, 'b', 17), s.width(label, 's', 7, 0.09)) + 16
   })
   s.wrap(o.summary, 288, 'r', 8.6)
     .slice(0, 6)

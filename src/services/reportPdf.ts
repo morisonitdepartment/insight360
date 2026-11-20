@@ -15,13 +15,13 @@ import type {
   Visit,
   VisitAnswer,
 } from '@/types'
-import { CATEGORY_KEYS, CATEGORY_LABELS, DEFAULT_THRESHOLDS } from '@/utils/scoring'
-import { ReportDoc, bandColor, loadBrandMark, loadClientMark, scoreTone, type CellTone, type PdfColumn } from '@/utils/pdf'
+import { CATEGORY_KEYS, CATEGORY_LABELS } from '@/utils/scoring'
+import { ReportDoc, loadBrandMark, loadClientMark, scoreTone, type CellTone, type PdfColumn } from '@/utils/pdf'
 import { CLIENT } from '@/config/client'
-import { stageRows, weightText } from '@/utils/sequence'
 import { T } from '@/config/terms'
 import { getRepository } from '@/repositories'
 import { INTER_FILES, PHOTO_RATIO, buildVisitReport, type InterFonts } from './visitReportPdf'
+import { buildOutletReport } from './outletReportPdf'
 
 /**
  * The photograph behind a piece of evidence, cropped to the report's frame and
@@ -70,11 +70,6 @@ async function evidenceImage(e: Evidence, ratio: number): Promise<string | null>
  */
 
 const pct = (v: number | null | undefined) => (v === null || v === undefined || Number.isNaN(v) ? '—' : `${v.toFixed(1)}%`)
-/** `  ·  70–79%` — the band a rating covers, for the cover pill. */
-const bandRange = (label: string, bands: ScoreThreshold[]) => {
-  const b = bands.find((x) => x.label === label)
-  return b ? `  ·  ${b.min === 0 ? `below ${Math.ceil(b.max)}` : `${b.min}–${Math.ceil(b.max)}`}%` : ''
-}
 
 /**
  * The closing page every document shares: who ran the programme and how to
@@ -92,7 +87,6 @@ function backCover(doc: ReportDoc) {
     ],
   })
 }
-const day = (d: string | null | undefined) => (d ? format(new Date(d), 'd MMM yyyy') : '—')
 const riskTone = (risk: string | null | undefined): CellTone =>
   risk === 'Excellent' || risk === 'Good' ? 'good' : risk === 'Needs Improvement' ? 'warn' : risk === 'Critical' ? 'bad' : 'muted'
 
@@ -177,122 +171,13 @@ export interface OutletPdfInput {
   latestCompleted?: Visit
   rankOf: number
   percentile: number | null
+  thresholds?: ScoreThreshold[]
 }
 
 export async function exportOutletReportPdf(i: OutletPdfInput): Promise<void> {
-  const { outlet } = i
-  const doc = await ReportDoc.create()
-  const [mark, brandMark] = await Promise.all([loadClientMark(), loadBrandMark(outlet.brand)])
-
-  doc.coverPage({
-    eyebrow: `${CLIENT.brand.name} · ${T.Outlet} performance`,
-    title: ['Performance', 'Review', 'Report'],
-    subtitle: `${outlet.name} · ${outlet.code} · programme to date`,
-    logo: mark,
-    brandLogo: brandMark,
-    score: {
-      value: outlet.overallScore,
-      caption: 'Score',
-      band: `${outlet.riskRating.toUpperCase()}${bandRange(outlet.riskRating, DEFAULT_THRESHOLDS)}`,
-      bandTone: bandColor(outlet.riskRating),
-      narrative: `${outlet.name} is rated ${outlet.riskRating} against a target of ${outlet.targetScore}%${outlet.rank ? `, ranking #${outlet.rank} of ${i.rankOf} assessed ${T.outlets}` : ''}. ${outlet.openIssues} issue${outlet.openIssues === 1 ? '' : 's'} are open, ${outlet.criticalFindings} of them critical.`,
-    },
-    meta: [
-      { label: 'Brand', value: outlet.brand },
-      { label: 'Location', value: `${outlet.location}, ${outlet.region}` },
-      { label: 'Manager', value: outlet.manager },
-      { label: 'Last audit', value: day(outlet.lastAudit) },
-    ],
-  })
-  doc.section(`${T.Outlet} performance`, `${outlet.name} · ${outlet.code}`, {
-    value: pct(outlet.overallScore),
-    note: outlet.riskRating,
-    tone: riskTone(outlet.riskRating),
-  })
-
-  const completed = i.history.filter((v) => v.status === 'Approved' || v.status === 'Closed').length
-  const delta = outlet.overallScore !== null && outlet.previousScore !== null ? outlet.overallScore - outlet.previousScore : null
-  doc.tiles(
-    [
-      { label: 'Current score', value: pct(outlet.overallScore), note: outlet.riskRating, tone: scoreTone(outlet.overallScore) },
-      { label: 'Previous score', value: pct(outlet.previousScore), note: delta !== null ? `${delta >= 0 ? '+' : ''}${delta.toFixed(1)} pts` : undefined },
-      { label: 'Target score', value: `${outlet.targetScore}%`, note: outlet.overallScore !== null ? `${(outlet.overallScore - outlet.targetScore).toFixed(1)} pts vs target` : undefined },
-      { label: 'Rank', value: outlet.rank ? `#${outlet.rank}` : '—', note: `of ${i.rankOf}${i.percentile !== null ? ` · P${i.percentile}` : ''}` },
-      { label: 'Visits completed', value: `${completed} / ${outlet.annualVisits}`, note: 'this programme year' },
-      { label: 'Open issues', value: String(outlet.openIssues), note: `${outlet.criticalFindings} critical`, tone: outlet.criticalFindings ? 'bad' : 'default' },
-      { label: 'Last audit', value: day(outlet.lastAudit) },
-      { label: 'Next audit', value: day(outlet.nextAudit) },
-    ],
-    4,
-  )
-
-  doc.heading('KPI category scores')
-  doc.bars(
-    CATEGORY_KEYS.map((k) => {
-      const v = outlet.categoryScores?.[k]
-      const target = i.kpiConfig.find((c) => c.key === k)?.target ?? 90
-      return { label: CATEGORY_LABELS[k], value: v === undefined || Number.isNaN(v) ? null : v, note: `target ${target}%` }
-    }),
-    { columns: 2 },
-  )
-
-  if (i.template?.sequence && i.latestCompleted) {
-    const stages = stageRows(i.sections, i.questions, i.latestCompleted.stageScores ?? undefined)
-    if (stages.length) {
-      doc.heading('Service sequence — stage scores')
-      doc.paragraph(
-        `${i.template.sequence.serviceModel} · ${i.template.sequence.visitMode}. From ${i.latestCompleted.type} on ${day(i.latestCompleted.visitDate)}.`,
-        { size: 8 },
-      )
-      doc.bars(
-        stages.map((r) => ({ label: r.section.title, value: r.score, note: r.weight === 0 ? 'unweighted' : `${weightText(r.weight)}%` })),
-        { columns: 2 },
-      )
-    }
-  }
-
-  doc.heading('Audit history')
-  const hCols: PdfColumn<Visit>[] = [
-    { header: 'Visit', width: 1.3, render: (v) => v.code },
-    { header: 'Type', width: 1.6, strong: true, render: (v) => v.type },
-    { header: 'Date', width: 1.3, render: (v) => day(v.visitDate) },
-    { header: 'Status', width: 1.3, render: (v) => v.status },
-    { header: 'Score', width: 1, align: 'right', render: (v) => pct(v.score), tone: (v) => scoreTone(v.score) },
-    { header: 'Risk', width: 1.4, render: (v) => v.risk ?? '—', tone: (v) => riskTone(v.risk) },
-    { header: 'Critical', width: 0.9, align: 'right', render: (v) => String(v.criticalCount) },
-  ]
-  doc.table(hCols, i.history)
-
-  const open = i.findings.filter((f) => f.status === 'Open' || f.status === 'In Progress')
-  doc.heading(`Open findings (${open.length})`)
-  if (open.length) {
-    const fCols: PdfColumn<Finding>[] = [
-      { header: 'Code', width: 1, render: (f) => f.code },
-      { header: 'Finding', width: 4.4, strong: true, render: (f) => f.title },
-      { header: 'Severity', width: 1, render: (f) => f.severity, tone: (f) => (f.severity === 'Critical' ? 'bad' : f.severity === 'High' ? 'warn' : 'default') },
-      { header: 'Raised', width: 1.2, render: (f) => day(f.createdAt) },
-      { header: 'Status', width: 1.2, render: (f) => f.status },
-    ]
-    doc.table(fCols, open)
-  } else {
-    doc.paragraph('No open findings at this site.', { size: 8, tone: 'good' })
-  }
-
-  const openActions = i.actions.filter((a) => a.status !== 'Closed')
-  if (openActions.length) {
-    doc.heading(`Corrective actions in progress (${openActions.length})`)
-    const cCols: PdfColumn<CorrectiveAction>[] = [
-      { header: 'Code', width: 1, render: (c) => c.code },
-      { header: 'Action', width: 3.8, strong: true, render: (c) => c.title },
-      { header: 'Owner', width: 1.6, render: (c) => c.ownerName },
-      { header: 'Target', width: 1.1, align: 'right', render: (c) => day(c.targetDate) },
-      { header: 'Status', width: 1.3, render: (c) => c.status, tone: (c) => (c.status === 'Overdue' ? 'bad' : 'default') },
-    ]
-    doc.table(cCols, openActions)
-  }
-
-  backCover(doc)
-  doc.save(`${outlet.code}-${T.outlet}-report.pdf`)
+  const [{ jsPDF }, fonts, clientMark, brandMark] = await Promise.all([import('jspdf'), loadInterFonts(), loadClientMark(), loadBrandMark(i.outlet.brand)])
+  const doc = buildOutletReport(jsPDF, i, { fonts, clientMark, brandMark, issued: new Date() })
+  doc.save(`${i.outlet.code}-${T.outlet}-report.pdf`)
 }
 
 // ──────────────────────────────── Comparison ────────────────────────────────

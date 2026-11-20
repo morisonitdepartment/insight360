@@ -96,6 +96,7 @@ export default function OutletDetailPage() {
         latestCompleted,
         rankOf: authorizedOutlets.filter((o) => o.overallScore !== null).length,
         percentile: pct,
+        thresholds: data.thresholds,
       })
       await dispatch((d, ctx) => logExport(d, ctx, outlet.code, 'PDF'))
       toast.success('PDF downloaded', { id: t })

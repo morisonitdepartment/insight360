@@ -1,6 +1,6 @@
 import { format } from 'date-fns'
 import type { jsPDF } from 'jspdf'
-import type { AnswerValue, AuditTemplate, Evidence, KpiConfig, Outlet, Question, Scenario, ScoreThreshold, Section, Shopper, Visit, VisitAnswer } from '@/types'
+import type { AnswerValue, AuditTemplate, CorrectiveAction, Evidence, Finding, KpiConfig, Outlet, Question, Scenario, ScoreThreshold, Section, Shopper, Visit, VisitAnswer } from '@/types'
 import { CATEGORY_KEYS, CATEGORY_LABELS, CRITICAL_COUNT_KEY, DEFAULT_THRESHOLDS } from '@/utils/scoring'
 import { KPI_KIND_LABEL, formatKpiValue, stageRows, weightText } from '@/utils/sequence'
 import { CLIENT } from '@/config/client'
@@ -35,6 +35,9 @@ export interface VisitReportData {
   turnaround: number | null
   thresholds?: ScoreThreshold[]
   evidence?: Evidence[]
+  /** Raised by this visit, and the actions taken on them. */
+  findings?: Finding[]
+  capas?: CorrectiveAction[]
 }
 
 /** The font files, base64-encoded: regular, italic, semibold, bold, extra-bold. */
@@ -440,6 +443,9 @@ export function buildVisitReport(JsPdf: typeof jsPDF, i: VisitReportData, assets
   drawFindings()
 
   // ═════════════════════════════ Evidence ═════════════════════════════
+  // ═════════════════════════════ Findings & corrective actions ═════════════════════════════
+  if (i.findings?.length || i.capas?.length) drawActions()
+
   if (photos.length) drawEvidence()
 
   // ═════════════════════════════ Back cover ═════════════════════════════
@@ -1080,6 +1086,79 @@ export function buildVisitReport(JsPdf: typeof jsPDF, i: VisitReportData, assets
     y = base + rowH
   }
 
+  // ─────────────────────────────── Findings & corrective actions ───────────────────────────────
+  function drawActions() {
+    chapter('Actions', 'Findings & corrective actions', 'Raised by this visit and tracked to closure', 'C')
+    const severityTone = (v: string): Tone => (v === 'Critical' ? 'bad' : v === 'High' ? 'warn' : v === 'Medium' ? 'fair' : 'none')
+    const statusTone = (v: string): Tone =>
+      v === 'Closed' || v === 'Resolved' || v === 'Verified' ? 'good' : v === 'Overdue' ? 'bad' : v === 'Awaiting Evidence' || v === 'Awaiting Verification' ? 'warn' : v === 'Open' ? 'none' : 'fair'
+
+    interface Col<T> {
+      label: string
+      x: number
+      w: number
+      align?: 'right'
+      text?: (r: T) => string
+      strong?: boolean
+      pill?: (r: T) => { label: string; tone: Tone }
+    }
+    const table = <T,>(title: string, cols: Col<T>[], rows: T[]) => {
+      ensure(70)
+      s.text(title, L, y + 12, { f: 'b', size: 11, color: C.ink })
+      const head = () => {
+        y = tableHead(cols.map((c) => ({ label: c.label, x: c.align === 'right' ? c.x + c.w : c.x, align: c.align })), y + 33) + 16
+      }
+      head()
+      for (const r of rows) {
+        const wrapped = cols.map((c) => (c.text ? s.wrap(c.text(r), c.w, c.strong ? 's' : 'r', 8.5).slice(0, 6) : []))
+        const lines = Math.max(1, ...wrapped.map((w) => w.length))
+        const rh = lines * 12 + 13
+        ensure(rh, head)
+        cols.forEach((c, n) => {
+          if (c.pill) {
+            const p = c.pill(r)
+            const t = TONE[p.tone]
+            s.pill(p.label, c.x, y - 8.75, { f: 'b', size: 7, fg: p.tone === 'none' ? C.slate : t.fg, bg: t.bg, h: 12.75, padX: 6 })
+            return
+          }
+          wrapped[n].forEach((ln, k) =>
+            s.text(ln, c.align === 'right' ? c.x + c.w : c.x, y + k * 12, { f: c.strong ? 's' : 'r', size: 8.5, color: n === 0 ? C.navy : C.ink, align: c.align }),
+          )
+        })
+        s.hline(L, y + (lines - 1) * 12 + 7.5, CW, C.line, 0.75)
+        y += rh
+      }
+      y += 6
+    }
+
+    if (i.findings?.length) {
+      table<Finding>(
+        `Findings raised (${i.findings.length})`,
+        [
+          { label: 'CODE', x: 48.4, w: 62, text: (f) => f.code, strong: true },
+          { label: 'FINDING', x: 114, w: 218, text: (f) => f.title, strong: true },
+          { label: 'CATEGORY', x: 340, w: 92, text: (f) => CATEGORY_LABELS[f.category] },
+          { label: 'SEVERITY', x: 438, w: 52, pill: (f) => ({ label: f.severity, tone: severityTone(f.severity) }) },
+          { label: 'STATUS', x: 494, w: 58, pill: (f) => ({ label: f.status, tone: statusTone(f.status) }) },
+        ],
+        i.findings,
+      )
+    }
+    if (i.capas?.length) {
+      table<CorrectiveAction>(
+        `Corrective actions (${i.capas.length})`,
+        [
+          { label: 'CODE', x: 48.4, w: 62, text: (c) => c.code, strong: true },
+          { label: 'ACTION', x: 114, w: 200, text: (c) => c.title, strong: true },
+          { label: 'OWNER', x: 320, w: 88, text: (c) => c.ownerName || '—' },
+          { label: 'TARGET', x: 410, w: 58, text: (c) => day(c.targetDate) },
+          { label: 'STATUS', x: 474, w: 78, pill: (c) => ({ label: c.status, tone: statusTone(c.status) }) },
+        ],
+        i.capas,
+      )
+    }
+  }
+
   // ─────────────────────────────── Evidence ───────────────────────────────
   function drawEvidence() {
     chapter('Evidence', 'Evidence photographs', 'Visual documentation captured during the visit, in audit-section order', 'C')
@@ -1147,7 +1226,7 @@ export function buildVisitReport(JsPdf: typeof jsPDF, i: VisitReportData, assets
     const groups: { key: ContentsEntry['group']; title: string }[] = [
       { key: 'A', title: 'OVERVIEW' },
       { key: 'B', title: `DETAILED FINDINGS · ${scored.length} AUDIT SECTIONS` },
-      { key: 'C', title: 'EVIDENCE & APPENDIX' },
+      { key: 'C', title: i.findings?.length || i.capas?.length ? 'ACTIONS, EVIDENCE & APPENDIX' : 'EVIDENCE & APPENDIX' },
     ]
     const total = contents.length
     // Rows tighten when a questionnaire has more sections than one page holds at the designed pitch.
